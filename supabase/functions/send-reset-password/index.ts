@@ -72,8 +72,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // The generated link contains the token - we need to extract and build the proper URL
-    // linkData.properties.action_link contains the full Supabase auth link
+    // Extract token_hash from actionLink and build a direct frontend URL
+    // This bypasses Supabase's /auth/v1/verify redirect which can fail
     const actionLink = linkData.properties?.action_link;
     if (!actionLink) {
       console.error("No action link returned");
@@ -83,12 +83,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Parse token from action_link: .../verify?token=HASH&type=recovery&redirect_to=...
+    const actionUrl = new URL(actionLink);
+    const tokenHash = actionUrl.searchParams.get("token");
+    
+    if (!tokenHash) {
+      console.error("No token in action link:", actionLink);
+      return new Response(
+        JSON.stringify({ error: "Erro ao gerar token de recuperação" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Build direct frontend URL with token_hash as query param
+    const resetLink = `${redirectTo}?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
+    console.log("Built reset link for frontend (token extracted)");
+
     // Send email via Resend
     const emailResponse = await resend.emails.send({
       from: "Bridge API <noreply@bridgeapi.chat>",
       to: [trimmed],
       subject: "🔑 Redefinição de senha — Bridge API",
-      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#111;font-family:Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="background:#111"><tr><td align="center" style="padding:24px 16px"><table width="600" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border-radius:12px"><tr><td style="padding:32px 24px;text-align:center"><img src="${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/email-assets/logotipo-circulo-ponte.png" alt="Bridge API" style="width:80px;height:80px;border-radius:50%;display:block;margin:0 auto 16px" /><h1 style="color:#22c55e;margin:0;font-size:24px">Bridge API</h1><p style="color:#52525b;margin:4px 0 0;font-size:13px">Instance Manager</p></td></tr><tr><td style="padding:0 24px;text-align:center"><h2 style="color:#fff;margin:0 0 12px">Redefinir sua senha</h2><p style="color:#a1a1aa;margin:0 0 24px">Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo para criar uma nova senha:</p><div style="margin:0 0 24px"><a href="${actionLink}" style="display:inline-block;background:#22c55e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px">Redefinir Senha</a></div><p style="color:#71717a;font-size:14px;margin:0 0 8px">Este link expira em 1 hora.</p><p style="color:#71717a;font-size:14px;margin:0 0 24px">Se você não solicitou esta redefinição, ignore este e-mail.</p><hr style="border:none;border-top:1px solid #27272a;margin:0 0 16px"><p style="color:#52525b;font-size:12px;margin:0 0 8px">Bridge API — Instance Manager Hub</p></td></tr></table></td></tr></table></body></html>`,
+      html: `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#111;font-family:Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="background:#111"><tr><td align="center" style="padding:24px 16px"><table width="600" cellpadding="0" cellspacing="0" style="background:#0a0a0a;border-radius:12px"><tr><td style="padding:32px 24px;text-align:center"><img src="${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/email-assets/logotipo-circulo-ponte.png" alt="Bridge API" style="width:80px;height:80px;border-radius:50%;display:block;margin:0 auto 16px" /><h1 style="color:#22c55e;margin:0;font-size:24px">Bridge API</h1><p style="color:#52525b;margin:4px 0 0;font-size:13px">Instance Manager</p></td></tr><tr><td style="padding:0 24px;text-align:center"><h2 style="color:#fff;margin:0 0 12px">Redefinir sua senha</h2><p style="color:#a1a1aa;margin:0 0 24px">Recebemos uma solicitação para redefinir a senha da sua conta. Clique no botão abaixo para criar uma nova senha:</p><div style="margin:0 0 24px"><a href="${resetLink}" style="display:inline-block;background:#22c55e;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px">Redefinir Senha</a></div><p style="color:#71717a;font-size:14px;margin:0 0 8px">Este link expira em 1 hora.</p><p style="color:#71717a;font-size:14px;margin:0 0 24px">Se você não solicitou esta redefinição, ignore este e-mail.</p><hr style="border:none;border-top:1px solid #27272a;margin:0 0 16px"><p style="color:#52525b;font-size:12px;margin:0 0 8px">Bridge API — Instance Manager Hub</p></td></tr></table></td></tr></table></body></html>`,
     });
 
     console.log("Recovery email sent:", emailResponse);
