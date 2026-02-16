@@ -458,6 +458,8 @@ export type Database = {
           uazapi_base_url: string | null
           updated_at: string
           user_id: string
+          webhook_inbound_url: string | null
+          webhook_outbound_url: string | null
         }
         Insert: {
           created_at?: string
@@ -476,6 +478,8 @@ export type Database = {
           uazapi_base_url?: string | null
           updated_at?: string
           user_id: string
+          webhook_inbound_url?: string | null
+          webhook_outbound_url?: string | null
         }
         Update: {
           created_at?: string
@@ -494,6 +498,8 @@ export type Database = {
           uazapi_base_url?: string | null
           updated_at?: string
           user_id?: string
+          webhook_inbound_url?: string | null
+          webhook_outbound_url?: string | null
         }
         Relationships: []
       }
