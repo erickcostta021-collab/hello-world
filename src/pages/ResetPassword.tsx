@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Lock, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import logo from "@/assets/bridge-api-logo.jpg";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -20,21 +21,37 @@ const ResetPassword = () => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY event
+    const tokenHash = searchParams.get("token_hash");
+    const type = searchParams.get("type");
+
+    // If we have token_hash in query params, verify it directly
+    if (tokenHash && type === "recovery") {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error("OTP verification failed:", error.message);
+            setChecking(false);
+          } else if (data.session) {
+            setSessionReady(true);
+            setChecking(false);
+          }
+        });
+      return;
+    }
+
+    // Fallback: listen for PASSWORD_RECOVERY event (hash-based flow)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === "PASSWORD_RECOVERY") {
           setSessionReady(true);
           setChecking(false);
         } else if (event === "SIGNED_IN" && session) {
-          // Also handle if already signed in via recovery token
           setSessionReady(true);
           setChecking(false);
         }
       }
     );
 
-    // Check if we already have a session (recovery link already processed)
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSessionReady(true);
@@ -43,7 +60,7 @@ const ResetPassword = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [searchParams]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
