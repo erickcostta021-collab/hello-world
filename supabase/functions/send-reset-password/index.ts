@@ -45,14 +45,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Generate a password reset link using Supabase Admin API
-    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://bridgeapi.chat";
+    // Ensure frontend URL always has protocol
+    let frontendUrl = (Deno.env.get("FRONTEND_URL") || "https://bridgeapi.chat").trim().replace(/\/$/, "");
+    if (!frontendUrl.startsWith("http://") && !frontendUrl.startsWith("https://")) {
+      frontendUrl = `https://${frontendUrl}`;
+    }
+    const redirectTo = `${frontendUrl}/reset-password`;
+    console.log("Using redirectTo:", redirectTo);
 
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email: trimmed,
       options: {
-        redirectTo: `${frontendUrl}/reset-password`,
+        redirectTo,
       },
     });
 
