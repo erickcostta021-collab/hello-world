@@ -121,13 +121,27 @@ export function AuthForm() {
     setLoading(true);
 
     try {
-      const { error } = await signUp(email, password);
+      // Create user via admin edge function (auto-confirms email)
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: { email, password },
+      });
+
       if (error) throw error;
 
-      // Marcar código como usado
+      if (data?.error) {
+        toast.error(data.error);
+        setLoading(false);
+        return;
+      }
+
+      // Mark code as used
       await supabase.functions.invoke("mark-code-used", {
         body: { email },
       });
+
+      // Sign in immediately since user is already confirmed
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) throw signInError;
 
       toast.success("Conta criada com sucesso!");
     } catch (error: any) {

@@ -58,8 +58,11 @@ Deno.serve(async (req) => {
 
     if (linkError) {
       console.error("Error generating recovery link:", linkError);
+      const msg = linkError.message?.includes("not found")
+        ? "Este email está cadastrado mas a conta ainda não foi ativada. Tente criar sua conta novamente."
+        : "Erro ao gerar link de recuperação";
       return new Response(
-        JSON.stringify({ error: "Erro ao gerar link de recuperação" }),
+        JSON.stringify({ error: msg }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
