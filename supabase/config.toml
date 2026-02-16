@@ -74,5 +74,8 @@ verify_jwt = false
 [functions.obfuscate-script]
 verify_jwt = false
 
+[functions.send-reset-password]
+verify_jwt = false
+
 [functions.migrate-to-external]
 verify_jwt = false
