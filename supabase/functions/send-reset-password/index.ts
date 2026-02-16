@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
     if (!email || typeof email !== "string") {
       return new Response(
         JSON.stringify({ error: "Email é obrigatório" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     if (!profile || profile.length === 0) {
       return new Response(
         JSON.stringify({ error: "Este email não está cadastrado no sistema" }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       console.error("Error generating recovery link:", linkError);
       return new Response(
         JSON.stringify({ error: "Erro ao gerar link de recuperação" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       console.error("No action link returned");
       return new Response(
         JSON.stringify({ error: "Erro ao gerar link de recuperação" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
