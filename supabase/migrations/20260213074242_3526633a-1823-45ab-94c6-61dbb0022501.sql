@@ -1,0 +1,1 @@
+ALTER TABLE public.cdn_scripts ADD COLUMN is_obfuscated boolean NOT NULL DEFAULT false;

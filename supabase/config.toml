@@ -1,0 +1,78 @@
+project_id = "jsupvprudyxyiyxwqxuq"
+
+[functions.sync-external-supabase]
+verify_jwt = false
+[functions.send-registration-code]
+verify_jwt = false
+
+[functions.verify-registration-code]
+verify_jwt = false
+
+[functions.mark-code-used]
+verify_jwt = false
+
+[functions.oauth-callback]
+verify_jwt = false
+
+[functions.refresh-token]
+verify_jwt = false
+
+[functions.webhook-inbound]
+verify_jwt = false
+
+[functions.webhook-outbound]
+verify_jwt = false
+
+[functions.get-instances]
+verify_jwt = false
+
+[functions.bridge-switcher]
+verify_jwt = false
+
+[functions.ghost-recorder]
+verify_jwt = false
+
+[functions.ghost-audio]
+verify_jwt = false
+
+[functions.bridge-switcher-cdn]
+verify_jwt = false
+
+[functions.map-messages]
+verify_jwt = false
+
+[functions.bridge-toolkit-cdn]
+verify_jwt = false
+
+[functions.uazapi-proxy-embed]
+verify_jwt = false
+
+[functions.list-groups]
+verify_jwt = false
+
+[functions.group-commands]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.check-email-exists]
+verify_jwt = false
+
+[functions.health-check]
+verify_jwt = false
+
+[functions.cdn-router]
+verify_jwt = false
+
+[functions.obfuscate-script]
+verify_jwt = false
+
+[functions.migrate-to-external]
+verify_jwt = false
