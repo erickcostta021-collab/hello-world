@@ -562,13 +562,16 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
 
         {/* Manual Tab Content */}
         {activeTab === "manual" && (
-          <ManualConnectTab
-            subaccountId={subaccount.id}
-            canCreateInstance={canCreateInstance}
-            onSuccess={() => {
-              setOpen(false);
-            }}
-          />
+          <div className="space-y-4 py-2">
+            <h3 className="text-sm font-semibold text-foreground">Conexão por instância</h3>
+            <ManualConnectTab
+              subaccountId={subaccount.id}
+              canCreateInstance={canCreateInstance}
+              onSuccess={() => {
+                setOpen(false);
+              }}
+            />
+          </div>
         )}
 
         {/* Unlink Confirmation Dialog */}
