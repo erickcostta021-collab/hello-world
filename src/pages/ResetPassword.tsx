@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Loader2, Lock, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import logo from "@/assets/bridge-api-logo.jpg";
 
 const ResetPassword = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,48 +20,38 @@ const ResetPassword = () => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    const tokenHash = searchParams.get("token_hash");
-    const type = searchParams.get("type");
-
-    // Direct token verification (bypasses Supabase /verify endpoint)
-    if (tokenHash && type === "recovery") {
-      supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
-        .then(({ data, error }) => {
-          if (error) {
-            console.error("OTP verification failed:", error.message);
-            setChecking(false);
-          } else if (data.session) {
-            setSessionReady(true);
-            setChecking(false);
-          } else {
-            setChecking(false);
-          }
-        });
-      return;
-    }
-
-    // Fallback: listen for PASSWORD_RECOVERY event (hash-based flow)
+    // The Supabase JS client automatically detects token_hash in the URL
+    // and processes it internally, firing PASSWORD_RECOVERY via onAuthStateChange.
+    // We just need to listen for the event.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === "PASSWORD_RECOVERY") {
+        console.log("Auth event:", event);
+        if (event === "PASSWORD_RECOVERY" && session) {
           setSessionReady(true);
           setChecking(false);
         } else if (event === "SIGNED_IN" && session) {
+          // Recovery flow sometimes fires SIGNED_IN instead of PASSWORD_RECOVERY
           setSessionReady(true);
           setChecking(false);
         }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setSessionReady(true);
-      }
-      setChecking(false);
-    });
+    // Fallback: if no auth event fires within 5 seconds, check session
+    const timeout = setTimeout(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setSessionReady(true);
+        }
+        setChecking(false);
+      });
+    }, 5000);
 
-    return () => subscription.unsubscribe();
-  }, [searchParams]);
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
