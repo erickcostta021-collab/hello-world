@@ -225,7 +225,7 @@ export function ManualConnectTab({
 
       {/* Instance Name */}
       <div className="space-y-2">
-        <Label htmlFor="manual-name">Nome da Instância</Label>
+        <Label htmlFor="manual-name">Nome da Instância <span className="text-muted-foreground font-normal">(Opcional)</span></Label>
         <Input
           id="manual-name"
           value={instanceName}
