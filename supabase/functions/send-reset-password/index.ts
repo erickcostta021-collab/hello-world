@@ -72,17 +72,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Use the actionLink directly from Supabase Auth
-    // Supabase will verify the token and redirect to our frontend with hash fragment
-    const resetLink = linkData.properties?.action_link;
-    if (!resetLink) {
+    // Extract token from actionLink and send user directly to frontend
+    // This avoids Supabase's /auth/v1/verify being consumed by email prefetch/bots
+    const actionLink = linkData.properties?.action_link;
+    if (!actionLink) {
       console.error("No action link returned");
       return new Response(
         JSON.stringify({ error: "Erro ao gerar link de recuperação" }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
-    console.log("Using Supabase action link directly");
+
+    const actionUrl = new URL(actionLink);
+    const tokenHash = actionUrl.searchParams.get("token");
+    if (!tokenHash) {
+      console.error("No token found in action link");
+      return new Response(
+        JSON.stringify({ error: "Erro ao gerar token de recuperação" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const resetLink = `${redirectTo}?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
+    console.log("Built direct frontend reset link (bypassing /verify)");
 
     // Send email via Resend
     const emailResponse = await resend.emails.send({

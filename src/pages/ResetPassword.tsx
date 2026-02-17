@@ -21,7 +21,27 @@ const ResetPassword = () => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY event (hash-based flow from Supabase redirect)
+    const tokenHash = searchParams.get("token_hash");
+    const type = searchParams.get("type");
+
+    // Direct token verification (bypasses Supabase /verify endpoint)
+    if (tokenHash && type === "recovery") {
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error("OTP verification failed:", error.message);
+            setChecking(false);
+          } else if (data.session) {
+            setSessionReady(true);
+            setChecking(false);
+          } else {
+            setChecking(false);
+          }
+        });
+      return;
+    }
+
+    // Fallback: listen for PASSWORD_RECOVERY event (hash-based flow)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (event === "PASSWORD_RECOVERY") {
