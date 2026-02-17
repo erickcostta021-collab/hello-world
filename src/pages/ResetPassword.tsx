@@ -20,37 +20,28 @@ const ResetPassword = () => {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // The Supabase JS client automatically detects token_hash in the URL
-    // and processes it internally, firing PASSWORD_RECOVERY via onAuthStateChange.
-    // We just need to listen for the event.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log("Auth event:", event);
-        if (event === "PASSWORD_RECOVERY" && session) {
-          setSessionReady(true);
-          setChecking(false);
-        } else if (event === "SIGNED_IN" && session) {
-          // Recovery flow sometimes fires SIGNED_IN instead of PASSWORD_RECOVERY
-          setSessionReady(true);
-          setChecking(false);
-        }
-      }
-    );
+    const params = new URLSearchParams(window.location.search);
+    const tokenHash = params.get("token_hash");
+    const type = params.get("type");
 
-    // Fallback: if no auth event fires within 5 seconds, check session
-    const timeout = setTimeout(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setSessionReady(true);
-        }
-        setChecking(false);
-      });
-    }, 5000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
+    if (tokenHash && type === "recovery") {
+      // Manually verify the OTP token from query params
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error("verifyOtp error:", error.message);
+            setChecking(false);
+          } else if (data.session) {
+            setSessionReady(true);
+            setChecking(false);
+          } else {
+            setChecking(false);
+          }
+        });
+    } else {
+      // No token in URL — invalid link
+      setChecking(false);
+    }
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
