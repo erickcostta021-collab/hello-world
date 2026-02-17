@@ -189,12 +189,12 @@ export function useSettings() {
   const { data: adminOAuthConfig } = useQuery({
     queryKey: ["admin-oauth-public-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_admin_oauth_public_config");
+      const { data, error } = await (supabase.rpc as any)("get_admin_oauth_public_config");
       if (error) {
         console.error("Error fetching admin OAuth config:", error);
         return null;
       }
-      return data?.[0] || null;
+      return data?.[0] as { ghl_client_id: string; ghl_conversation_provider_id: string } | null;
     },
   });
 
