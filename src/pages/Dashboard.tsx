@@ -116,8 +116,8 @@ export default function Dashboard() {
                   <Link2 className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">Copiar Link GHL</span>
                 </Button>
-                {hasUAZAPIConfig && !isSharedAccount && hasActiveSubscription && (
-                  <AddInstanceDialog subaccount={selectedSubaccount} />
+                {!isSharedAccount && hasActiveSubscription && (
+                  <AddInstanceDialog subaccount={selectedSubaccount} hasUAZAPIConfig={hasUAZAPIConfig} />
                 )}
                 {!hasActiveSubscription && !isSharedAccount && (
                   <PlansDialog>

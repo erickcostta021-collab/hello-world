@@ -48,13 +48,14 @@ import { toast } from "sonner";
 
 interface AddInstanceDialogProps {
   subaccount: Subaccount;
+  hasUAZAPIConfig?: boolean;
 }
 
 type TabType = "create" | "import" | "manual";
 
-export function AddInstanceDialog({ subaccount }: AddInstanceDialogProps) {
+export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddInstanceDialogProps) {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>("create");
+  const [activeTab, setActiveTab] = useState<TabType>(hasUAZAPIConfig ? "create" : "manual");
   
   // Create state
   const [name, setName] = useState("");
@@ -303,41 +304,50 @@ export function AddInstanceDialog({ subaccount }: AddInstanceDialogProps) {
         )}
 
         {/* Tabs */}
-        <div className="flex border border-border rounded-lg overflow-hidden">
-          <button
-            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === "create"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => handleTabChange("create")}
-          >
-            Criar Nova
-          </button>
-          <button
-            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === "import"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => handleTabChange("import")}
-          >
-            Importar
-          </button>
-          <button
-            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === "manual"
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => handleTabChange("manual")}
-          >
-            Manual
-          </button>
-        </div>
+        {hasUAZAPIConfig ? (
+          <div className="flex border border-border rounded-lg overflow-hidden">
+            <button
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                activeTab === "create"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => handleTabChange("create")}
+            >
+              Criar Nova
+            </button>
+            <button
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                activeTab === "import"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => handleTabChange("import")}
+            >
+              Importar
+            </button>
+            <button
+              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                activeTab === "manual"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => handleTabChange("manual")}
+            >
+              Manual
+            </button>
+          </div>
+        ) : (
+          <Alert className="border-muted bg-muted/30">
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <AlertDescription className="text-sm text-muted-foreground">
+              Configure seu token UAZAPI nas configurações para criar e gerenciar instâncias.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Create Tab Content */}
-        {activeTab === "create" && (
+        {activeTab === "create" && hasUAZAPIConfig && (
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="instance-name">Nome da Instância</Label>
@@ -425,7 +435,7 @@ export function AddInstanceDialog({ subaccount }: AddInstanceDialogProps) {
         )}
 
         {/* Import Tab Content */}
-        {activeTab === "import" && (
+        {activeTab === "import" && hasUAZAPIConfig && (
           <div className="space-y-4 py-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">
