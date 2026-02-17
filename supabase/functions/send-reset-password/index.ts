@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     }
 
     // Ensure frontend URL always has protocol
-    let frontendUrl = (Deno.env.get("FRONTEND_URL") || "https://bridgeapi.chat").trim().replace(/\/$/, "");
+    let frontendUrl = (Deno.env.get("FRONTEND_URL") || "https://bridgeapiii.lovable.app").trim().replace(/\/$/, "");
     if (!frontendUrl.startsWith("http://") && !frontendUrl.startsWith("https://")) {
       frontendUrl = `https://${frontendUrl}`;
     }
