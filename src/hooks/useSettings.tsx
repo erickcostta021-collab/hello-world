@@ -185,13 +185,13 @@ export function useSettings() {
     },
   });
 
-  // Fetch admin OAuth credentials
-  const { data: adminCredentials } = useQuery({
-    queryKey: ["admin-oauth-credentials"],
+  // Fetch admin OAuth public config (client_id + conversation_provider_id)
+  const { data: adminOAuthConfig } = useQuery({
+    queryKey: ["admin-oauth-public-config"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_admin_oauth_credentials");
+      const { data, error } = await supabase.rpc("get_admin_oauth_public_config");
       if (error) {
-        console.error("Error fetching admin credentials:", error);
+        console.error("Error fetching admin OAuth config:", error);
         return null;
       }
       return data?.[0] || null;
@@ -201,7 +201,7 @@ export function useSettings() {
   // Generate OAuth URL - uses admin credentials or fallback to marketplace app
   const getOAuthUrl = () => {
     // Priority: admin credentials > own settings > marketplace fallback
-    const clientId = adminCredentials?.ghl_client_id || settings?.ghl_client_id || "69714e4c3c479f8c8e5e8e2d-mkpu6ehw";
+    const clientId = adminOAuthConfig?.ghl_client_id || settings?.ghl_client_id || "69714e4c3c479f8c8e5e8e2d-mkpu6ehw";
 
     // IMPORTANT: Use the canonical (published) origin for redirect_uri.
     // The Preview domain is temporary and will cause "Missing user context in state"

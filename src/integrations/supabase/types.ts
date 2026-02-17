@@ -562,6 +562,13 @@ export type Database = {
           ghl_client_secret: string
         }[]
       }
+      get_admin_oauth_public_config: {
+        Args: never
+        Returns: {
+          ghl_client_id: string
+          ghl_conversation_provider_id: string
+        }[]
+      }
       get_effective_user_id: { Args: { p_user_id: string }; Returns: string }
       get_token_owner: { Args: { p_agency_token: string }; Returns: string }
       has_role: {
