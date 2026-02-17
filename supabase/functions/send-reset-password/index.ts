@@ -94,7 +94,8 @@ Deno.serve(async (req) => {
     }
 
     const resetLink = `${redirectTo}?token_hash=${encodeURIComponent(tokenHash)}&type=recovery`;
-    console.log("Built direct frontend reset link (bypassing /verify)");
+    console.log("RESET LINK:", resetLink);
+    console.log("ACTION LINK:", actionLink);
 
     // Send email via Resend
     const emailResponse = await resend.emails.send({
