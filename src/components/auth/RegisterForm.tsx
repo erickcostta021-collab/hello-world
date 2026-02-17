@@ -3,18 +3,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, CheckCircle } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle, Mail, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "@/assets/bridge-api-logo.jpg";
 import { z } from "zod";
 
+const emailSchema = z.string().email("Email inválido");
+
 const registerSchema = z.object({
   fullName: z.string().min(3, "Nome deve ter pelo menos 3 caracteres").max(100),
   phone: z.string().min(10, "Telefone inválido").max(20),
-  email: z.string().email("Email inválido"),
   password: z.string().min(6, "Senha deve ter pelo menos 6 caracteres"),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -22,84 +22,132 @@ const registerSchema = z.object({
   path: ["confirmPassword"],
 });
 
+type Step = "email" | "verify" | "details" | "success";
+
 export function RegisterForm() {
+  const [step, setStep] = useState<Step>("email");
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const formatPhone = (value: string) => {
-    // Remove non-digits
     const digits = value.replace(/\D/g, "");
-    
-    // Format as (XX) XXXXX-XXXX
     if (digits.length <= 2) return digits;
     if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
     if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
   };
 
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhone(e.target.value);
-    setPhone(formatted);
-  };
-
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate form
-    const result = registerSchema.safeParse({
-      fullName,
-      phone,
-      email,
-      password,
-      confirmPassword,
-    });
-
+    const result = emailSchema.safeParse(email);
     if (!result.success) {
-      const firstError = result.error.errors[0];
-      toast.error(firstError.message);
+      toast.error("Email inválido");
       return;
     }
-
     setLoading(true);
-
     try {
-      const { error, data } = await signUp(email, password);
-      
+      const { data, error } = await supabase.functions.invoke("send-registration-code", {
+        body: { email: email.trim().toLowerCase() },
+      });
       if (error) throw error;
-
-      // Update profile with full_name and phone
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({
-            full_name: fullName.trim(),
-            phone: phone.replace(/\D/g, ""), // Store only digits
-            email: email.trim(),
-          })
-          .eq("user_id", data.user.id);
-
-        if (profileError) {
-          console.error("Error updating profile:", profileError);
-        }
+      if (data?.error) {
+        toast.error(data.error);
+        return;
       }
-
-      setSuccess(true);
-      toast.success("Conta criada! Verifique seu email para confirmar.");
-    } catch (error: any) {
-      toast.error(error.message || "Erro ao criar conta");
+      toast.success("Código enviado para seu email!");
+      setStep("verify");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar código");
     } finally {
       setLoading(false);
     }
   };
 
-  if (success) {
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code || code.length < 4) {
+      toast.error("Digite o código recebido");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-registration-code", {
+        body: { email: email.trim().toLowerCase(), code: code.trim() },
+      });
+      if (error) throw error;
+      if (!data?.valid) {
+        toast.error(data?.error || "Código inválido ou expirado");
+        return;
+      }
+      // Mark code as used
+      await supabase.functions.invoke("mark-code-used", {
+        body: { email: email.trim().toLowerCase() },
+      });
+      toast.success("Código verificado!");
+      setStep("details");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao verificar código");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const result = registerSchema.safeParse({ fullName, phone, password, confirmPassword });
+    if (!result.success) {
+      toast.error(result.error.errors[0].message);
+      return;
+    }
+    setLoading(true);
+    try {
+      const trimmedEmail = email.trim().toLowerCase();
+      // Create user via edge function (bypasses Supabase SMTP)
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: { email: trimmedEmail, password },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      // Sign in immediately since email is already confirmed
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+      if (signInError) throw signInError;
+
+      // Update profile with name and phone
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName.trim(),
+            phone: phone.replace(/\D/g, ""),
+            email: trimmedEmail,
+          })
+          .eq("user_id", user.id);
+      }
+
+      toast.success("Conta criada com sucesso!");
+      setStep("success");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar conta");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (step === "success") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md border-border bg-card">
@@ -109,24 +157,18 @@ export function RegisterForm() {
                 <CheckCircle className="h-8 w-8 text-brand-green" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-foreground">
-              Conta Criada!
-            </CardTitle>
+            <CardTitle className="text-2xl font-bold text-foreground">Conta Criada!</CardTitle>
             <CardDescription className="text-muted-foreground">
-              Enviamos um link de confirmação para <strong>{email}</strong>. 
-              Verifique sua caixa de entrada para ativar sua conta.
+              Sua conta foi criada e ativada com sucesso.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <Button
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/dashboard")}
               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
             >
-              Ir para Login
+              Ir para o Dashboard
             </Button>
-            <p className="text-xs text-center text-muted-foreground">
-              Não recebeu o email? Verifique sua pasta de spam.
-            </p>
           </CardContent>
         </Card>
       </div>
@@ -146,97 +188,88 @@ export function RegisterForm() {
             </div>
             <span className="text-xl font-semibold text-foreground">Bridge API</span>
           </div>
-          <CardTitle className="text-2xl font-bold text-foreground">
-            Criar Conta
-          </CardTitle>
+          <CardTitle className="text-2xl font-bold text-foreground">Criar Conta</CardTitle>
           <CardDescription className="text-muted-foreground">
-            Preencha seus dados para começar
+            {step === "email" && "Informe seu email para começar"}
+            {step === "verify" && "Digite o código enviado para seu email"}
+            {step === "details" && "Complete seus dados para finalizar"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-foreground">Nome Completo</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="Seu nome completo"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                className="bg-secondary border-border"
-              />
-            </div>
+          {step === "email" && (
+            <form onSubmit={handleSendCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-foreground">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="bg-secondary border-border"
+                />
+              </div>
+              <Button type="submit" className="w-full bg-brand-green hover:bg-brand-green/90 text-white" disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Enviar Código de Verificação
+              </Button>
+            </form>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-foreground">Número de Telefone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="(00) 00000-0000"
-                value={phone}
-                onChange={handlePhoneChange}
-                required
-                className="bg-secondary border-border"
-              />
-            </div>
+          {step === "verify" && (
+            <form onSubmit={handleVerifyCode} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="code" className="text-foreground">Código de Verificação</Label>
+                <Input
+                  id="code"
+                  type="text"
+                  placeholder="ABC123"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.toUpperCase())}
+                  required
+                  maxLength={6}
+                  className="bg-secondary border-border text-center text-lg tracking-widest font-mono"
+                />
+                <p className="text-xs text-muted-foreground">Verifique sua caixa de entrada e spam</p>
+              </div>
+              <Button type="submit" className="w-full bg-brand-green hover:bg-brand-green/90 text-white" disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+                Verificar Código
+              </Button>
+              <Button type="button" variant="ghost" className="w-full text-muted-foreground" onClick={() => setStep("email")}>
+                Voltar
+              </Button>
+            </form>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-foreground">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="bg-secondary border-border"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="bg-secondary border-border"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-foreground">Confirmar Senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={6}
-                className="bg-secondary border-border"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-brand-green hover:bg-brand-green/90 text-white"
-              disabled={loading}
-            >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Criar Conta
-            </Button>
-          </form>
+          {step === "details" && (
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName" className="text-foreground">Nome Completo</Label>
+                <Input id="fullName" type="text" placeholder="Seu nome completo" value={fullName} onChange={(e) => setFullName(e.target.value)} required className="bg-secondary border-border" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="text-foreground">Número de Telefone</Label>
+                <Input id="phone" type="tel" placeholder="(00) 00000-0000" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} required className="bg-secondary border-border" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-foreground">Senha</Label>
+                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="bg-secondary border-border" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword" className="text-foreground">Confirmar Senha</Label>
+                <Input id="confirmPassword" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={6} className="bg-secondary border-border" />
+              </div>
+              <Button type="submit" className="w-full bg-brand-green hover:bg-brand-green/90 text-white" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Criar Conta
+              </Button>
+            </form>
+          )}
 
           <div className="mt-4 text-center">
-            <Link
-              to="/login"
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
-            >
+            <Link to="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">
               Já tem conta? Entre aqui
             </Link>
           </div>
