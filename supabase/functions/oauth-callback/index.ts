@@ -209,8 +209,11 @@ serve(async (req) => {
 
     console.log("Step 1: Settings retrieved - OK");
 
-    // Get the base URL for redirect - use frontend URL which proxies to this function
-    const frontendUrl = Deno.env.get("FRONTEND_URL") || "https://bridge-api.lovable.app";
+    // Get the base URL for redirect - normalize to ensure https:// prefix
+    let frontendUrl = (Deno.env.get("FRONTEND_URL") || "https://bridge-api.lovable.app").replace(/\/+$/, "");
+    if (!/^https?:\/\//i.test(frontendUrl)) {
+      frontendUrl = `https://${frontendUrl}`;
+    }
     const redirectUri = `${frontendUrl}/oauth/callback`;
 
     // Exchange code for tokens
