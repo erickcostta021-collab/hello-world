@@ -506,17 +506,11 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
                   })}
 
                   {/* Already linked instances with unlink button */}
-                  {alreadyLinkedInstances.length > 0 && (
-                    <div className="pt-2 border-t border-border mt-2">
-                      <p className="text-xs text-muted-foreground mb-2">Vinculadas em outra subconta</p>
-                    </div>
-                  )}
                   {alreadyLinkedInstances.map((instance) => (
                     <div
                       key={instance.token}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-blue-500/30 bg-blue-500/5"
+                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/30 opacity-70"
                     >
-                      <Link2 className="h-4 w-4 text-blue-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground truncate">
                           {instance.name}
@@ -525,18 +519,24 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
                           {instance.token}
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0 h-7 px-2.5 text-xs border-blue-500/50 text-blue-500 hover:bg-blue-500/10 hover:text-blue-600"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleUnlinkClick(instance);
-                        }}
-                      >
-                        <Unlink className="h-3 w-3 mr-1" />
-                        Desvincular
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0 bg-orange-500/15 hover:bg-orange-500/25 text-orange-500 hover:text-orange-600"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUnlinkClick(instance);
+                            }}
+                          >
+                            <Unlink className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Desvincular instância</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -586,7 +586,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                className="bg-blue-500 hover:bg-blue-600 text-white"
+                className="bg-orange-500 hover:bg-orange-600 text-white"
                 onClick={confirmUnlink}
                 disabled={deleteInstance.isPending}
               >
