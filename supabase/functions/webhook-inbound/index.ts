@@ -1535,10 +1535,23 @@ serve(async (req) => {
     } else if (typeof contentRaw === "object" && contentRaw?.text) {
       // Content can be an object with a text field (e.g., ExtendedTextMessage)
       textMessage = contentRaw.text;
+    } else if (typeof contentRaw === "object" && contentRaw?.selectedDisplayText) {
+      // TemplateButtonReplyMessage - user clicked a button
+      textMessage = contentRaw.selectedDisplayText;
+    } else if (typeof contentRaw === "object" && contentRaw?.body?.text) {
+      // InteractiveMessage with body.text
+      textMessage = contentRaw.body.text;
     } else if (messageData.text) {
       textMessage = messageData.text;
     } else if (messageData.conversation) {
       textMessage = messageData.conversation;
+    }
+    // Fallback: button/list replies store the value in vote or buttonOrListid
+    if (!textMessage && messageData.vote) {
+      textMessage = messageData.vote;
+    }
+    if (!textMessage && messageData.buttonOrListid) {
+      textMessage = messageData.buttonOrListid;
     }
 
     // Extract quoted message data (for replies)
