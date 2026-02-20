@@ -2570,7 +2570,7 @@ serve(async (req: Request) => {
       } else if (result.uazapiMessageId && messageId) {
         // Save message mapping for outbound media
         try {
-          await supabase.from("message_map").upsert({
+          const { error: mapError } = await supabase.from("message_map").upsert({
             ghl_message_id: messageId,
             uazapi_message_id: result.uazapiMessageId,
             location_id: locationId,
@@ -2580,7 +2580,11 @@ serve(async (req: Request) => {
             from_me: true,
             original_timestamp: new Date().toISOString(),
           }, { onConflict: "ghl_message_id" });
-          console.log("Outbound message mapping saved:", { ghl: messageId, uazapi: result.uazapiMessageId });
+          if (mapError) {
+            console.error("Failed to save outbound media mapping:", mapError);
+          } else {
+            console.log("Outbound message mapping saved:", { ghl: messageId, uazapi: result.uazapiMessageId });
+          }
         } catch (mapErr) {
           console.error("Failed to save outbound mapping:", mapErr);
         }
@@ -2599,7 +2603,7 @@ serve(async (req: Request) => {
       } else if (result.uazapiMessageId && messageId) {
         // Save message mapping for outbound text
         try {
-          await supabase.from("message_map").upsert({
+          const { error: mapError } = await supabase.from("message_map").upsert({
             ghl_message_id: messageId,
             uazapi_message_id: result.uazapiMessageId,
             location_id: locationId,
@@ -2609,7 +2613,11 @@ serve(async (req: Request) => {
             from_me: true,
             original_timestamp: new Date().toISOString(),
           }, { onConflict: "ghl_message_id" });
-          console.log("Outbound message mapping saved:", { ghl: messageId, uazapi: result.uazapiMessageId });
+          if (mapError) {
+            console.error("Failed to save outbound text mapping:", mapError);
+          } else {
+            console.log("Outbound message mapping saved:", { ghl: messageId, uazapi: result.uazapiMessageId });
+          }
         } catch (mapErr) {
           console.error("Failed to save outbound mapping:", mapErr);
         }

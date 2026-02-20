@@ -2696,7 +2696,7 @@ serve(async (req) => {
           
           // Save message mapping for inbound media
           if (ghlMessageId && uazapiMsgId) {
-            await supabase.from("message_map").upsert({
+            const { error: mapError } = await supabase.from("message_map").upsert({
               ghl_message_id: ghlMessageId,
               uazapi_message_id: uazapiMsgId,
               location_id: subaccount.location_id,
@@ -2706,7 +2706,11 @@ serve(async (req) => {
               from_me: false,
               original_timestamp: new Date().toISOString(),
             }, { onConflict: "ghl_message_id" });
-            console.log("Inbound message mapping saved:", { ghl: ghlMessageId, uazapi: uazapiMsgId });
+            if (mapError) {
+              console.error("Failed to save inbound media mapping:", mapError);
+            } else {
+              console.log("Inbound message mapping saved:", { ghl: ghlMessageId, uazapi: uazapiMsgId });
+            }
           }
         } else {
           console.log("Sending inbound text to GHL:", { formattedMessage: formattedMessage?.substring(0, 50) });
@@ -2714,7 +2718,7 @@ serve(async (req) => {
           
           // Save message mapping for inbound text
           if (ghlMessageId && uazapiMsgId) {
-            await supabase.from("message_map").upsert({
+            const { error: mapError } = await supabase.from("message_map").upsert({
               ghl_message_id: ghlMessageId,
               uazapi_message_id: uazapiMsgId,
               location_id: subaccount.location_id,
@@ -2724,7 +2728,11 @@ serve(async (req) => {
               from_me: false,
               original_timestamp: new Date().toISOString(),
             }, { onConflict: "ghl_message_id" });
-            console.log("Inbound message mapping saved:", { ghl: ghlMessageId, uazapi: uazapiMsgId });
+            if (mapError) {
+              console.error("Failed to save inbound text mapping:", mapError);
+            } else {
+              console.log("Inbound message mapping saved:", { ghl: ghlMessageId, uazapi: uazapiMsgId });
+            }
           }
         }
         
