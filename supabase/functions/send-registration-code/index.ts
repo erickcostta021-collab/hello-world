@@ -46,7 +46,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (existingProfile && existingProfile.length > 0) {
       return new Response(
         JSON.stringify({ error: "Este email já está cadastrado. Faça login em vez disso." }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
