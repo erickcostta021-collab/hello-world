@@ -330,15 +330,14 @@ export async function deleteInstanceFromApi(
   globalBaseUrl?: string | null,
 ): Promise<void> {
   const deleteBase = instance.uazapi_base_url?.replace(/\/$/, "") || globalBaseUrl?.replace(/\/$/, "");
-  if (!adminToken || !deleteBase) throw new Error("Configurações UAZAPI não encontradas");
+  if (!deleteBase) throw new Error("Configurações UAZAPI não encontradas");
 
+  // Endpoint principal conforme curl da UAZAPI: DELETE /instance com header token
   const endpoints = [
-    { path: "/instance/delete", method: "DELETE", useToken: true },
-    { path: "/api/instance/delete", method: "DELETE", useToken: true },
-    { path: "/admin/delete", method: "DELETE", useToken: false, useBody: true },
-    { path: "/api/admin/delete", method: "DELETE", useToken: false, useBody: true },
-    { path: "/instance/delete", method: "POST", useToken: true },
-    { path: "/api/instance/delete", method: "POST", useToken: true },
+    { path: "/instance", method: "DELETE" },
+    { path: "/instance/delete", method: "DELETE" },
+    { path: "/api/instance", method: "DELETE" },
+    { path: "/api/instance/delete", method: "DELETE" },
   ];
 
   let success = false;
@@ -346,20 +345,14 @@ export async function deleteInstanceFromApi(
 
   for (const ep of endpoints) {
     try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        admintoken: adminToken,
-      };
-      if (ep.useToken) {
-        headers.token = instance.uazapi_instance_token;
-      }
-
-      const fetchInit: RequestInit = { method: ep.method, headers };
-      if (ep.useBody) {
-        fetchInit.body = JSON.stringify({ token: instance.uazapi_instance_token });
-      }
-
-      const res = await fetch(`${deleteBase}${ep.path}`, fetchInit);
+      const res = await fetch(`${deleteBase}${ep.path}`, {
+        method: ep.method,
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+          token: instance.uazapi_instance_token,
+        },
+      });
       if (res.ok || res.status === 200) {
         success = true;
         break;
