@@ -14,7 +14,8 @@ const PLANS = {
   flexible: {
     name: "Flexível",
     description: "Escolha a quantidade ideal",
-    pricePerUnit: 35,
+    firstUnitPrice: 30,
+    extraUnitPrice: 20,
     minQuantity: 1,
     maxQuantity: 10,
   },
@@ -64,7 +65,7 @@ const Checkout = () => {
   const isFlexible = planParam === "flexible";
   
   const totalPrice = isFlexible 
-    ? (PLANS.flexible.pricePerUnit * quantity)
+    ? (quantity === 1 ? 30 : 30 + (quantity - 1) * 20)
     : (plan as { price: number }).price;
   
   const totalInstances = isFlexible 

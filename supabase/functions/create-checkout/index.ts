@@ -123,7 +123,7 @@ serve(async (req) => {
                 : `Plano Flexível - ${qty} Instâncias`,
               description: `${qty} ${qty === 1 ? "Instância" : "Instâncias"} WhatsApp Bridge API`,
             },
-            unit_amount: 3500 * qty,
+            unit_amount: qty === 1 ? 3000 : (3000 + (qty - 1) * 2000),
             recurring: { interval: "month" as const },
           },
           quantity: 1,
