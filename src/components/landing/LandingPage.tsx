@@ -28,8 +28,7 @@ const EXCHANGE_RATE = 5.50;
 const LandingPage = () => {
   const [instanceCount, setInstanceCount] = useState(1);
   const [currency, setCurrency] = useState<'BRL' | 'USD'>('BRL');
-  const pricePerInstance = 35;
-  const totalPrice = instanceCount * pricePerInstance;
+  const totalPrice = instanceCount === 1 ? 30 : 30 + (instanceCount - 1) * 20;
 
   const formatPrice = useCallback((brlValue: number) => {
     if (currency === 'BRL') {
@@ -487,7 +486,9 @@ const LandingPage = () => {
                   <span className="text-4xl font-bold text-foreground transition-opacity duration-300">{formatPrice(totalPrice)}</span>
                   <span className="text-muted-foreground">/mês</span>
                 </div>
-                <p className="text-sm text-brand-green font-medium mt-1">{formatPerUnit(35)}</p>
+                <p className="text-sm text-brand-green font-medium mt-1">
+                  {instanceCount === 1 ? formatPerUnit(30) : formatPerUnit(20)}
+                </p>
                 {instanceCount <= 5 && (
                   <p className="text-xs text-green-500 font-medium mt-0.5">
                     Cobrado apenas após o trial
