@@ -2017,6 +2017,7 @@ serve(async (req) => {
         if (allRecordsForPhone && allRecordsForPhone.length > 1) {
           console.log("[Inbound] 🧹 Encontrados múltiplos registros para o mesmo telefone:", allRecordsForPhone.length);
           // Manter apenas o primeiro (mais antigo) e deletar os outros
+          const survivorId = allRecordsForPhone[0].id;
           const toDelete = allRecordsForPhone.slice(1).map(r => r.id);
           
           const { error: deleteError } = await supabase
@@ -2028,6 +2029,23 @@ serve(async (req) => {
             console.error("[Inbound] ❌ Erro ao limpar duplicados:", deleteError.message);
           } else {
             console.log("[Inbound] 🧹 Duplicados removidos:", toDelete.length);
+            
+            // After cleanup, ensure the surviving record has the correct instance_id
+            const { error: fixError } = await supabase
+              .from("contact_instance_preferences")
+              .update({
+                contact_id: contactIdToUse,
+                instance_id: instance.id,
+                lead_phone: normalizedPhone,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", survivorId);
+            
+            if (fixError) {
+              console.error("[Inbound] ❌ Erro ao corrigir registro sobrevivente:", fixError.message);
+            } else {
+              console.log(`[Inbound] ✅ Registro sobrevivente atualizado: ${survivorId} → Instância ${instance.instance_name}`);
+            }
           }
         }
         
