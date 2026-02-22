@@ -2033,8 +2033,18 @@ serve(async (req: Request) => {
     // EARLY SOURCE CHECK - Before any other processing
     // This is the FIRST line of defense against loops
     const isHashCommand = messageText.trim().startsWith("#");
-    console.log("[SOURCE CHECK] Analyzing message source:", { source, isHashCommand, messageId });
+    const messageType = String(body.messageType ?? "");
+    console.log("[SOURCE CHECK] Analyzing message source:", { source, isHashCommand, messageId, messageType });
     
+    // Block InternalComment messages - these are internal notes, not for WhatsApp
+    if (messageType === "InternalComment" || String(body.messageTypeString ?? "") === "TYPE_INTERNAL_COMMENT") {
+      console.log("🛑 [BLOCKED] Ignoring InternalComment (internal note, not for WhatsApp):", { 
+        messageId,
+        messagePreview: messageText.substring(0, 80) 
+      });
+      return;
+    }
+
     if (source === "api" && !isHashCommand) {
       console.log("🛑 [BLOCKED] Ignoring API-synced message to prevent loop:", { 
         source, 
