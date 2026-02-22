@@ -519,7 +519,10 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
       </Card>
 
       {/* QR Code Dialog */}
-      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+      <Dialog open={qrDialogOpen} onOpenChange={(open) => {
+        setQrDialogOpen(open);
+        if (!open) handleSyncStatus();
+      }}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-card-foreground">Conectar WhatsApp</DialogTitle>
@@ -546,15 +549,6 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
                   <RefreshCw className="h-4 w-4 mr-2" />
                 )}
                 Gerar Novo QR Code
-              </Button>
-              <Button
-                onClick={async () => {
-                  setQrDialogOpen(false);
-                  await handleSyncStatus();
-                }}
-                className="bg-primary hover:bg-primary/90"
-              >
-                Pronto
               </Button>
             </div>
           ) : (
