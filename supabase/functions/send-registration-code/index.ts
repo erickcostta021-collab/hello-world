@@ -36,6 +36,20 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Verificar se o email já está cadastrado
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", email.trim().toLowerCase())
+      .limit(1);
+
+    if (existingProfile && existingProfile.length > 0) {
+      return new Response(
+        JSON.stringify({ error: "Este email já está cadastrado. Faça login em vez disso." }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
     // Verificar se já existe uma solicitação pendente para este email
     const { data: existingRequest } = await supabase
       .from("registration_requests")
