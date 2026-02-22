@@ -216,22 +216,9 @@ const MainLogin = () => {
 
             {/* Password */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="main-password" className="text-foreground text-sm font-medium">
-                  Senha
-                </Label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForgotEmail(email);
-                    setForgotSent(false);
-                    setForgotOpen(true);
-                  }}
-                  className="text-xs text-muted-foreground hover:text-primary transition-colors duration-200"
-                >
-                  Esqueci minha senha
-                </button>
-              </div>
+              <Label htmlFor="main-password" className="text-foreground text-sm font-medium">
+                Senha
+              </Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
@@ -264,6 +251,17 @@ const MainLogin = () => {
                   {errors.password}
                 </p>
               )}
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotEmail(email);
+                  setForgotSent(false);
+                  setForgotOpen(true);
+                }}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors duration-200"
+              >
+                Esqueci minha senha
+              </button>
             </div>
 
             {/* Submit */}
