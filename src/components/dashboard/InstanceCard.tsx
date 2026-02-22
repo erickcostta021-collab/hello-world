@@ -547,6 +547,15 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
                 )}
                 Gerar Novo QR Code
               </Button>
+              <Button
+                onClick={async () => {
+                  setQrDialogOpen(false);
+                  await handleSyncStatus();
+                }}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Pronto
+              </Button>
             </div>
           ) : (
             <div className="flex justify-center py-8">
