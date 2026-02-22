@@ -64,6 +64,11 @@ export function AuthForm() {
       });
 
       if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setLoading(false);
+        return;
+      }
 
       toast.success("Código enviado! Verifique seu e-mail.");
       setStep("enter-code");
