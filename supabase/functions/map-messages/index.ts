@@ -348,12 +348,39 @@ serve(async (req) => {
         ]);
 
         uazapiSuccess = result.success;
+        
+        // If preferred instance failed (404), try ALL other instances for this location
         if (!result.success) {
-          console.error("❌ All edit attempts failed:", result.status, result.body);
-          return new Response(
-            JSON.stringify({ error: "Failed to edit on WhatsApp", details: result.body }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+          console.log("⚠️ Edit failed on preferred instance, trying fallback instances...");
+          const { data: allInstances } = await supabase
+            .from("instances")
+            .select("*, ghl_subaccounts!inner(location_id, user_id)")
+            .eq("ghl_subaccounts.location_id", mapping.location_id)
+            .eq("instance_status", "connected");
+
+          if (allInstances && allInstances.length > 0) {
+            for (const inst of allInstances) {
+              if (inst.id === config.instance.id) continue; // skip already tried
+              const fallbackBaseUrl = inst.uazapi_base_url || config.baseUrl;
+              console.log("🔄 Trying edit on fallback instance:", { id: inst.id, name: inst.instance_name });
+              const fallbackResult = await tryUazapiEndpoints(fallbackBaseUrl, inst.uazapi_instance_token, [
+                { path: "/message/edit", body: { id: mapping.uazapi_message_id, text: new_text } },
+              ]);
+              if (fallbackResult.success) {
+                console.log("✅ Edit succeeded on fallback instance:", inst.instance_name);
+                uazapiSuccess = true;
+                break;
+              }
+            }
+          }
+
+          if (!uazapiSuccess) {
+            console.error("❌ All edit attempts failed on all instances:", result.status, result.body);
+            return new Response(
+              JSON.stringify({ error: "Failed to edit on WhatsApp", details: result.body }),
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
         }
 
         // Mark this edit as already handled (InternalComment will be sent below)
