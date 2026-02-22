@@ -444,6 +444,22 @@ Deno.serve(async (req) => {
             );
             console.log("[ghost-audio] Registered GHL dedup:", ghlMessageId);
           }
+
+          // Save message mapping so reply/edit/react work from GHL
+          if (ghlMessageId && uazapiMessageId) {
+            await supabase.from("message_map").upsert(
+              {
+                ghl_message_id: ghlMessageId,
+                uazapi_message_id: uazapiMessageId,
+                location_id: locationId,
+                contact_id: contactId,
+                message_type: "audio",
+                from_me: true,
+              },
+              { onConflict: "ghl_message_id" }
+            );
+            console.log("[ghost-audio] Saved message_map:", { ghl: ghlMessageId, uazapi: uazapiMessageId });
+          }
         } else {
           console.log("[ghost-audio] Contact not found in GHL, skipping mirror");
         }
