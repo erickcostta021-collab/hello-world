@@ -332,21 +332,48 @@ export async function deleteInstanceFromApi(
   const deleteBase = instance.uazapi_base_url?.replace(/\/$/, "") || globalBaseUrl?.replace(/\/$/, "");
   if (!adminToken || !deleteBase) throw new Error("Configurações UAZAPI não encontradas");
 
-  const response = await fetch(`${deleteBase}/instance/delete`, {
-    method: "DELETE",
-    headers: {
-      "Content-Type": "application/json",
-      admintoken: adminToken,
-      token: instance.uazapi_instance_token,
-    },
-  });
+  const endpoints = [
+    { path: "/instance/delete", method: "DELETE", useToken: true },
+    { path: "/api/instance/delete", method: "DELETE", useToken: true },
+    { path: "/admin/delete", method: "DELETE", useToken: false, useBody: true },
+    { path: "/api/admin/delete", method: "DELETE", useToken: false, useBody: true },
+    { path: "/instance/delete", method: "POST", useToken: true },
+    { path: "/api/instance/delete", method: "POST", useToken: true },
+  ];
 
-  if (!response.ok) {
-    await fetch(`${deleteBase}/admin/delete`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json", admintoken: adminToken },
-      body: JSON.stringify({ token: instance.uazapi_instance_token }),
-    });
+  let success = false;
+  let lastError = "";
+
+  for (const ep of endpoints) {
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        admintoken: adminToken,
+      };
+      if (ep.useToken) {
+        headers.token = instance.uazapi_instance_token;
+      }
+
+      const fetchInit: RequestInit = { method: ep.method, headers };
+      if (ep.useBody) {
+        fetchInit.body = JSON.stringify({ token: instance.uazapi_instance_token });
+      }
+
+      const res = await fetch(`${deleteBase}${ep.path}`, fetchInit);
+      if (res.ok || res.status === 200) {
+        success = true;
+        break;
+      }
+      if (res.status === 404 || res.status === 405) continue;
+      lastError = `${ep.path} returned ${res.status}`;
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : String(e);
+      continue;
+    }
+  }
+
+  if (!success) {
+    throw new Error(`Falha ao excluir instância na UAZAPI: ${lastError}`);
   }
 }
 
