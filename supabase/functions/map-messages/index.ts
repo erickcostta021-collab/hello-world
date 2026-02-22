@@ -872,7 +872,16 @@ serve(async (req) => {
       if (!originalText) {
         const mType = (mapping.message_type || '').toLowerCase();
         if (mType.includes('audio') || mType.includes('ptt')) {
-          originalText = 'Áudio';
+          // Try to get duration from UAZAPI quoted message
+          const audioMsg = uazapiQuotedMessage?.audioMessage || uazapiQuotedMessage?.pttMessage;
+          const seconds = (audioMsg as Record<string, unknown>)?.seconds as number | undefined;
+          if (seconds && seconds > 0) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            originalText = `Áudio ${mins}:${String(secs).padStart(2, '0')}`;
+          } else {
+            originalText = 'Áudio';
+          }
         } else if (mType.includes('image')) {
           originalText = 'Imagem';
         } else if (mType.includes('video')) {
@@ -888,7 +897,14 @@ serve(async (req) => {
         } else if (mType === 'media' && uazapiQuotedMessage) {
           // Fallback: detect from UAZAPI response quotedMessage for legacy "media" entries
           if (uazapiQuotedMessage.audioMessage) {
-            originalText = 'Áudio';
+            const secs = (uazapiQuotedMessage.audioMessage as Record<string, unknown>)?.seconds as number | undefined;
+            if (secs && secs > 0) {
+              const mins = Math.floor(secs / 60);
+              const s = secs % 60;
+              originalText = `Áudio ${mins}:${String(s).padStart(2, '0')}`;
+            } else {
+              originalText = 'Áudio';
+            }
           } else if (uazapiQuotedMessage.imageMessage) {
             originalText = 'Imagem';
           } else if (uazapiQuotedMessage.videoMessage) {
