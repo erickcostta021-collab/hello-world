@@ -280,6 +280,7 @@ Deno.serve(async (req) => {
       .select("instance_id")
       .eq("location_id", locationId)
       .ilike("lead_phone", `%${last10}`)
+      .order("updated_at", { ascending: false })
       .limit(1);
 
     if (prefByPhone?.length) {
