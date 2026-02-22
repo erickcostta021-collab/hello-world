@@ -486,50 +486,80 @@ serve(async (req) => {
 
       // Send reaction to UAZAPI if we have the ID
       if (mapping.uazapi_message_id) {
+        // Get contact phone first
+        let contactPhone = "";
+        if (mapping.contact_id) {
+          const { data: phoneMapping } = await supabase
+            .from("ghl_contact_phone_mapping")
+            .select("original_phone")
+            .eq("contact_id", mapping.contact_id)
+            .maybeSingle();
+          if (phoneMapping?.original_phone) {
+            contactPhone = phoneMapping.original_phone.replace(/\D/g, "");
+          }
+        }
+        const whatsappJid = contactPhone ? `${contactPhone}@s.whatsapp.net` : "";
+
+        // Try preferred instance first
         const config = await getInstanceForLocation(supabase, mapping.location_id, mapping.contact_id);
 
         if (config) {
-          // Need to get the contact's phone number to build the WhatsApp JID
-          let contactPhone = "";
-          
-          if (mapping.contact_id) {
-            // Try to get phone from contact_instance_preferences or ghl_contact_phone_mapping
-            const { data: phoneMapping } = await supabase
-              .from("ghl_contact_phone_mapping")
-              .select("original_phone")
-              .eq("contact_id", mapping.contact_id)
-              .maybeSingle();
-            
-            if (phoneMapping?.original_phone) {
-              contactPhone = phoneMapping.original_phone.replace(/\D/g, "");
-            }
-          }
-
-          // Build the WhatsApp JID (number@s.whatsapp.net)
-          const whatsappJid = contactPhone ? `${contactPhone}@s.whatsapp.net` : "";
-          
           console.log("📱 React payload:", { 
-            number: whatsappJid, 
-            text: emoji, 
-            id: mapping.uazapi_message_id,
-            contact_id: mapping.contact_id 
+            number: whatsappJid, text: emoji, id: mapping.uazapi_message_id,
+            contact_id: mapping.contact_id, instance: config.instance.instance_name
           });
 
-          // UAZAPI format: POST /message/react with { number, text (emoji), id }
           const result = await tryUazapiEndpoints(config.baseUrl, config.token, [
-            // Exact UAZAPI format from user documentation
             { path: "/message/react", body: { number: whatsappJid, text: emoji, id: mapping.uazapi_message_id } },
-            // Try without JID suffix if needed
             { path: "/message/react", body: { number: contactPhone, text: emoji, id: mapping.uazapi_message_id } },
           ]);
 
-          uazapiSuccess = result.success;
-          if (!result.success) {
-            console.error("❌ React failed:", result.status, result.body);
-            return new Response(
-              JSON.stringify({ error: "Failed to react on WhatsApp", details: result.body }),
-              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-            );
+          if (result.success) {
+            uazapiSuccess = true;
+          } else {
+            // Preferred instance failed (404 = message not on this instance). Try ALL other instances for this location.
+            console.log("⚠️ Preferred instance failed, trying all other instances for location:", mapping.location_id);
+            
+            const { data: allInstances } = await supabase
+              .from("instances")
+              .select("*, ghl_subaccounts!inner(location_id, user_id)")
+              .eq("ghl_subaccounts.location_id", mapping.location_id)
+              .eq("instance_status", "connected");
+
+            if (allInstances && allInstances.length > 0) {
+              for (const inst of allInstances) {
+                if (inst.id === config.instance.id) continue; // skip already tried
+
+                const { data: instSettings } = await supabase
+                  .from("user_settings")
+                  .select("uazapi_base_url")
+                  .eq("user_id", inst.ghl_subaccounts.user_id)
+                  .maybeSingle();
+
+                const instBaseUrl = inst.uazapi_base_url || instSettings?.uazapi_base_url;
+                if (!instBaseUrl) continue;
+
+                console.log("🔄 Trying fallback instance:", { name: inst.instance_name, id: inst.id });
+                const fallbackResult = await tryUazapiEndpoints(instBaseUrl, inst.uazapi_instance_token, [
+                  { path: "/message/react", body: { number: whatsappJid, text: emoji, id: mapping.uazapi_message_id } },
+                  { path: "/message/react", body: { number: contactPhone, text: emoji, id: mapping.uazapi_message_id } },
+                ]);
+
+                if (fallbackResult.success) {
+                  uazapiSuccess = true;
+                  console.log("✅ React succeeded on fallback instance:", inst.instance_name);
+                  break;
+                }
+              }
+            }
+
+            if (!uazapiSuccess) {
+              console.error("❌ React failed on ALL instances");
+              return new Response(
+                JSON.stringify({ error: "Failed to react on WhatsApp", details: "Message not found on any instance" }),
+                { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+              );
+            }
           }
         }
       }
