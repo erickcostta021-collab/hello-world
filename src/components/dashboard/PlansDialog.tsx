@@ -76,7 +76,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
           {PLANS.map((plan) => {
             const isFlexible = plan.isFlexible;
             const price = isFlexible
-              ? (flexibleQuantity === 1 ? 30 : 30 + (flexibleQuantity - 1) * 20)
+              ? 30 + 10 * (flexibleQuantity - 1) * flexibleQuantity / 2
               : plan.price!;
             const instances = isFlexible ? flexibleQuantity : plan.instances!;
 
