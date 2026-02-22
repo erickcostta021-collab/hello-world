@@ -93,7 +93,7 @@ async function resolveContactId(
     .ilike("lead_phone", `%${last10}`)
     .limit(1);
 
-  if (pref?.length && pref[0].contact_id) {
+  if (pref?.length && pref[0].contact_id && !pref[0].contact_id.startsWith("phone_")) {
     console.log("[ghost-audio] Contact resolved from preferences:", pref[0].contact_id);
     return pref[0].contact_id;
   }
