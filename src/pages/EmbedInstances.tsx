@@ -61,7 +61,7 @@ export default function EmbedInstances() {
       // Fetch instances for this subaccount - only safe columns, NO tokens
       const { data: instData, error: instError } = await supabase
         .from("instances")
-        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url")
+        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url")
         .eq("subaccount_id", subData.id)
         .order("instance_name");
 
@@ -69,10 +69,10 @@ export default function EmbedInstances() {
         console.error("Error fetching instances:", instError);
         setInstances([]);
       } else {
-        // Map to EmbedInstance - uazapi_instance_token is no longer needed client-side
         setInstances((instData || []).map(i => ({
           ...i,
-          uazapi_instance_token: "", // Not exposed to client
+          uazapi_instance_token: i.uazapi_instance_token || "",
+          uazapi_base_url: i.uazapi_base_url || null,
         })));
       }
     } catch (err) {
