@@ -897,7 +897,8 @@ async function processGroupCommand(
     "#criargrupo", "#removerdogrupo", "#addnogrupo", "#promoveradmin",
     "#revogaradmin", "#attfotogrupo", "#attnomegrupo", "#attdescricao",
     "#somenteadminmsg", "#msgliberada", "#somenteadminedit", "#editliberado", "#linkgrupo", "#sairgrupo",
-    "#pix", "#botoes", "#lista", "#enquete"
+    "#pix", "#botoes", "#lista", "#enquete",
+    "#lista_menu", "#enquete_menu", "#carrossel"
   ];
   
   if (!validCommands.includes(command)) {
@@ -1920,6 +1921,156 @@ async function processGroupCommand(
         }
       }
       
+      case "#lista_menu": {
+        // UAZAPI /send/menu with type: "list"
+        // Formato: #lista_menu texto|rodapé|textoBotão|[Seção],item|id|desc,...
+        if (params.length < 4) {
+          return { isCommand: true, success: false, command, message: "Formato: #lista_menu texto|rodapé|textoBotão|[Seção],item|id|desc,..." };
+        }
+
+        if (!targetPhone) {
+          return { isCommand: true, success: false, command, message: "Erro: número do contato não encontrado" };
+        }
+
+        const lmPhone = targetPhone.replace(/\D/g, "");
+        const lmText = params[0].trim();
+        const lmFooter = params[1].trim();
+        const lmButton = params[2].trim();
+        const lmChoices: string[] = [];
+        for (let i = 3; i < params.length; i++) {
+          const part = params[i].trim();
+          const subItems = part.split(",").map(s => s.trim()).filter(s => s.length > 0);
+          for (const si of subItems) {
+            lmChoices.push(si);
+          }
+        }
+
+        const lmPayload: Record<string, unknown> = {
+          number: lmPhone,
+          type: "list",
+          text: lmText,
+          footerText: lmFooter,
+          listButton: lmButton,
+          selectableCount: 1,
+          choices: lmChoices,
+          readchat: true,
+        };
+
+        console.log("Sending list_menu (UAZAPI):", JSON.stringify(lmPayload));
+
+        try {
+          const lmRes = await fetch(`${baseUrl}/send/menu`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", token: instanceToken },
+            body: JSON.stringify(lmPayload),
+          });
+          const lmBody = await lmRes.text();
+          console.log("list_menu response:", { status: lmRes.status, body: lmBody.substring(0, 300) });
+
+          if (lmRes.ok) {
+            return { isCommand: true, success: true, command, message: `Menu lista enviado para ${lmPhone}` };
+          }
+          return { isCommand: true, success: false, command, message: `Falha ao enviar menu lista (${lmRes.status}): ${lmBody.substring(0, 100)}` };
+        } catch (e) {
+          return { isCommand: true, success: false, command, message: `Erro ao enviar menu lista: ${e instanceof Error ? e.message : "Falha"}` };
+        }
+      }
+
+      case "#enquete_menu": {
+        // UAZAPI /send/menu with type: "poll"
+        // Formato: #enquete_menu pergunta|opção1|opção2|opção3
+        if (params.length < 3) {
+          return { isCommand: true, success: false, command, message: "Formato: #enquete_menu pergunta|opção1|opção2|opção3... (mín. 2 opções)" };
+        }
+
+        if (!targetPhone) {
+          return { isCommand: true, success: false, command, message: "Erro: número do contato não encontrado" };
+        }
+
+        const emPhone = targetPhone.replace(/\D/g, "");
+        const emText = params[0].trim();
+        const emChoices = params.slice(1).map(o => o.trim());
+
+        const emPayload = {
+          number: emPhone,
+          type: "poll",
+          text: emText,
+          choices: emChoices,
+          selectableCount: 1,
+          readchat: true,
+        };
+
+        console.log("Sending enquete_menu (UAZAPI):", JSON.stringify(emPayload));
+
+        try {
+          const emRes = await fetch(`${baseUrl}/send/menu`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", token: instanceToken },
+            body: JSON.stringify(emPayload),
+          });
+          const emBody = await emRes.text();
+          console.log("enquete_menu response:", { status: emRes.status, body: emBody.substring(0, 300) });
+
+          if (emRes.ok) {
+            return { isCommand: true, success: true, command, message: `Enquete enviada para ${emPhone}` };
+          }
+          return { isCommand: true, success: false, command, message: `Falha ao enviar enquete (${emRes.status}): ${emBody.substring(0, 100)}` };
+        } catch (e) {
+          return { isCommand: true, success: false, command, message: `Erro ao enviar enquete: ${e instanceof Error ? e.message : "Falha"}` };
+        }
+      }
+
+      case "#carrossel": {
+        // UAZAPI /send/menu with type: "carousel"
+        // Formato: #carrossel texto|[Card],img,corpo,botão1,botão2,...
+        if (params.length < 2) {
+          return { isCommand: true, success: false, command, message: "Formato: #carrossel texto|[Card],img,corpo,botão1,botão2,..." };
+        }
+
+        if (!targetPhone) {
+          return { isCommand: true, success: false, command, message: "Erro: número do contato não encontrado" };
+        }
+
+        const crPhone = targetPhone.replace(/\D/g, "");
+        const crText = params[0].trim();
+        // Remaining params form the choices array (cards with sections)
+        const crChoices: string[] = [];
+        for (let i = 1; i < params.length; i++) {
+          const part = params[i].trim();
+          const subItems = part.split(",").map(s => s.trim()).filter(s => s.length > 0);
+          for (const si of subItems) {
+            crChoices.push(si);
+          }
+        }
+
+        const crPayload: Record<string, unknown> = {
+          number: crPhone,
+          type: "carousel",
+          text: crText,
+          choices: crChoices,
+          readchat: true,
+        };
+
+        console.log("Sending carousel (UAZAPI):", JSON.stringify(crPayload));
+
+        try {
+          const crRes = await fetch(`${baseUrl}/send/menu`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", token: instanceToken },
+            body: JSON.stringify(crPayload),
+          });
+          const crBody = await crRes.text();
+          console.log("carousel response:", { status: crRes.status, body: crBody.substring(0, 300) });
+
+          if (crRes.ok) {
+            return { isCommand: true, success: true, command, message: `Carrossel enviado para ${crPhone}` };
+          }
+          return { isCommand: true, success: false, command, message: `Falha ao enviar carrossel (${crRes.status}): ${crBody.substring(0, 100)}` };
+        } catch (e) {
+          return { isCommand: true, success: false, command, message: `Erro ao enviar carrossel: ${e instanceof Error ? e.message : "Falha"}` };
+        }
+      }
+
       case "#sairgrupo": {
         // Formato: #sairgrupo (enviado dentro do grupo)
         // UAZAPI: POST /group/leave with { groupjid }
