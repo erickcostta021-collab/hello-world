@@ -2143,6 +2143,58 @@ async function processGroupCommand(
         }
       }
 
+      case "#nome_perfil": {
+        // Formato: #nome_perfil Novo Nome do Perfil
+        if (params.length === 0) {
+          return { isCommand: true, success: false, command, message: "Use: #nome_perfil Nome do Perfil" };
+        }
+        const profileName = params.join("|").trim();
+        console.log("Updating profile name:", { profileName });
+        
+        try {
+          const nameRes = await fetch(`${baseUrl}/profile/name`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json", token: instanceToken },
+            body: JSON.stringify({ name: profileName }),
+          });
+          const nameBody = await nameRes.text();
+          console.log("Profile name response:", { status: nameRes.status, body: nameBody.substring(0, 300) });
+          
+          if (nameRes.ok) {
+            return { isCommand: true, success: true, command, message: `Nome do perfil atualizado para: ${profileName}` };
+          }
+          return { isCommand: true, success: false, command, message: `Falha ao atualizar nome (${nameRes.status}): ${nameBody.substring(0, 100)}` };
+        } catch (e) {
+          return { isCommand: true, success: false, command, message: `Erro ao atualizar nome: ${e instanceof Error ? e.message : "Falha"}` };
+        }
+      }
+
+      case "#foto_perfil": {
+        // Formato: #foto_perfil https://url-da-imagem.jpg
+        if (params.length === 0) {
+          return { isCommand: true, success: false, command, message: "Use: #foto_perfil URL_da_imagem" };
+        }
+        const profileImage = params.join("|").trim();
+        console.log("Updating profile image:", { profileImage });
+        
+        try {
+          const imgRes = await fetch(`${baseUrl}/profile/image`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "application/json", token: instanceToken },
+            body: JSON.stringify({ image: profileImage }),
+          });
+          const imgBody = await imgRes.text();
+          console.log("Profile image response:", { status: imgRes.status, body: imgBody.substring(0, 300) });
+          
+          if (imgRes.ok) {
+            return { isCommand: true, success: true, command, message: `Foto do perfil atualizada!` };
+          }
+          return { isCommand: true, success: false, command, message: `Falha ao atualizar foto (${imgRes.status}): ${imgBody.substring(0, 100)}` };
+        } catch (e) {
+          return { isCommand: true, success: false, command, message: `Erro ao atualizar foto: ${e instanceof Error ? e.message : "Falha"}` };
+        }
+      }
+
       case "#sairgrupo": {
         // Formato: #sairgrupo (enviado dentro do grupo)
         // UAZAPI: POST /group/leave with { groupjid }
@@ -2556,7 +2608,7 @@ serve(async (req: Request) => {
       "#revogaradmin", "#attfotogrupo", "#attnomegrupo", "#attdescricao",
       "#somenteadminmsg", "#msgliberada", "#somenteadminedit", "#editliberado",
       "#linkgrupo", "#sairgrupo", "#pix", "#botoes", "#lista", "#enquete",
-      "#lista_menu", "#enquete_menu", "#carrossel"
+      "#lista_menu", "#enquete_menu", "#carrossel", "#nome_perfil", "#foto_perfil"
     ];
     const msgLower = messageText.trim().toLowerCase();
     const isKnownCommand = knownCommandPrefixes.some(cmd => msgLower.startsWith(cmd + " ") || msgLower === cmd);
