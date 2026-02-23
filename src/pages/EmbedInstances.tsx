@@ -10,6 +10,7 @@ interface SubaccountData {
   account_name: string;
   location_id: string;
   user_id: string;
+  uazapi_base_url?: string | null;
 }
 
 export default function EmbedInstances() {
@@ -58,7 +59,7 @@ export default function EmbedInstances() {
 
       setSubaccount(subData);
 
-      // Fetch instances for this subaccount - only safe columns, NO tokens
+      // Fetch instances for this subaccount
       const { data: instData, error: instError } = await supabase
         .from("instances")
         .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url")
