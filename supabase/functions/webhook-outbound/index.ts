@@ -2033,13 +2033,13 @@ async function processGroupCommand(
 
         const crPhone = targetPhone.replace(/\D/g, "");
         const crText = params[0].trim();
-        // Remaining params form the choices array (cards with sections)
+        // Each remaining pipe-separated param is a full card definition (comma-separated internally)
+        // Keep each card as a single string so UAZAPI can parse title,imageUrl,body,buttons correctly
         const crChoices: string[] = [];
         for (let i = 1; i < params.length; i++) {
           const part = params[i].trim();
-          const subItems = part.split(",").map(s => s.trim()).filter(s => s.length > 0);
-          for (const si of subItems) {
-            crChoices.push(si);
+          if (part.length > 0) {
+            crChoices.push(part);
           }
         }
 
