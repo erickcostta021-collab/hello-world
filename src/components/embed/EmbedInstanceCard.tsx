@@ -20,7 +20,9 @@ import {
   Power,
   Phone,
   UserPlus,
-  User
+  User,
+  Copy,
+  Link
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmbedAssignUserDialog } from "./EmbedAssignUserDialog";
@@ -470,6 +472,21 @@ export function EmbedInstanceCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
+                  <DropdownMenuItem onClick={() => {
+                    navigator.clipboard.writeText(instance.uazapi_instance_token);
+                    toast.success("Token copiado!");
+                  }}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar Token
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/uazapi-proxy-embed`;
+                    navigator.clipboard.writeText(baseUrl);
+                    toast.success("Base URL copiada!");
+                  }}>
+                    <Link className="h-4 w-4 mr-2" />
+                    Copiar Base URL
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
