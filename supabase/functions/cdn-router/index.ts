@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       status: 200,
       headers: {
         ...corsHeaders,
-        "Content-Type": data.content_type,
+        "Content-Type": data.content_type + (data.content_type.includes("charset") ? "" : "; charset=utf-8"),
         "Cache-Control": "no-cache, no-store, must-revalidate",
         Pragma: "no-cache",
         Expires: "0",
