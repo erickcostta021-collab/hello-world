@@ -2023,6 +2023,11 @@ async function processGroupCommand(
       case "#carrossel": {
         // UAZAPI /send/menu with type: "carousel"
         // Formato: #carrossel texto|[Card],img,corpo,botão1,botão2,...
+        // UAZAPI choices format:
+        //   "[Title\nBody]"  → card header
+        //   "{imageUrl}"     → card image
+        //   "label|action"   → button (reply, url, copy, call)
+        //   Plain "label"    → reply button
         if (params.length < 2) {
           return { isCommand: true, success: false, command, message: "Formato: #carrossel texto|[Card],img,corpo,botão1,botão2,..." };
         }
@@ -2033,13 +2038,54 @@ async function processGroupCommand(
 
         const crPhone = targetPhone.replace(/\D/g, "");
         const crText = params[0].trim();
-        // Each remaining pipe-separated param is a full card definition (comma-separated internally)
-        // Keep each card as a single string so UAZAPI can parse title,imageUrl,body,buttons correctly
+
+        // Parse each pipe-separated card definition: [Title],imageUrl,body,btn1,btn2...
         const crChoices: string[] = [];
         for (let i = 1; i < params.length; i++) {
-          const part = params[i].trim();
-          if (part.length > 0) {
-            crChoices.push(part);
+          const cardParts = params[i].split(",").map(s => s.trim()).filter(s => s.length > 0);
+          if (cardParts.length === 0) continue;
+
+          // First part: [Title] — extract title text
+          let title = cardParts[0];
+          if (title.startsWith("[") && title.endsWith("]")) {
+            title = title.slice(1, -1);
+          } else if (title.startsWith("[")) {
+            title = title.slice(1);
+          }
+
+          // Find image URL (part that starts with http)
+          let imageUrl = "";
+          let body = "";
+          const buttons: string[] = [];
+
+          for (let j = 1; j < cardParts.length; j++) {
+            const part = cardParts[j];
+            if (!imageUrl && (part.startsWith("http://") || part.startsWith("https://"))) {
+              imageUrl = part;
+            } else if (!body && !imageUrl) {
+              // Before image found, treat as body
+              body = part;
+            } else if (!body && imageUrl) {
+              // After image, first non-url is body
+              body = part;
+            } else {
+              buttons.push(part);
+            }
+          }
+
+          // Build choices in UAZAPI format
+          // Title with body as description
+          const titleEntry = body ? `[${title}\n${body}]` : `[${title}]`;
+          crChoices.push(titleEntry);
+
+          // Image wrapped in curly braces
+          if (imageUrl) {
+            crChoices.push(`{${imageUrl}}`);
+          }
+
+          // Buttons as-is (plain text = reply button)
+          for (const btn of buttons) {
+            crChoices.push(btn);
           }
         }
 
