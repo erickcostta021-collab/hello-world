@@ -50,6 +50,27 @@ const buttonCommands = [
     context: "Contato",
     notes: "Mínimo 2 opções. Sem limite definido.",
   },
+  {
+    command: "#lista_menu",
+    description: "Envia menu interativo com seções e itens via /send/menu",
+    format: "texto|rodapé|textoBotão|[Seção],item|id|desc,...",
+    context: "Contato",
+    notes: "type=list. Use [Título] para seções. Itens: texto|id|descrição. selectableCount padrão 1.",
+  },
+  {
+    command: "#enquete_menu",
+    description: "Envia enquete interativa via /send/menu",
+    format: "pergunta|opção1|opção2|opção3",
+    context: "Contato",
+    notes: "type=poll. Mínimo 2 opções. selectableCount define quantas podem ser escolhidas.",
+  },
+  {
+    command: "#carrossel",
+    description: "Envia carrossel de cards com imagens e botões",
+    format: "texto|[Card],img,corpo,botão1,botão2,...",
+    context: "Contato",
+    notes: "type=carousel. Cada card: [Título],imageUrl,body,botões (reply|id ou url|link).",
+  },
 ];
 
 function ButtonCommandsList() {
