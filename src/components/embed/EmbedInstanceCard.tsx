@@ -32,6 +32,7 @@ export interface EmbedInstance {
   instance_name: string;
   instance_status: "connected" | "connecting" | "disconnected";
   uazapi_instance_token: string;
+  uazapi_base_url?: string | null;
   phone?: string | null;
   profile_pic_url?: string | null;
   ghl_user_id?: string | null;
@@ -480,9 +481,12 @@ export function EmbedInstanceCard({
                     Copiar Token
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
-                    const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/uazapi-proxy-embed`;
-                    navigator.clipboard.writeText(baseUrl);
-                    toast.success("Base URL copiada!");
+                    if (instance.uazapi_base_url) {
+                      navigator.clipboard.writeText(instance.uazapi_base_url);
+                      toast.success("Base URL copiada!");
+                    } else {
+                      toast.error("Base URL não disponível");
+                    }
                   }}>
                     <Link className="h-4 w-4 mr-2" />
                     Copiar Base URL
