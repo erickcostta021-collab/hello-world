@@ -1762,8 +1762,8 @@ async function processGroupCommand(
 
       case "#botoes": {
         // UAZAPI /send/menu with type: "button"
-        // Formato: #botoes texto|botão1,botão2,botão3  (rodapé opcional: texto|rodapé|botão1,botão2,botão3)
-        // choices: ["texto|id", "texto"] — each becomes a reply button
+        // Formato: #botoes texto|rodapé|Btn1,Btn2|url,Btn3|call:num
+        // Buttons can contain | for types: label|url, label|copy:val, label|call:num
         if (params.length < 2) {
           return { isCommand: true, success: false, command, message: "Formato: #botoes texto|botão1,botão2,botão3" };
         }
@@ -1773,23 +1773,46 @@ async function processGroupCommand(
         }
         
         const btnPhone = targetPhone.replace(/\D/g, "");
-        let btnText: string;
-        let btnFooter = "";
-        let btnChoicesRaw: string;
         
-        if (params.length >= 3) {
-          // texto|rodapé|botão1,botão2,botão3
-          btnText = params[0].trim();
-          btnFooter = params[1].trim();
-          btnChoicesRaw = params[2];
+        // Rejoin all params since buttons may contain | for types (url, copy, call)
+        const btnFullStr = params.join("|");
+        
+        // Split by comma to find button boundaries
+        const btnFirstComma = btnFullStr.indexOf(",");
+        let btnHeaderAndFirst: string;
+        let btnRemaining: string[];
+        
+        if (btnFirstComma === -1) {
+          btnHeaderAndFirst = btnFullStr;
+          btnRemaining = [];
         } else {
-          // texto|botão1,botão2,botão3
-          btnText = params[0].trim();
-          btnChoicesRaw = params[1];
+          btnHeaderAndFirst = btnFullStr.substring(0, btnFirstComma);
+          btnRemaining = btnFullStr.substring(btnFirstComma + 1).split(",").map(s => s.trim()).filter(s => s.length > 0);
         }
         
-        // Build choices array: "texto|id" format per UAZAPI docs
-        const btnChoices = btnChoicesRaw.split(",").map(b => b.trim()).filter(b => b.length > 0).slice(0, 3);
+        // Parse header: texto | [rodapé] | firstButton [|typeValue]
+        const btnHeaderTokens = btnHeaderAndFirst.split("|");
+        let btnText: string;
+        let btnFooter = "";
+        let firstButton: string;
+        
+        const btnLastTok = btnHeaderTokens[btnHeaderTokens.length - 1].trim();
+        const btnIsType = btnLastTok.startsWith("http://") || btnLastTok.startsWith("https://") || btnLastTok.startsWith("copy:") || btnLastTok.startsWith("call:");
+        
+        if (btnIsType && btnHeaderTokens.length >= 3) {
+          // Last token is a type value, second-to-last is button label
+          firstButton = btnHeaderTokens[btnHeaderTokens.length - 2].trim() + "|" + btnLastTok;
+          const btnRest = btnHeaderTokens.slice(0, -2);
+          btnText = btnRest[0] || "";
+          btnFooter = btnRest.length >= 2 ? btnRest[1] : "";
+        } else {
+          firstButton = btnLastTok;
+          const btnRest = btnHeaderTokens.slice(0, -1);
+          btnText = btnRest[0] || "";
+          btnFooter = btnRest.length >= 2 ? btnRest[1] : "";
+        }
+        
+        const btnChoices = [firstButton, ...btnRemaining].slice(0, 3);
         
         const btnPayload: Record<string, unknown> = {
           number: btnPhone,
