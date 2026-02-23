@@ -85,3 +85,6 @@ verify_jwt = false
 
 [functions.upload-command-image]
 verify_jwt = false
+
+[functions.cleanup-command-uploads]
+verify_jwt = false
