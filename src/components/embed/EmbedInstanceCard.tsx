@@ -473,6 +473,10 @@ export function EmbedInstanceCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
+                  <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Atribuir Usuário GHL
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={async () => {
                     try {
                       const info = await callUazapiProxy("get-info" as any);
@@ -504,10 +508,6 @@ export function EmbedInstanceCard({
                   }}>
                     <Link className="h-4 w-4 mr-2" />
                     Copiar Base URL
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Atribuir Usuário GHL
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
