@@ -404,6 +404,37 @@ try {
             setupRealtimeListener();
         }
 
+        // Polling fallback: periodically check if active instance changed
+        async function pollActiveInstance() {
+            const phone = extractPhone();
+            const locId = window.location.pathname.match(/location\\/([^\\/]+)/)?.[1];
+            if (!phone || !locId || state.instances.length === 0) return;
+            
+            try {
+                const res = await fetch(\`\${CONFIG.api_url}?locationId=\${locId}&phone=\${phone}\`);
+                const data = await res.json();
+                if (data.activeInstanceId) {
+                    const select = document.getElementById('bridge-instance-selector');
+                    if (select && select.value !== data.activeInstanceId) {
+                        const newInstance = state.instances.find(i => i.id === data.activeInstanceId);
+                        const previousName = state.currentInstanceName;
+                        const newName = newInstance?.name || null;
+                        
+                        console.log(LOG_PREFIX, '🔄 Poll detected instance change:', previousName, '→', newName);
+                        
+                        state.currentInstanceName = newName;
+                        renderOptions(false);
+                        select.value = data.activeInstanceId;
+                        
+                        if (previousName && newName && previousName !== newName) {
+                            injectChatNotification(previousName, newName);
+                            showNotification(newName);
+                        }
+                    }
+                }
+            } catch (e) { /* silent */ }
+        }
+
         setInterval(() => {
             const path = window.location.pathname;
             if (path.includes('/conversations') || path.includes('/contacts/detail')) {
@@ -417,6 +448,14 @@ try {
                 }
             }
         }, 1500);
+
+        // Poll every 5 seconds as fallback for realtime
+        setInterval(() => {
+            const path = window.location.pathname;
+            if (path.includes('/conversations') || path.includes('/contacts/detail')) {
+                pollActiveInstance();
+            }
+        }, 5000);
     })();
 } catch (e) { console.error('Erro Bridge:', e); }
 `;
