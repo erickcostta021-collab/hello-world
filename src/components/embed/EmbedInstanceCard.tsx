@@ -473,19 +473,33 @@ export function EmbedInstanceCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
-                  <DropdownMenuItem onClick={() => {
-                    navigator.clipboard.writeText(instance.uazapi_instance_token);
-                    toast.success("Token copiado!");
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      const info = await callUazapiProxy("get-info" as any);
+                      if (info?.token) {
+                        navigator.clipboard.writeText(info.token);
+                        toast.success("Token copiado!");
+                      } else {
+                        toast.error("Token não disponível");
+                      }
+                    } catch {
+                      toast.error("Erro ao obter token");
+                    }
                   }}>
                     <Copy className="h-4 w-4 mr-2" />
                     Copiar Token
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    if (instance.uazapi_base_url) {
-                      navigator.clipboard.writeText(instance.uazapi_base_url);
-                      toast.success("Base URL copiada!");
-                    } else {
-                      toast.error("Base URL não disponível");
+                  <DropdownMenuItem onClick={async () => {
+                    try {
+                      const info = await callUazapiProxy("get-info" as any);
+                      if (info?.baseUrl) {
+                        navigator.clipboard.writeText(info.baseUrl);
+                        toast.success("Base URL copiada!");
+                      } else {
+                        toast.error("Base URL não disponível");
+                      }
+                    } catch {
+                      toast.error("Erro ao obter Base URL");
                     }
                   }}>
                     <Link className="h-4 w-4 mr-2" />

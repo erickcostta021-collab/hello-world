@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users";
+type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info";
 
 function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const instanceId = String(body?.instanceId || "").trim();
     const action = String(body?.action || "").trim() as Action;
 
-    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users"].includes(action)) {
+    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users", "get-info"].includes(action)) {
       return new Response(JSON.stringify({ error: "Parâmetros inválidos" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -250,6 +250,17 @@ Deno.serve(async (req) => {
       }
 
       uazapiBaseUrl = String(settings.uazapi_base_url);
+    }
+
+    // ============ Get Info Action ============
+    if (action === "get-info") {
+      return new Response(JSON.stringify({
+        token: String((inst as any).uazapi_instance_token),
+        baseUrl: uazapiBaseUrl,
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const instanceToken = String((inst as any).uazapi_instance_token);
