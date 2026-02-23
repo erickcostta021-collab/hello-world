@@ -31,10 +31,10 @@ const buttonCommands = [
   },
   {
     command: "#botoes",
-    description: "Envia mensagem com botões de resposta rápida",
-    format: "texto|rodapé|botão1,botão2,botão3",
+    description: "Envia mensagem com botões interativos",
+    format: "texto|rodapé|botão1,botão2|url,botão3|call:num",
     context: "Contato",
-    notes: "Máx. 3 botões separados por vírgula. Rodapé opcional (pode omitir).",
+    notes: "Máx. 3 botões. Tipos: texto (resposta), texto|url (link), texto|copy:valor (copiar), texto|call:telefone (ligar).",
   },
   {
     command: "#lista",
