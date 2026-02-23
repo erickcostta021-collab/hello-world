@@ -410,8 +410,8 @@ try {
 
         // Polling fallback: periodically check if active instance changed
         async function pollActiveInstance() {
-            const phone = extractPhone();
-            const locId = window.location.pathname.match(/location\\/([^\\/]+)/)?.[1];
+            const phone = extractPhone() || state.lastPhoneFound;
+            const locId = state.currentLocationId || window.location.pathname.match(/location\\/([^\\/]+)/)?.[1];
             if (!phone || !locId || state.instances.length === 0) return;
             
             try {
@@ -427,7 +427,11 @@ try {
                         console.log(LOG_PREFIX, '🔄 Poll detected instance change:', previousName, '→', newName);
                         
                         state.currentInstanceName = newName;
-                        renderOptions(false);
+                        
+                        // Force rebuild options and set value
+                        select.innerHTML = state.instances.map(i => {
+                            return \`<option value="\${i.id}" \${i.id === data.activeInstanceId ? 'selected' : ''}>\${i.name}</option>\`;
+                        }).join('');
                         select.value = data.activeInstanceId;
                         
                         if (previousName && newName && previousName !== newName) {
@@ -436,7 +440,7 @@ try {
                         }
                     }
                 }
-            } catch (e) { /* silent */ }
+            } catch (e) { console.error(LOG_PREFIX, 'Poll error:', e); }
         }
 
         setInterval(() => {
@@ -453,13 +457,13 @@ try {
             }
         }, 1500);
 
-        // Poll every 5 seconds as fallback for realtime
+        // Poll every 3 seconds as fallback for realtime
         setInterval(() => {
             const path = window.location.pathname;
             if (path.includes('/conversations') || path.includes('/contacts/detail')) {
                 pollActiveInstance();
             }
-        }, 5000);
+        }, 3000);
     })();
 } catch (e) { console.error('Erro Bridge:', e); }
 `;
