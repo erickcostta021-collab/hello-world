@@ -898,7 +898,8 @@ async function processGroupCommand(
     "#revogaradmin", "#attfotogrupo", "#attnomegrupo", "#attdescricao",
     "#somenteadminmsg", "#msgliberada", "#somenteadminedit", "#editliberado", "#linkgrupo", "#sairgrupo",
     "#pix", "#botoes", "#lista", "#enquete",
-    "#lista_menu", "#enquete_menu", "#carrossel"
+    "#lista_menu", "#enquete_menu", "#carrossel",
+    "#nome_perfil", "#foto_perfil"
   ];
   
   if (!validCommands.includes(command)) {
