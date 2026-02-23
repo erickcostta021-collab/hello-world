@@ -267,9 +267,9 @@ try {
                             // Update dropdown
                             const select = document.getElementById('bridge-instance-selector');
                             if (select && payload.new_instance_id) {
-                                select.value = payload.new_instance_id;
                                 state.currentInstanceName = payload.new_instance_name;
                                 renderOptions(false);
+                                select.value = payload.new_instance_id;
                                 console.log(LOG_PREFIX, '📡 Dropdown updated to:', payload.new_instance_name);
                             }
                             
@@ -289,8 +289,14 @@ try {
                 };
                 
                 ws.onclose = function() {
-                    console.log(LOG_PREFIX, '📡 Realtime WebSocket closed, will reconnect on next inject');
+                    console.log(LOG_PREFIX, '📡 Realtime WebSocket closed, will reconnect in 3s');
                     state.realtimeChannel = null;
+                    setTimeout(() => {
+                        if (!state.realtimeChannel) {
+                            console.log(LOG_PREFIX, '📡 Reconnecting realtime...');
+                            setupRealtimeListener();
+                        }
+                    }, 3000);
                 };
                 
                 // Send heartbeat every 30s to keep connection alive
