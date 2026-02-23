@@ -82,3 +82,6 @@ verify_jwt = false
 
 [functions.migrate-to-external]
 verify_jwt = false
+
+[functions.upload-command-image]
+verify_jwt = false
