@@ -67,9 +67,9 @@ const buttonCommands = [
   {
     command: "#carrossel",
     description: "Envia carrossel de cards com imagens e botões",
-    format: "texto|[Card],img,corpo,botão1,botão2,...",
+    format: "texto|[Card],img,desc,botão1,botão2,...",
     context: "Contato",
-    notes: "type=carousel. Cada card: [Título],imageUrl,body,botões (reply|id ou url|link).",
+    notes: "Cada card: [Título],imageUrl,descrição,botões. Tipos de botão: texto (reply), texto|url (link), texto|copy:valor (copiar), texto|call:telefone (ligar).",
   },
 ];
 
