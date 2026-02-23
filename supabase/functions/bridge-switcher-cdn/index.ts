@@ -268,9 +268,12 @@ try {
                             const select = document.getElementById('bridge-instance-selector');
                             if (select && payload.new_instance_id) {
                                 state.currentInstanceName = payload.new_instance_name;
-                                renderOptions(false);
+                                // Force rebuild with new instance selected
+                                select.innerHTML = state.instances.map(i => {
+                                    return \`<option value="\${i.id}" \${i.id === payload.new_instance_id ? 'selected' : ''}>\${i.name}</option>\`;
+                                }).join('');
                                 select.value = payload.new_instance_id;
-                                console.log(LOG_PREFIX, '📡 Dropdown updated to:', payload.new_instance_name);
+                                console.log(LOG_PREFIX, '📡 Dropdown updated to:', payload.new_instance_name, 'value:', select.value);
                             }
                             
                             // Show notification
