@@ -71,6 +71,20 @@ const buttonCommands = [
     context: "Contato",
     notes: "Cada card: [Título],imageUrl,descrição,botões. Tipos de botão: texto (reply), texto|url (link), texto|copy:valor (copiar), texto|call:telefone (ligar).",
   },
+  {
+    command: "#nome_perfil",
+    description: "Atualiza o nome do perfil do WhatsApp",
+    format: "Novo Nome do Perfil",
+    context: "Contato",
+    notes: "Altera o nome exibido no perfil da instância conectada.",
+  },
+  {
+    command: "#foto_perfil",
+    description: "Atualiza a foto do perfil do WhatsApp",
+    format: "https://url-da-imagem.jpg",
+    context: "Contato",
+    notes: "A imagem deve ser quadrada (ex: 640x640). Use uma URL pública.",
+  },
 ];
 
 function ButtonCommandsList() {
