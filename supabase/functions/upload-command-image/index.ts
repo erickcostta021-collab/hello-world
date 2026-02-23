@@ -50,11 +50,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { data: publicData } = supabase.storage
-      .from("command-uploads")
-      .getPublicUrl(fileName);
+    const customUrl = `https://media.bridgeapi.chat/${fileName}`;
 
-    return new Response(JSON.stringify({ url: publicData.publicUrl }), {
+    return new Response(JSON.stringify({ url: customUrl }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
