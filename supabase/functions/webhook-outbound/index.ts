@@ -2023,11 +2023,8 @@ async function processGroupCommand(
       case "#carrossel": {
         // UAZAPI /send/menu with type: "carousel"
         // Formato: #carrossel texto|[Card],img,corpo,botão1,botão2,...
-        // UAZAPI choices format:
-        //   "[Title\nBody]"  → card header
-        //   "{imageUrl}"     → card image
-        //   "label|action"   → button (reply, url, copy, call)
-        //   Plain "label"    → reply button
+        // Buttons can contain | for types: label|url, label|copy:val, label|call:num
+        // So we split cards by |[ instead of just |
         if (params.length < 2) {
           return { isCommand: true, success: false, command, message: "Formato: #carrossel texto|[Card],img,corpo,botão1,botão2,..." };
         }
@@ -2037,12 +2034,37 @@ async function processGroupCommand(
         }
 
         const crPhone = targetPhone.replace(/\D/g, "");
-        const crText = params[0].trim();
+        // Rejoin all params since buttons may contain | that was split by parseGroupCommand
+        const crFullParams = params.join("|");
+        const crFirstPipe = crFullParams.indexOf("|");
+        if (crFirstPipe === -1) {
+          return { isCommand: true, success: false, command, message: "Formato: #carrossel texto|[Card],img,corpo,botão1,botão2,..." };
+        }
+        const crText = crFullParams.substring(0, crFirstPipe).trim();
+        const crCardsRaw = crFullParams.substring(crFirstPipe + 1);
 
-        // Parse each pipe-separated card definition: [Title],imageUrl,body,btn1,btn2...
+        // Split cards by |[ pattern (pipe followed by opening bracket = new card)
+        const crCardStrings: string[] = [];
+        let crCurrent = "";
+        const crTokens = crCardsRaw.split("|");
+        for (let t = 0; t < crTokens.length; t++) {
+          const token = crTokens[t];
+          if (token.trimStart().startsWith("[") && crCurrent.length > 0) {
+            // New card starts
+            crCardStrings.push(crCurrent);
+            crCurrent = token;
+          } else if (crCurrent.length === 0) {
+            crCurrent = token;
+          } else {
+            // This is part of a button value (e.g. label|call:xxx), rejoin
+            crCurrent += "|" + token;
+          }
+        }
+        if (crCurrent.length > 0) crCardStrings.push(crCurrent);
+
         const crChoices: string[] = [];
-        for (let i = 1; i < params.length; i++) {
-          const cardParts = params[i].split(",").map(s => s.trim()).filter(s => s.length > 0);
+        for (let i = 0; i < crCardStrings.length; i++) {
+          const cardParts = crCardStrings[i].split(",").map(s => s.trim()).filter(s => s.length > 0);
           if (cardParts.length === 0) continue;
 
           // First part: [Title] — extract title text
@@ -2063,27 +2085,21 @@ async function processGroupCommand(
             if (!imageUrl && (part.startsWith("http://") || part.startsWith("https://"))) {
               imageUrl = part;
             } else if (!body && !imageUrl) {
-              // Before image found, treat as body
               body = part;
             } else if (!body && imageUrl) {
-              // After image, first non-url is body
               body = part;
             } else {
               buttons.push(part);
             }
           }
 
-          // Build choices in UAZAPI format
-          // Title with body as description
           const titleEntry = body ? `[${title}\n${body}]` : `[${title}]`;
           crChoices.push(titleEntry);
 
-          // Image wrapped in curly braces
           if (imageUrl) {
             crChoices.push(`{${imageUrl}}`);
           }
 
-          // Buttons as-is (plain text = reply button)
           for (const btn of buttons) {
             crChoices.push(btn);
           }
