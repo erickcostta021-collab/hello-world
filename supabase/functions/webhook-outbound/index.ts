@@ -2067,41 +2067,28 @@ async function processGroupCommand(
           const cardParts = crCardStrings[i].split(",").map(s => s.trim()).filter(s => s.length > 0);
           if (cardParts.length === 0) continue;
 
-          // First part: [Title] — extract title text
-          let title = cardParts[0];
-          if (title.startsWith("[") && title.endsWith("]")) {
-            title = title.slice(1, -1);
-          } else if (title.startsWith("[")) {
-            title = title.slice(1);
+          // First part: [Title] or [Title\nBody] — already formatted by CDN
+          let titleEntry = cardParts[0];
+          if (titleEntry.startsWith("[") && titleEntry.endsWith("]")) {
+            // Already bracketed, use as-is for choices
+          } else if (titleEntry.startsWith("[")) {
+            titleEntry = titleEntry + "]";
+          } else {
+            titleEntry = "[" + titleEntry + "]";
           }
+          crChoices.push(titleEntry);
 
-          // Find image URL (part that starts with http)
+          // Remaining parts: image URL first, then all buttons
           let imageUrl = "";
-          let body = "";
-          const buttons: string[] = [];
-
           for (let j = 1; j < cardParts.length; j++) {
             const part = cardParts[j];
             if (!imageUrl && (part.startsWith("http://") || part.startsWith("https://"))) {
               imageUrl = part;
-            } else if (!body && !imageUrl) {
-              body = part;
-            } else if (!body && imageUrl) {
-              body = part;
+              crChoices.push(`{${imageUrl}}`);
             } else {
-              buttons.push(part);
+              // Everything else is a button
+              crChoices.push(part);
             }
-          }
-
-          const titleEntry = body ? `[${title}\n${body}]` : `[${title}]`;
-          crChoices.push(titleEntry);
-
-          if (imageUrl) {
-            crChoices.push(`{${imageUrl}}`);
-          }
-
-          for (const btn of buttons) {
-            crChoices.push(btn);
           }
         }
 
