@@ -291,6 +291,10 @@ try {
                 ws.onclose = function() {
                     console.log(LOG_PREFIX, '📡 Realtime WebSocket closed, will reconnect in 3s');
                     state.realtimeChannel = null;
+                    if (heartbeatInterval) {
+                        clearInterval(heartbeatInterval);
+                        heartbeatInterval = null;
+                    }
                     setTimeout(() => {
                         if (!state.realtimeChannel) {
                             console.log(LOG_PREFIX, '📡 Reconnecting realtime...');
@@ -299,12 +303,12 @@ try {
                     }, 3000);
                 };
                 
-                // Send heartbeat every 30s to keep connection alive
-                setInterval(() => {
+                // Send heartbeat every 25s to keep connection alive
+                let heartbeatInterval = setInterval(() => {
                     if (ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: Date.now().toString() }));
                     }
-                }, 30000);
+                }, 25000);
                 
                 state.realtimeChannel = ws;
             } catch (e) {
