@@ -372,7 +372,7 @@ Deno.serve(async (req) => {
             if (needsRefresh) {
               console.log("Token needs refresh, skipping InternalComment creation");
             } else {
-              const commentContent = "🔄 Instância alterada: " + previousInstanceName + " → " + newInstanceName;
+              const commentContent = "🔄 Instância alterada manualmente: " + previousInstanceName + " → " + newInstanceName;
 
               // 1) Resolve conversation by phone (not the frontend conversationId which may be stale)
               // Format phone for GHL search (with country code if available)

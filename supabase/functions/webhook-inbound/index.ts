@@ -2054,7 +2054,7 @@ serve(async (req) => {
           console.log("[Inbound] 🔔 Creating instance change notification...");
           
           // 1) Create InternalComment in GHL conversation
-          const commentContent = `🔄 Instância alterada: ${previousInstanceName} → ${instance.instance_name}`;
+          const commentContent = `🔄 Instância alterada automaticamente: ${previousInstanceName} → ${instance.instance_name}`;
           
           try {
             // Search for conversation by contact
