@@ -2478,10 +2478,21 @@ serve(async (req: Request) => {
     let matchedInstance: any = null;
     let overrideIdentifier = "";
 
+    // Skip override detection if the message starts with a known group/interactive command
+    const knownCommandPrefixes = [
+      "#criargrupo", "#removerdogrupo", "#addnogrupo", "#promoveradmin",
+      "#revogaradmin", "#attfotogrupo", "#attnomegrupo", "#attdescricao",
+      "#somenteadminmsg", "#msgliberada", "#somenteadminedit", "#editliberado",
+      "#linkgrupo", "#sairgrupo", "#pix", "#botoes", "#lista", "#enquete",
+      "#lista_menu", "#enquete_menu", "#carrossel"
+    ];
+    const msgLower = messageText.trim().toLowerCase();
+    const isKnownCommand = knownCommandPrefixes.some(cmd => msgLower.startsWith(cmd + " ") || msgLower === cmd);
+
     // Priority 1: Phone override (#DIGITS:)
-    const phoneOverrideMatch = messageText.match(/^#(\d{10,15}):\s*/);
+    const phoneOverrideMatch = !isKnownCommand ? messageText.match(/^#(\d{10,15}):\s*/) : null;
     // Priority 2: Name override (#NAME:) - matches any non-digit text before ':'
-    const nameOverrideMatch = !phoneOverrideMatch ? messageText.match(/^#([^:\d][^:]{0,49}):\s*/) : null;
+    const nameOverrideMatch = !isKnownCommand && !phoneOverrideMatch ? messageText.match(/^#([^:\d][^:]{0,49}):\s*/) : null;
 
     if (phoneOverrideMatch) {
       const overridePhone = phoneOverrideMatch[1];
