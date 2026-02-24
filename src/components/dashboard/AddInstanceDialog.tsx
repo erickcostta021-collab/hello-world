@@ -35,7 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Loader2, RefreshCw, HelpCircle, User, AlertTriangle, Unlink, Link2 } from "lucide-react";
+import { Plus, Loader2, RefreshCw, HelpCircle, User, AlertTriangle, Unlink, Link2, Search, X } from "lucide-react";
 import { useInstances, UazapiInstance, Instance } from "@/hooks/useInstances";
 import { ManualConnectTab } from "./ManualConnectTab";
 import { useGHLUsers, GHLUser } from "@/hooks/useGHLUsers";
@@ -66,6 +66,8 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
   const [uazapiInstances, setUazapiInstances] = useState<UazapiInstance[]>([]);
   const [selectedInstances, setSelectedInstances] = useState<Set<string>>(new Set());
   const [loadingInstances, setLoadingInstances] = useState(false);
+  const [importSearchOpen, setImportSearchOpen] = useState(false);
+  const [importSearchTerm, setImportSearchTerm] = useState("");
   
   // GHL Users state
   const [ghlUsers, setGhlUsers] = useState<GHLUser[]>([]);
@@ -233,12 +235,16 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
     }
   });
 
-  // Split into: available (not in DB or unlinked) and already linked
+  // Split into: available (not in DB or unlinked) and already linked, with search filter
+  const searchLower = importSearchTerm.toLowerCase();
+  const matchesSearch = (i: UazapiInstance) =>
+    !importSearchTerm || i.name.toLowerCase().includes(searchLower) || i.token.toLowerCase().includes(searchLower);
+
   const availableInstances = uazapiInstances.filter(
-    (i) => !linkedTokenMap.has(i.token)
+    (i) => !linkedTokenMap.has(i.token) && matchesSearch(i)
   );
   const alreadyLinkedInstances = uazapiInstances.filter(
-    (i) => linkedTokenMap.has(i.token)
+    (i) => linkedTokenMap.has(i.token) && matchesSearch(i)
   );
 
   const handleUnlinkClick = (uazapiInstance: UazapiInstance) => {
@@ -437,22 +443,46 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
         {/* Import Tab Content */}
         {activeTab === "import" && hasUAZAPIConfig && (
           <div className="space-y-4 py-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-foreground">
-                Instâncias no Servidor
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={loadUazapiInstances}
-                disabled={loadingInstances}
-                className="h-8 px-2 text-muted-foreground hover:text-foreground"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 mr-1 ${loadingInstances ? "animate-spin" : ""}`}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">
+                  Instâncias no Servidor
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setImportSearchOpen(!importSearchOpen);
+                      if (importSearchOpen) setImportSearchTerm("");
+                    }}
+                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                  >
+                    {importSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadUazapiInstances}
+                    disabled={loadingInstances}
+                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 mr-1 ${loadingInstances ? "animate-spin" : ""}`}
+                    />
+                    Atualizar
+                  </Button>
+                </div>
+              </div>
+              {importSearchOpen && (
+                <Input
+                  value={importSearchTerm}
+                  onChange={(e) => setImportSearchTerm(e.target.value)}
+                  placeholder="Buscar instância..."
+                  className="bg-secondary border-border h-8 text-sm"
+                  autoFocus
                 />
-                Atualizar
-              </Button>
+              )}
             </div>
 
             <ScrollArea className="h-[280px] pr-2">
