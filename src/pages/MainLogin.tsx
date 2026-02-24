@@ -33,6 +33,10 @@ const MainLogin = () => {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
 
+  // Resend activation code state
+  const [showResendActivation, setShowResendActivation] = useState(false);
+  const [resendingActivation, setResendingActivation] = useState(false);
+
   if (authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -94,7 +98,16 @@ const MainLogin = () => {
 
     try {
       const { error, data } = await signIn(email, password);
-      if (error) throw error;
+      if (error) {
+        // Detect unconfirmed email error
+        if (error.message?.toLowerCase().includes("email not confirmed")) {
+          setShowResendActivation(true);
+          toast.error("Este e-mail está cadastrado mas a conta ainda não foi ativada.");
+          setLoading(false);
+          return;
+        }
+        throw error;
+      }
 
       if (data?.user) {
         const { data: profile } = await supabase
@@ -113,9 +126,35 @@ const MainLogin = () => {
 
       toast.success("Login realizado com sucesso!");
     } catch (error: any) {
+      setShowResendActivation(false);
       toast.error(error.message || "Email ou senha incorretos");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendActivation = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) return;
+
+    setResendingActivation(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-registration-code", {
+        body: { email: trimmedEmail },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      toast.success("Código de ativação reenviado! Verifique seu e-mail.");
+      setShowResendActivation(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao reenviar código de ativação");
+    } finally {
+      setResendingActivation(false);
     }
   };
 
@@ -275,6 +314,30 @@ const MainLogin = () => {
               ) : null}
               Entrar
             </Button>
+
+            {/* Resend activation code */}
+            {showResendActivation && (
+              <div className="mt-4 p-4 rounded-xl border border-primary/20 bg-primary/5 text-center space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                <p className="text-sm text-muted-foreground">
+                  Sua conta ainda não foi ativada. Deseja reenviar o código de ativação?
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResendActivation}
+                  disabled={resendingActivation}
+                  className="border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  {resendingActivation ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="mr-2 h-4 w-4" />
+                  )}
+                  Reenviar Código de Ativação
+                </Button>
+              </div>
+            )}
           </form>
 
           {/* Register link */}
