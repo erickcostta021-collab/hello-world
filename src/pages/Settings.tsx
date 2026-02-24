@@ -233,7 +233,7 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="text-card-foreground">GoHighLevel (GHL)</CardTitle>
                 <CardDescription>
-                  Token de agência para sincronizar subcontas (alternativo ao OAuth)
+                  Token de agência para sincronizar subcontas (Opcional)
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
