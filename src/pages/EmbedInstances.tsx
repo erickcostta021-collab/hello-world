@@ -24,6 +24,7 @@ export default function EmbedInstances() {
   const [instances, setInstances] = useState<EmbedInstance[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [trackId, setTrackId] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!embedToken) {
@@ -58,6 +59,15 @@ export default function EmbedInstances() {
       }
 
       setSubaccount(subData);
+
+      // Fetch track_id from user_settings
+      const { data: settingsData } = await supabase
+        .from("user_settings")
+        .select("track_id")
+        .eq("user_id", subData.user_id)
+        .maybeSingle();
+      
+      setTrackId(settingsData?.track_id || null);
 
       // Fetch instances for this subaccount
       const { data: instData, error: instError } = await supabase
@@ -152,6 +162,7 @@ export default function EmbedInstances() {
                 subaccountId={subaccount!.id}
                 embedToken={embedToken!}
                 locationId={subaccount!.location_id}
+                trackId={trackId}
                 onStatusChange={handleRefresh}
               />
             ))}
