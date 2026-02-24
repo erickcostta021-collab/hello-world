@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
-import { Loader2, Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff, ArrowLeft, KeyRound, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 import {
   Dialog,
@@ -16,6 +17,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import logo from "@/assets/bridge-api-logo.jpg";
+
+type ActivationStep = "idle" | "resend" | "enter-code" | "create-account";
 
 const MainLogin = () => {
   const { user, loading: authLoading, signIn } = useAuth();
@@ -33,9 +36,13 @@ const MainLogin = () => {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
 
-  // Resend activation code state
-  const [showResendActivation, setShowResendActivation] = useState(false);
-  const [resendingActivation, setResendingActivation] = useState(false);
+  // Activation flow state
+  const [activationStep, setActivationStep] = useState<ActivationStep>("idle");
+  const [activationLoading, setActivationLoading] = useState(false);
+  const [activationCode, setActivationCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   if (authLoading) {
     return (
@@ -99,9 +106,8 @@ const MainLogin = () => {
     try {
       const { error, data } = await signIn(email, password);
       if (error) {
-        // Detect unconfirmed email error
         if (error.message?.toLowerCase().includes("email not confirmed")) {
-          setShowResendActivation(true);
+          setActivationStep("resend");
           toast.error("Este e-mail está cadastrado mas a conta ainda não foi ativada.");
           setLoading(false);
           return;
@@ -126,7 +132,7 @@ const MainLogin = () => {
 
       toast.success("Login realizado com sucesso!");
     } catch (error: any) {
-      setShowResendActivation(false);
+      setActivationStep("idle");
       toast.error(error.message || "Email ou senha incorretos");
     } finally {
       setLoading(false);
@@ -137,7 +143,7 @@ const MainLogin = () => {
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail) return;
 
-    setResendingActivation(true);
+    setActivationLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("send-registration-code", {
         body: { email: trimmedEmail },
@@ -149,13 +155,92 @@ const MainLogin = () => {
         return;
       }
 
-      toast.success("Código de ativação reenviado! Verifique seu e-mail.");
-      setShowResendActivation(false);
+      toast.success("Código de ativação enviado! Verifique seu e-mail.");
+      setActivationStep("enter-code");
+      setActivationCode("");
     } catch (err: any) {
       toast.error(err.message || "Erro ao reenviar código de ativação");
     } finally {
-      setResendingActivation(false);
+      setActivationLoading(false);
     }
+  };
+
+  const handleVerifyActivationCode = async () => {
+    if (activationCode.length !== 6) {
+      toast.error("Digite o código completo");
+      return;
+    }
+
+    setActivationLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("verify-registration-code", {
+        body: { email: email.trim().toLowerCase(), code: activationCode },
+      });
+
+      if (error) throw error;
+
+      if (data.valid) {
+        toast.success("Código verificado! Crie sua senha.");
+        setActivationStep("create-account");
+        setNewPassword("");
+        setConfirmPassword("");
+      } else {
+        toast.error(data.error || "Código inválido ou expirado");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao verificar código");
+    } finally {
+      setActivationLoading(false);
+    }
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    setActivationLoading(true);
+    try {
+      const trimmedEmail = email.trim().toLowerCase();
+
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: { email: trimmedEmail, password: newPassword },
+      });
+
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        setActivationLoading(false);
+        return;
+      }
+
+      await supabase.functions.invoke("mark-code-used", {
+        body: { email: trimmedEmail },
+      });
+
+      const { error: signInError } = await signIn(trimmedEmail, newPassword);
+      if (signInError) throw signInError;
+
+      toast.success("Conta ativada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar conta");
+    } finally {
+      setActivationLoading(false);
+    }
+  };
+
+  const resetActivation = () => {
+    setActivationStep("idle");
+    setActivationCode("");
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -191,7 +276,6 @@ const MainLogin = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
-      {/* Back to Landing Page */}
       <Link
         to="/"
         className="absolute top-6 left-6 z-10 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors duration-200 group"
@@ -200,7 +284,6 @@ const MainLogin = () => {
         <span className="text-sm font-medium">Voltar</span>
       </Link>
 
-      {/* Subtle background glow */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[120px]" />
       </div>
@@ -212,146 +295,268 @@ const MainLogin = () => {
             <img src={logo} alt="Bridge API" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-3xl font-bold text-foreground mb-2">
-            Bem-vindo de volta
+            {activationStep === "enter-code" ? "Verificar Código" :
+             activationStep === "create-account" ? "Criar Senha" :
+             "Bem-vindo de volta"}
           </h1>
           <p className="text-muted-foreground">
-            Entre na sua conta para continuar
+            {activationStep === "enter-code" ? "Digite o código enviado para seu e-mail" :
+             activationStep === "create-account" ? "Defina sua senha para ativar a conta" :
+             "Entre na sua conta para continuar"}
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Card */}
         <div className="bg-card rounded-2xl border border-border p-8 shadow-xl shadow-black/10">
-          <form onSubmit={handleLogin} className="space-y-5">
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="main-email" className="text-foreground text-sm font-medium">
-                Email
-              </Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  id="main-email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => handleEmailChange(e.target.value)}
-                  onBlur={() => handleBlur("email")}
-                  className={`pl-10 bg-secondary border-border h-11 transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
-                    touched.email && errors.email
-                      ? "border-destructive focus:ring-destructive/20"
-                      : touched.email && !errors.email && email
-                      ? "border-primary/50"
-                      : ""
-                  }`}
-                  autoComplete="email"
-                />
-              </div>
-              {touched.email && errors.email && (
-                <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1 duration-200">
-                  {errors.email}
-                </p>
-              )}
-            </div>
 
-            {/* Password */}
-            <div className="space-y-2">
-              <Label htmlFor="main-password" className="text-foreground text-sm font-medium">
-                Senha
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  id="main-password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => handlePasswordChange(e.target.value)}
-                  onBlur={() => handleBlur("password")}
-                  className={`pl-10 pr-10 bg-secondary border-border h-11 transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
-                    touched.password && errors.password
-                      ? "border-destructive focus:ring-destructive/20"
-                      : touched.password && !errors.password && password
-                      ? "border-primary/50"
-                      : ""
-                  }`}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-200"
-                  tabIndex={-1}
+          {/* ===== LOGIN FORM ===== */}
+          {(activationStep === "idle" || activationStep === "resend") && (
+            <>
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="main-email" className="text-foreground text-sm font-medium">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="main-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(e) => handleEmailChange(e.target.value)}
+                      onBlur={() => handleBlur("email")}
+                      className={`pl-10 bg-secondary border-border h-11 transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                        touched.email && errors.email ? "border-destructive focus:ring-destructive/20" :
+                        touched.email && !errors.email && email ? "border-primary/50" : ""
+                      }`}
+                      autoComplete="email"
+                    />
+                  </div>
+                  {touched.email && errors.email && (
+                    <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1 duration-200">{errors.email}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="main-password" className="text-foreground text-sm font-medium">Senha</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    <Input
+                      id="main-password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => handlePasswordChange(e.target.value)}
+                      onBlur={() => handleBlur("password")}
+                      className={`pl-10 pr-10 bg-secondary border-border h-11 transition-all duration-200 focus:ring-2 focus:ring-primary/20 ${
+                        touched.password && errors.password ? "border-destructive focus:ring-destructive/20" :
+                        touched.password && !errors.password && password ? "border-primary/50" : ""
+                      }`}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-200"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {touched.password && errors.password && (
+                    <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1 duration-200">{errors.password}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setForgotEmail(email); setForgotSent(false); setForgotOpen(true); }}
+                    className="text-xs text-muted-foreground hover:text-primary transition-colors duration-200"
+                  >
+                    Esqueci minha senha
+                  </button>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-base transition-all duration-200 hover:shadow-lg hover:shadow-primary/20"
+                  disabled={loading}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-              {touched.password && errors.password && (
-                <p className="text-xs text-destructive animate-in fade-in slide-in-from-top-1 duration-200">
-                  {errors.password}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setForgotEmail(email);
-                  setForgotSent(false);
-                  setForgotOpen(true);
-                }}
-                className="text-xs text-muted-foreground hover:text-primary transition-colors duration-200"
-              >
-                Esqueci minha senha
-              </button>
-            </div>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Entrar
+                </Button>
 
-            {/* Submit */}
-            <Button
-              type="submit"
-              className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-base transition-all duration-200 hover:shadow-lg hover:shadow-primary/20"
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Entrar
-            </Button>
+                {/* Resend activation panel */}
+                {activationStep === "resend" && (
+                  <div className="mt-4 p-4 rounded-xl border border-primary/20 bg-primary/5 text-center space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <p className="text-sm text-muted-foreground">
+                      Sua conta ainda não foi ativada. Deseja reenviar o código de ativação?
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResendActivation}
+                      disabled={activationLoading}
+                      className="border-primary/30 text-primary hover:bg-primary/10"
+                    >
+                      {activationLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                      Reenviar Código de Ativação
+                    </Button>
+                  </div>
+                )}
+              </form>
 
-            {/* Resend activation code */}
-            {showResendActivation && (
-              <div className="mt-4 p-4 rounded-xl border border-primary/20 bg-primary/5 text-center space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="mt-6 pt-6 border-t border-border text-center">
                 <p className="text-sm text-muted-foreground">
-                  Sua conta ainda não foi ativada. Deseja reenviar o código de ativação?
+                  Não tem uma conta?{" "}
+                  <Link to="/register" className="text-primary hover:text-primary/80 font-medium transition-colors duration-200">
+                    Cadastre-se
+                  </Link>
                 </p>
+              </div>
+            </>
+          )}
+
+          {/* ===== ENTER CODE STEP ===== */}
+          {activationStep === "enter-code" && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="p-4 bg-secondary/50 rounded-lg border border-border">
+                <div className="flex items-start gap-3">
+                  <KeyRound className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="text-sm text-muted-foreground">
+                    <p className="font-medium text-foreground mb-1">Verifique seu E-mail</p>
+                    <p>Enviamos um código de 6 dígitos para <strong className="text-foreground">{email}</strong>. Verifique sua caixa de entrada e spam.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Código de Verificação</Label>
+                <div className="flex justify-center">
+                  <InputOTP maxLength={6} value={activationCode} onChange={setActivationCode}>
+                    <InputOTPGroup>
+                      <InputOTPSlot index={0} />
+                      <InputOTPSlot index={1} />
+                      <InputOTPSlot index={2} />
+                      <InputOTPSlot index={3} />
+                      <InputOTPSlot index={4} />
+                      <InputOTPSlot index={5} />
+                    </InputOTPGroup>
+                  </InputOTP>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleVerifyActivationCode}
+                className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground"
+                disabled={activationLoading || activationCode.length !== 6}
+              >
+                {activationLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Verificar Código
+              </Button>
+
+              <div className="flex gap-2">
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={handleResendActivation}
-                  disabled={resendingActivation}
-                  className="border-primary/30 text-primary hover:bg-primary/10"
+                  disabled={activationLoading}
+                  className="flex-1 text-muted-foreground"
                 >
-                  {resendingActivation ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Mail className="mr-2 h-4 w-4" />
-                  )}
-                  Reenviar Código de Ativação
+                  Reenviar código
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetActivation}
+                  className="flex-1 text-muted-foreground"
+                >
+                  Voltar ao login
                 </Button>
               </div>
-            )}
-          </form>
+            </div>
+          )}
 
-          {/* Register link */}
-          <div className="mt-6 pt-6 border-t border-border text-center">
-            <p className="text-sm text-muted-foreground">
-              Não tem uma conta?{" "}
-              <Link
-                to="/register"
-                className="text-primary hover:text-primary/80 font-medium transition-colors duration-200"
+          {/* ===== CREATE ACCOUNT STEP ===== */}
+          {activationStep === "create-account" && (
+            <form onSubmit={handleCreateAccount} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-primary" />
+                  <div className="text-sm">
+                    <p className="font-medium text-foreground">E-mail Verificado!</p>
+                    <p className="text-muted-foreground">Crie sua senha para ativar a conta.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Email</Label>
+                <Input type="email" value={email} disabled className="bg-secondary/50 border-border" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="new-pw" className="text-foreground">Senha</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    id="new-pw"
+                    type={showNewPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="pl-10 pr-10 bg-secondary border-border h-11"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirm-pw" className="text-foreground">Confirmar Senha</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    id="confirm-pw"
+                    type={showNewPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="pl-10 bg-secondary border-border h-11"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                disabled={activationLoading}
               >
-                Cadastre-se
-              </Link>
-            </p>
-          </div>
+                {activationLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Ativar Conta
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={resetActivation}
+                className="w-full text-muted-foreground"
+              >
+                Voltar ao login
+              </Button>
+            </form>
+          )}
         </div>
       </div>
 
@@ -376,20 +581,14 @@ const MainLogin = () => {
                 Um email foi enviado para <strong className="text-foreground">{forgotEmail}</strong>.
                 Verifique sua caixa de entrada e siga as instruções.
               </p>
-              <Button
-                variant="outline"
-                onClick={() => setForgotOpen(false)}
-                className="mt-2"
-              >
+              <Button variant="outline" onClick={() => setForgotOpen(false)} className="mt-2">
                 Fechar
               </Button>
             </div>
           ) : (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="forgot-email" className="text-foreground">
-                  Email
-                </Label>
+                <Label htmlFor="forgot-email" className="text-foreground">Email</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
@@ -404,12 +603,7 @@ const MainLogin = () => {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setForgotOpen(false)}
-                  className="flex-1"
-                >
+                <Button type="button" variant="outline" onClick={() => setForgotOpen(false)} className="flex-1">
                   Cancelar
                 </Button>
                 <Button
@@ -417,9 +611,7 @@ const MainLogin = () => {
                   className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                   disabled={forgotLoading}
                 >
-                  {forgotLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
+                  {forgotLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Enviar
                 </Button>
               </div>
