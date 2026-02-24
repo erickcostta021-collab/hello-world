@@ -60,14 +60,19 @@ export default function EmbedInstances() {
 
       setSubaccount(subData);
 
-      // Fetch track_id from user_settings
-      const { data: settingsData } = await supabase
-        .from("user_settings")
-        .select("track_id")
-        .eq("user_id", subData.user_id)
-        .maybeSingle();
-      
-      setTrackId(settingsData?.track_id || null);
+      // Fetch track_id via server-side proxy (RLS blocks direct access)
+      try {
+        const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/uazapi-proxy-embed`;
+        const trackRes = await fetch(proxyUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ embedToken, action: "get-track-id" }),
+        });
+        const trackData = await trackRes.json().catch(() => null);
+        setTrackId(trackData?.trackId || null);
+      } catch {
+        console.error("Failed to fetch track_id");
+      }
 
       // Fetch instances for this subaccount
       const { data: instData, error: instError } = await supabase
