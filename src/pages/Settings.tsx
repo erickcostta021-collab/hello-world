@@ -361,7 +361,7 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle className="text-card-foreground">Identificador da Instalação</CardTitle>
                 <CardDescription>
-                  Código único da sua conta para identificar mensagens de agentes de IA
+                  Código único da sua conta para identificar mensagens de APIs
                 </CardDescription>
               </CardHeader>
               <CardContent>
