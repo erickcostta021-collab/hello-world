@@ -31,10 +31,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check if user exists
+    // Check if user exists in profiles
     const { data: profile } = await supabaseAdmin
       .from("profiles")
-      .select("id")
+      .select("id, user_id")
       .eq("email", trimmed)
       .limit(1);
 
@@ -43,6 +43,15 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Este email não está cadastrado no sistema" }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
+    }
+
+    // Check if user email is confirmed; if not, confirm it so recovery link works
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(profile[0].user_id);
+    if (authUser?.user && !authUser.user.email_confirmed_at) {
+      console.log("User email not confirmed, confirming before recovery...");
+      await supabaseAdmin.auth.admin.updateUserById(profile[0].user_id, {
+        email_confirm: true,
+      });
     }
 
     // Ensure frontend URL always has protocol
@@ -63,11 +72,8 @@ Deno.serve(async (req) => {
 
     if (linkError) {
       console.error("Error generating recovery link:", linkError);
-      const msg = linkError.message?.includes("not found")
-        ? "Este email está cadastrado mas a conta ainda não foi ativada. Tente criar sua conta novamente."
-        : "Erro ao gerar link de recuperação";
       return new Response(
-        JSON.stringify({ error: msg }),
+        JSON.stringify({ error: "Erro ao gerar link de recuperação" }),
         { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
