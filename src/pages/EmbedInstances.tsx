@@ -40,7 +40,7 @@ export default function EmbedInstances() {
         .from("ghl_subaccounts")
         .select("id, account_name, location_id, user_id")
         .eq("embed_token", embedToken)
-        .single();
+        .maybeSingle();
 
       console.log("[EmbedInstances] Subaccount query result:", { subData, subError });
 
