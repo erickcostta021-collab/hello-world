@@ -45,9 +45,30 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check if user email is confirmed; if not, confirm it so recovery link works
-    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(profile[0].user_id);
-    if (authUser?.user && !authUser.user.email_confirmed_at) {
+    // Check if auth user exists; if not, create one. If exists but unconfirmed, confirm it.
+    const { data: authUser, error: authUserError } = await supabaseAdmin.auth.admin.getUserById(profile[0].user_id);
+    
+    if (authUserError || !authUser?.user) {
+      // Auth user doesn't exist — create one with a random password (will be reset via link)
+      console.log("Auth user not found, creating auth user for profile:", profile[0].user_id);
+      const tempPassword = crypto.randomUUID() + "Aa1!";
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email: trimmed,
+        password: tempPassword,
+        email_confirm: true,
+      });
+      if (createError) {
+        console.error("Error creating auth user:", createError);
+        return new Response(
+          JSON.stringify({ error: "Erro ao preparar conta para recuperação" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+      // Update profile to link to new auth user
+      if (newUser?.user) {
+        await supabaseAdmin.from("profiles").update({ user_id: newUser.user.id }).eq("id", profile[0].id);
+      }
+    } else if (!authUser.user.email_confirmed_at) {
       console.log("User email not confirmed, confirming before recovery...");
       await supabaseAdmin.auth.admin.updateUserById(profile[0].user_id, {
         email_confirm: true,
