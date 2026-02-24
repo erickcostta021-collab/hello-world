@@ -175,15 +175,6 @@ const MainLogin = () => {
       if (error) throw error;
 
       if (data?.error) {
-        // Detect unactivated account error from the edge function
-        if (data.error.includes("conta ainda não foi ativada")) {
-          setForgotOpen(false);
-          setEmail(trimmedEmail);
-          setShowResendActivation(true);
-          toast.error("Esta conta ainda não foi ativada. Reenvie o código de ativação abaixo.");
-          setForgotLoading(false);
-          return;
-        }
         toast.error(data.error);
         setForgotLoading(false);
         return;
