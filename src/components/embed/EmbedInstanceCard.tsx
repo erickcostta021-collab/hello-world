@@ -43,6 +43,7 @@ interface EmbedInstanceCardProps {
   subaccountId: string;
   embedToken: string;
   locationId: string;
+  trackId?: string | null;
   onStatusChange?: () => void;
 }
 
@@ -51,6 +52,7 @@ export function EmbedInstanceCard({
   subaccountId,
   embedToken,
   locationId,
+  trackId,
   onStatusChange 
 }: EmbedInstanceCardProps) {
   const [syncing, setSyncing] = useState(false);
@@ -509,6 +511,15 @@ export function EmbedInstanceCard({
                     <Link className="h-4 w-4 mr-2" />
                     Copiar Base URL
                   </DropdownMenuItem>
+                  {trackId && (
+                    <DropdownMenuItem onClick={() => {
+                      navigator.clipboard.writeText(trackId);
+                      toast.success("Track ID copiado!");
+                    }}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar Track ID
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
