@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
-import { Loader2, Mail, Lock, Eye, EyeOff, ArrowLeft, KeyRound, CheckCircle } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff, ArrowLeft, KeyRound, CheckCircle, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,8 @@ const MainLogin = () => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
 
   if (authLoading) {
     return (
@@ -194,9 +196,25 @@ const MainLogin = () => {
     }
   };
 
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    if (digits.length <= 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+  };
+
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!fullName.trim() || fullName.trim().length < 3) {
+      toast.error("Nome deve ter pelo menos 3 caracteres");
+      return;
+    }
+    if (phone.replace(/\D/g, "").length < 10) {
+      toast.error("Telefone inválido");
+      return;
+    }
     if (newPassword !== confirmPassword) {
       toast.error("As senhas não coincidem");
       return;
@@ -228,6 +246,19 @@ const MainLogin = () => {
       const { error: signInError } = await signIn(trimmedEmail, newPassword);
       if (signInError) throw signInError;
 
+      // Update profile with name and phone
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        await supabase
+          .from("profiles")
+          .update({
+            full_name: fullName.trim(),
+            phone: phone.replace(/\D/g, ""),
+            email: trimmedEmail,
+          })
+          .eq("user_id", authUser.id);
+      }
+
       toast.success("Conta ativada com sucesso!");
     } catch (err: any) {
       toast.error(err.message || "Erro ao criar conta");
@@ -241,6 +272,8 @@ const MainLogin = () => {
     setActivationCode("");
     setNewPassword("");
     setConfirmPassword("");
+    setFullName("");
+    setPhone("");
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -487,6 +520,37 @@ const MainLogin = () => {
                     <p className="font-medium text-foreground">E-mail Verificado!</p>
                     <p className="text-muted-foreground">Crie sua senha para ativar a conta.</p>
                   </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Nome Completo</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="text"
+                    placeholder="Seu nome completo"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    required
+                    minLength={3}
+                    className="pl-10 bg-secondary border-border h-11"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Telefone</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    type="tel"
+                    placeholder="(00) 00000-0000"
+                    value={phone}
+                    onChange={(e) => setPhone(formatPhone(e.target.value))}
+                    required
+                    className="pl-10 bg-secondary border-border h-11"
+                  />
                 </div>
               </div>
 
