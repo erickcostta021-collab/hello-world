@@ -350,7 +350,7 @@ export default function Settings() {
                   <p className="text-xs text-muted-foreground">
                     {isAdmin
                       ? "Webhook global (nível admin) que recebe eventos de todas as instâncias. Use o URL do webhook inbound acima para integração automática com GHL."
-                      : "URL do webhook global configurado pelo administrador. Apenas leitura."}
+                      : "URL do webhook global será configurado automaticamente na Uazapi."}
                   </p>
                 </div>
               </CardContent>
