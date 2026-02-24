@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info";
+type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info" | "get-track-id";
 
 function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const instanceId = String(body?.instanceId || "").trim();
     const action = String(body?.action || "").trim() as Action;
 
-    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users", "get-info"].includes(action)) {
+    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users", "get-info", "get-track-id"].includes(action)) {
       return new Response(JSON.stringify({ error: "Parâmetros inválidos" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
     }
 
     // For ghl-users action, instanceId is optional (we use locationId from subaccount)
-    if (!instanceId && action !== "ghl-users") {
+    if (!instanceId && action !== "ghl-users" && action !== "get-track-id") {
       return new Response(JSON.stringify({ error: "instanceId obrigatório" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -76,6 +76,33 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+
+    // ============ Get Track ID Action ============
+    if (action === "get-track-id") {
+      const { data: sub } = await admin
+        .from("ghl_subaccounts")
+        .select("user_id")
+        .eq("embed_token", embedToken)
+        .maybeSingle();
+
+      if (!sub) {
+        return new Response(JSON.stringify({ error: "Subconta não encontrada" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: settings } = await admin
+        .from("user_settings")
+        .select("track_id")
+        .eq("user_id", sub.user_id)
+        .maybeSingle();
+
+      return new Response(JSON.stringify({ trackId: settings?.track_id || null }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ============ GHL Users Action ============
     if (action === "ghl-users") {
