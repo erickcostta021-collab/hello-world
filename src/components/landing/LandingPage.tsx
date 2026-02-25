@@ -84,7 +84,13 @@ const LandingPage = () => {
               Início
             </button>
             <button 
-              onClick={() => document.getElementById('precos')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => {
+                const el = document.getElementById('precos');
+                if (el) {
+                  const y = el.getBoundingClientRect().top + window.scrollY - 96;
+                  window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+              }}
               className="text-muted-foreground hover:text-foreground transition-colors duration-300 font-medium"
             >
               Preços
@@ -442,7 +448,7 @@ const LandingPage = () => {
       </section>
 
       {/* Pricing Section */}
-      <section id="precos" className="py-12 sm:py-20 px-4 sm:px-6 scroll-mt-20 relative z-10">
+      <section id="precos" className="py-12 sm:py-20 px-4 sm:px-6 scroll-mt-24 relative z-10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 sm:mb-12">
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-3 sm:mb-4">
