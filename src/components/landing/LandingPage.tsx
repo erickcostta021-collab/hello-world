@@ -16,7 +16,9 @@ import {
   ImageUp,
   MousePointerClick,
   Phone,
-  Lock
+  Lock,
+  ExternalLink,
+  AlertCircle
 } from "lucide-react";
 import circleLogo from "@/assets/bridge-circle-logo.png";
 import whatsappLogo from "@/assets/whatsapp-logo.svg";
@@ -271,6 +273,36 @@ const LandingPage = () => {
                 Monitore status, troque instâncias, gerencie subcontas e acompanhe todas as suas conexões em um só lugar.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* UAZAPI Requirement Banner */}
+      <section className="py-10 sm:py-14 px-4 sm:px-6 relative z-10">
+        <div className="max-w-3xl mx-auto">
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                Conta UAZAPI necessária
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Para utilizar o Bridge API, é necessário ter uma conta ativa na UAZAPI. 
+                A UAZAPI é o servidor responsável pela conexão com o WhatsApp.
+              </p>
+            </div>
+            <a
+              href="https://uazapi.dev/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="default" className="gap-2 whitespace-nowrap">
+                Acessar UAZAPI
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </a>
           </div>
         </div>
       </section>
