@@ -412,6 +412,27 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
                     <Copy className="h-4 w-4 mr-2" />
                     Copiar Token
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const baseUrl = instance.uazapi_base_url || settings?.uazapi_base_url;
+                    if (baseUrl) {
+                      navigator.clipboard.writeText(baseUrl);
+                      toast.success("Base URL copiada!");
+                    } else {
+                      toast.error("Base URL não configurada");
+                    }
+                  }}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copiar Base URL
+                  </DropdownMenuItem>
+                  {settings?.track_id && (
+                    <DropdownMenuItem onClick={() => {
+                      navigator.clipboard.writeText(settings.track_id!);
+                      toast.success("Track ID copiado!");
+                    }}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar Track ID
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
                     <Settings2 className="h-4 w-4 mr-2" />
                     Configurar Webhook
