@@ -412,10 +412,21 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
                     <Copy className="h-4 w-4 mr-2" />
                     Copiar Token
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
+                  <DropdownMenuItem onClick={async () => {
                     const baseUrl = instance.uazapi_base_url || settings?.uazapi_base_url;
                     if (baseUrl) {
-                      navigator.clipboard.writeText(baseUrl);
+                      try {
+                        await navigator.clipboard.writeText(baseUrl);
+                      } catch {
+                        const ta = document.createElement("textarea");
+                        ta.value = baseUrl;
+                        ta.style.position = "fixed";
+                        ta.style.opacity = "0";
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                      }
                       toast.success("Base URL copiada!");
                     } else {
                       toast.error("Base URL não configurada");
@@ -425,8 +436,20 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
                     Copiar Base URL
                   </DropdownMenuItem>
                   {settings?.track_id && (
-                    <DropdownMenuItem onClick={() => {
-                      navigator.clipboard.writeText(settings.track_id!);
+                    <DropdownMenuItem onClick={async () => {
+                      const trackId = settings.track_id!;
+                      try {
+                        await navigator.clipboard.writeText(trackId);
+                      } catch {
+                        const ta = document.createElement("textarea");
+                        ta.value = trackId;
+                        ta.style.position = "fixed";
+                        ta.style.opacity = "0";
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand("copy");
+                        document.body.removeChild(ta);
+                      }
                       toast.success("Track ID copiado!");
                     }}>
                       <Copy className="h-4 w-4 mr-2" />
