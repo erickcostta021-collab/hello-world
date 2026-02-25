@@ -87,7 +87,7 @@ const LandingPage = () => {
               onClick={() => {
                 const el = document.getElementById('precos');
                 if (el) {
-                  const y = el.getBoundingClientRect().top + window.scrollY - 96;
+                  const y = el.getBoundingClientRect().top + window.scrollY - 20;
                   window.scrollTo({ top: y, behavior: 'smooth' });
                 }
               }}
