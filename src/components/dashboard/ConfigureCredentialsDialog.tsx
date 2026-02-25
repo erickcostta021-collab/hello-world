@@ -12,7 +12,7 @@ interface Props {
 }
 
 export function ConfigureCredentialsDialog({ open, onOpenChange }: Props) {
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateSettings, applyGlobalWebhook } = useSettings();
   const [showTokens, setShowTokens] = useState(false);
   const [formData, setFormData] = useState({
     uazapi_base_url: "",
@@ -31,8 +31,18 @@ export function ConfigureCredentialsDialog({ open, onOpenChange }: Props) {
   }, [settings, open]);
 
   const handleSave = () => {
-    updateSettings.mutate(formData, {
-      onSuccess: () => onOpenChange(false),
+    // Compute webhook URL (same logic as Settings page)
+    const webhookUrl = settings?.global_webhook_url || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-inbound`;
+
+    // Save credentials + webhook URL
+    updateSettings.mutate({ ...formData, global_webhook_url: webhookUrl }, {
+      onSuccess: () => {
+        // Apply global webhook on UAZAPI after saving credentials
+        if (formData.uazapi_base_url && formData.uazapi_admin_token) {
+          applyGlobalWebhook.mutate(webhookUrl);
+        }
+        onOpenChange(false);
+      },
     });
   };
 
