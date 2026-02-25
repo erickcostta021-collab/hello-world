@@ -588,9 +588,13 @@ const LandingPage = () => {
                 <h3 className="text-xl font-semibold text-foreground mb-2">50 Conexões</h3>
                 <p className="text-muted-foreground text-sm">Para negócios em crescimento</p>
               </div>
-              <div className="mb-6">
+              <div className="mb-2">
                 <span className="text-4xl font-bold text-foreground transition-opacity duration-300">{formatPrice(798)}</span>
                 <span className="text-muted-foreground">/mês</span>
+              </div>
+              <div className="mb-6 flex items-center gap-2">
+                <span className="text-sm line-through text-muted-foreground/60">R$ 1.900 ~ R$ 2.500</span>
+                <span className="text-xs font-semibold text-brand-green bg-brand-green/10 px-2 py-0.5 rounded-full">em outros lugares</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex items-center gap-2 text-muted-foreground">
@@ -630,9 +634,13 @@ const LandingPage = () => {
                 <h3 className="text-xl font-semibold text-foreground mb-2">100 Conexões</h3>
                 <p className="text-muted-foreground text-sm">Para agências e equipes</p>
               </div>
-              <div className="mb-6">
+              <div className="mb-2">
                 <span className="text-4xl font-bold text-foreground transition-opacity duration-300">{formatPrice(1298)}</span>
                 <span className="text-muted-foreground">/mês</span>
+              </div>
+              <div className="mb-6 flex items-center gap-2">
+                <span className="text-sm line-through text-muted-foreground/60">R$ 3.800 ~ R$ 5.000</span>
+                <span className="text-xs font-semibold text-brand-green bg-brand-green/10 px-2 py-0.5 rounded-full">em outros lugares</span>
               </div>
               <ul className="space-y-3 mb-8 flex-grow">
                 <li className="flex items-center gap-2 text-muted-foreground">
