@@ -75,7 +75,7 @@ function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
     if (isError) result.byFunction[m.function_name].errors++;
 
     // By minute
-    const minute = new Date(m.created_at).toISOString().slice(0, 16);
+    const minute = new Date(m.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).replace(",", "").trim().slice(0, 5);
     if (!minuteMap.has(minute)) minuteMap.set(minute, { total: 0, errors: 0 });
     const entry = minuteMap.get(minute)!;
     entry.total++;
@@ -84,7 +84,7 @@ function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
 
   result.avgProcessingTime = timeCount > 0 ? Math.round(totalTime / timeCount) : 0;
   result.byMinute = Array.from(minuteMap.entries())
-    .map(([minute, data]) => ({ minute: minute.slice(11), ...data }))
+    .map(([minute, data]) => ({ minute, ...data }))
     .sort((a, b) => a.minute.localeCompare(b.minute))
     .slice(-30); // Last 30 minutes
 
@@ -185,7 +185,7 @@ export default function AdminHealth() {
               <Activity className="h-6 w-6 text-primary" />
               Dashboard de Saúde
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Monitoramento de webhooks e servidores (última hora)</p>
+            <p className="text-sm text-muted-foreground mt-1">Monitoramento de webhooks e servidores (última hora) — {new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })} BRT</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadData} disabled={loading}>
@@ -248,7 +248,7 @@ export default function AdminHealth() {
                       <span className="text-xs text-muted-foreground ml-2">{alert.server_url}</span>
                     </div>
                     <Badge variant="destructive" className="shrink-0">
-                      {elapsed >= 60 ? `${Math.round(elapsed / 60)}h` : `${elapsed}min`} offline
+                      {elapsed >= 60 ? `${Math.round(elapsed / 60)}h` : `${elapsed}min`} offline — desde {new Date(alert.first_detected_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                     </Badge>
                   </div>
                 );
@@ -344,7 +344,7 @@ export default function AdminHealth() {
                 <div key={alert.id} className="flex items-center justify-between p-2 text-sm">
                   <span className="text-card-foreground">{alert.instance_name}</span>
                   <span className="text-xs text-muted-foreground">
-                    {alert.resolved_at ? new Date(alert.resolved_at).toLocaleString("pt-BR") : ""}
+                    {alert.resolved_at ? new Date(alert.resolved_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : ""}
                   </span>
                 </div>
               ))}
