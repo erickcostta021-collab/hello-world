@@ -217,36 +217,82 @@ export async function getQRCodeFromApi(
   globalBaseUrl?: string | null,
 ): Promise<string> {
   const base = getBaseUrlForInstance(instance, globalBaseUrl);
+  const headers = { "Content-Type": "application/json", token: instance.uazapi_instance_token };
 
-  // Try connect first (usually generates fresh QR)
-  const connectResponse = await fetch(`${base}/instance/connect`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-  });
+  const extractQr = (data: any): string | null =>
+    data?.qrcode || data?.instance?.qrcode || data?.qr || data?.base64 || data?.code || null;
 
-  if (connectResponse.ok) {
-    const connectData = await connectResponse.json();
-    const qr = connectData.qrcode || connectData.instance?.qrcode || connectData.qr || connectData.base64;
-    if (qr) return qr;
-  }
+  // 1. Try connect first (usually generates fresh QR)
+  try {
+    const connectResponse = await fetch(`${base}/instance/connect`, {
+      method: "POST",
+      headers,
+    });
+    if (connectResponse.ok) {
+      const connectData = await connectResponse.json();
+      const qr = extractQr(connectData);
+      if (qr) return qr;
+    }
+  } catch { /* continue */ }
 
-  // Fallback: dedicated qrcode endpoints
-  const qrEndpoints = ["/instance/qrcode", "/qrcode", "/instance/qr"];
+  // 2. Try dedicated qrcode endpoints (GET and POST)
+  const qrEndpoints = [
+    "/instance/qrcode",
+    "/qrcode",
+    "/instance/qr",
+    "/api/instance/qrcode",
+    "/api/instance/qr",
+    "/v2/instance/qrcode",
+    "/api/v2/instance/qrcode",
+  ];
+
   for (const endpoint of qrEndpoints) {
-    try {
-      const response = await fetch(`${base}${endpoint}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const qr = data.qrcode || data.base64 || data.qr || data.code || data.instance?.qrcode;
-        if (qr) return qr;
-      }
-    } catch {
-      // Continue to next endpoint
+    for (const method of ["GET", "POST"] as const) {
+      try {
+        const response = await fetch(`${base}${endpoint}`, { method, headers });
+        if (response.ok) {
+          const data = await response.json();
+          const qr = extractQr(data);
+          if (qr) return qr;
+        }
+        if (response.status === 404 || response.status === 405) continue;
+      } catch { /* continue */ }
     }
   }
+
+  // 3. Force disconnect + reconnect to generate a fresh QR
+  try {
+    const disconnectEndpoints = ["/instance/disconnect", "/instance/logout"];
+    for (const ep of disconnectEndpoints) {
+      try {
+        const r = await fetch(`${base}${ep}`, { method: "POST", headers });
+        if (r.ok || r.status === 200) break;
+      } catch { /* continue */ }
+    }
+
+    // Wait a moment for the server to process
+    await new Promise((r) => setTimeout(r, 1500));
+
+    // Retry connect after disconnect
+    const reconnect = await fetch(`${base}/instance/connect`, { method: "POST", headers });
+    if (reconnect.ok) {
+      const data = await reconnect.json();
+      const qr = extractQr(data);
+      if (qr) return qr;
+    }
+
+    // Retry qrcode endpoint after disconnect
+    for (const endpoint of ["/instance/qrcode", "/qrcode"]) {
+      try {
+        const response = await fetch(`${base}${endpoint}`, { method: "GET", headers });
+        if (response.ok) {
+          const data = await response.json();
+          const qr = extractQr(data);
+          if (qr) return qr;
+        }
+      } catch { /* continue */ }
+    }
+  } catch { /* continue */ }
 
   throw new Error("QR Code não disponível - a instância pode já estar conectada ou o servidor não suporta este endpoint");
 }
