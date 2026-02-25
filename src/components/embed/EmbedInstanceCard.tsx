@@ -67,6 +67,22 @@ export function EmbedInstanceCard({
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
+  const copyToClipboard = async (text: string): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for iframes where clipboard API is blocked
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+    }
+  };
+
   const normalizeQr = (raw: unknown): string | null => {
     if (!raw) return null;
     const s = String(raw);
@@ -483,13 +499,13 @@ export function EmbedInstanceCard({
                     try {
                       const info = await callUazapiProxy("get-info" as any);
                       if (info?.token) {
-                        navigator.clipboard.writeText(info.token);
+                        await copyToClipboard(info.token);
                         toast.success("Token copiado!");
                       } else {
                         toast.error("Token não disponível");
                       }
                     } catch {
-                      toast.error("Erro ao obter token");
+                      toast.error("Erro ao copiar token");
                     }
                   }}>
                     <Copy className="h-4 w-4 mr-2" />
@@ -499,22 +515,26 @@ export function EmbedInstanceCard({
                     try {
                       const info = await callUazapiProxy("get-info" as any);
                       if (info?.baseUrl) {
-                        navigator.clipboard.writeText(info.baseUrl);
+                        await copyToClipboard(info.baseUrl);
                         toast.success("Base URL copiada!");
                       } else {
                         toast.error("Base URL não disponível");
                       }
                     } catch {
-                      toast.error("Erro ao obter Base URL");
+                      toast.error("Erro ao copiar Base URL");
                     }
                   }}>
                     <Link className="h-4 w-4 mr-2" />
                     Copiar Base URL
                   </DropdownMenuItem>
                   {trackId && (
-                    <DropdownMenuItem onClick={() => {
-                      navigator.clipboard.writeText(trackId);
-                      toast.success("Track ID copiado!");
+                    <DropdownMenuItem onClick={async () => {
+                      try {
+                        await copyToClipboard(trackId);
+                        toast.success("Track ID copiado!");
+                      } catch {
+                        toast.error("Erro ao copiar Track ID");
+                      }
                     }}>
                       <Copy className="h-4 w-4 mr-2" />
                       Copiar Track ID
