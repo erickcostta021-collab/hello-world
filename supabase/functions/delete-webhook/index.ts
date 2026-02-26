@@ -47,35 +47,77 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     const token = instance.uazapi_instance_token;
 
-    // UAZAPI: action "update" with url="" deletes the webhook (confirmed working)
+    // Try multiple approaches to truly delete the webhook from UAZAPI
+    // Priority: real deletion methods first, then fallback to clearing URL
     const deleteAttempts = [
-      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
-      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
+      // 1. POST action "delete" (some UAZAPI versions support this)
       { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "Token": token } },
       { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "token": token } },
+      // 2. POST action "remove"
+      { path: `/webhook`, method: "POST", payload: { action: "remove", id: webhook_id }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "remove", id: webhook_id }, headers: { "token": token } },
+      // 3. DELETE HTTP method
+      { path: `/webhook/${webhook_id}`, method: "DELETE", payload: null, headers: { "Token": token } },
+      { path: `/webhook/${webhook_id}`, method: "DELETE", payload: null, headers: { "token": token } },
+      { path: `/webhook`, method: "DELETE", payload: { id: webhook_id }, headers: { "Token": token } },
+      // 4. Fallback: clear URL (doesn't truly remove, but disables)
+      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
     ];
 
     let success = false;
     let lastError = "";
+    let trueDelete = false;
 
     for (const attempt of deleteAttempts) {
       try {
         const url = `${baseUrl}${attempt.path}`;
         console.log(`Trying to delete webhook: ${attempt.method} ${url} payload=${JSON.stringify(attempt.payload)}`);
-        const res = await fetch(url, {
+        
+        const fetchOptions: RequestInit = {
           method: attempt.method,
           headers: { "Content-Type": "application/json", ...attempt.headers },
-          body: JSON.stringify(attempt.payload),
-        });
+        };
+        if (attempt.payload) {
+          fetchOptions.body = JSON.stringify(attempt.payload);
+        }
+        
+        const res = await fetch(url, fetchOptions);
         const resText = await res.text();
-        console.log(`Response: ${res.status} - ${resText.substring(0, 300)}`);
+        console.log(`Response: ${res.status} - ${resText.substring(0, 500)}`);
 
-        if (res.ok && !resText.includes('"error"')) {
+        // Check if this was a true deletion (webhook no longer in response list)
+        if (res.ok && !resText.includes('"error"') && !resText.toLowerCase().includes('invalid action')) {
+          // Verify: if response is an array, check that webhook_id is NOT in it
+          try {
+            const parsed = JSON.parse(resText);
+            const arr = Array.isArray(parsed) ? parsed : null;
+            if (arr) {
+              const stillExists = arr.some((w: any) => w.id === webhook_id);
+              if (stillExists) {
+                console.log(`⚠️ Webhook ${webhook_id} still exists in response after ${attempt.method} - not a true delete`);
+                // Only mark as success for fallback (update) attempts
+                if (attempt.payload?.action === "update") {
+                  success = true;
+                  trueDelete = false;
+                  console.log(`✅ Webhook ${webhook_id} URL cleared (fallback)`);
+                  break;
+                }
+                continue;
+              }
+            }
+          } catch { /* non-JSON response, that's ok */ }
+          
           success = true;
-          console.log(`✅ Webhook ${webhook_id} removed via ${attempt.method} ${attempt.path}`);
+          trueDelete = true;
+          console.log(`✅ Webhook ${webhook_id} truly removed via ${attempt.method} ${attempt.path}`);
           break;
         }
-        if (res.status === 404 || res.status === 405) continue;
+        
+        if (res.status === 400 || res.status === 404 || res.status === 405) {
+          lastError = `${res.status}: ${resText.substring(0, 200)}`;
+          continue;
+        }
         lastError = `${res.status}: ${resText.substring(0, 200)}`;
       } catch (e: any) {
         lastError = e.message;
@@ -90,7 +132,7 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, trueDelete }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
