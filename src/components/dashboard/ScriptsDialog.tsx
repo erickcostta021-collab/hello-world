@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 const SCRIPT_SIMPLE = `<script src="https://toolkit.bridgeapi.chat/message-toolkit-v1.js"></script>
 <script src="https://recorder.bridgeapi.chat/rec-v1.js"></script>
-<script src="https://jtabmlyjgtrgimnhvixb.supabase.co/functions/v1/bridge-switcher-cdn"></script>
+<script src="https://switch.bridgeapi.chat/switch-v1.js"></script>
 <script src="https://commands.bridgeapi.chat/bridge-button-v1.js"></script>`;
 
 const SCRIPT_FILTERED = `<script>
@@ -21,7 +21,7 @@ const SCRIPT_FILTERED = `<script>
   const scriptsToLoad = [
     "https://toolkit.bridgeapi.chat/message-toolkit-v1.js",
     "https://recorder.bridgeapi.chat/rec-v1.js",
-    "https://jtabmlyjgtrgimnhvixb.supabase.co/functions/v1/bridge-switcher-cdn",
+    "https://switch.bridgeapi.chat/switch-v1.js",
     "https://commands.bridgeapi.chat/bridge-button-v1.js"
   ];
 
