@@ -11,11 +11,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { slug, content, version } = await req.json();
+    const { slug, content } = await req.json();
     if (!slug || !content) {
       return new Response(JSON.stringify({ error: "slug and content required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -24,39 +23,20 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Check if slug exists
-    const { data: existing } = await supabase
+    const { data, error } = await supabase
       .from("cdn_scripts")
-      .select("id")
+      .update({ content, updated_at: new Date().toISOString() })
       .eq("slug", slug)
-      .maybeSingle();
+      .select("slug, version, is_active");
 
-    let result;
-    if (existing) {
-      const { data, error } = await supabase
-        .from("cdn_scripts")
-        .update({ content, version: version || "v1.0", updated_at: new Date().toISOString() })
-        .eq("slug", slug)
-        .select("slug, version, is_active");
-      if (error) throw error;
-      result = { action: "updated", data };
-    } else {
-      const { data, error } = await supabase
-        .from("cdn_scripts")
-        .insert({ slug, content, version: version || "v1.0", is_active: true })
-        .select("slug, version, is_active");
-      if (error) throw error;
-      result = { action: "inserted", data };
-    }
+    if (error) throw error;
 
-    return new Response(JSON.stringify({ success: true, ...result }), {
+    return new Response(JSON.stringify({ success: true, contentLength: content.length, data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  } catch (e) {
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
