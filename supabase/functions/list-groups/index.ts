@@ -333,22 +333,18 @@ serve(async (req) => {
 
       const participants = rawParticipants.map((p: any) => {
         const jid = p.id || p.JID || p.jid || p.participant || "";
-        // Try to get actual phone number: prefer dedicated phone/pn fields, then fall back to JID
-        // LID format (e.g. 122578685394991@lid) is NOT a phone number
-        const rawPhone = jid.split("@")[0] || jid;
-        const isLid = jid.includes("@lid");
-        const phone = p.phone || p.Phone || p.pn || p.PN || p.number || p.Number || 
-                       p.wa_id || p.WaId || 
-                       (isLid ? "" : rawPhone);
-        const lid = isLid ? rawPhone : (p.lid || p.LID || "");
-        const name = p.notify || p.Notify || p.pushName || p.PushName || p.name || p.Name || p.verifiedName || p.VerifiedName || "";
+        // Extract phone from PhoneNumber field (format: "5521980014713@s.whatsapp.net")
+        const phoneNumberField = p.PhoneNumber || p.phoneNumber || p.phone_number || p.phone || p.Phone || p.pn || p.PN || "";
+        const phone = phoneNumberField ? phoneNumberField.split("@")[0] : (jid.includes("@lid") ? "" : jid.split("@")[0]);
+        const lid = (p.LID || p.lid || (jid.includes("@lid") ? jid : "")).split("@")[0];
+        const name = p.DisplayName || p.displayName || p.notify || p.Notify || p.pushName || p.PushName || p.name || p.Name || p.verifiedName || p.VerifiedName || "";
         return {
           id: jid,
-          phone: phone || lid, // fallback to LID if no phone available
+          phone: phone || lid,
           lid,
           name,
-          isAdmin: p.admin === "admin" || p.Admin === "admin" || p.isAdmin === true || p.IsAdmin === true || p.role === "admin",
-          isSuperAdmin: p.admin === "superadmin" || p.Admin === "superadmin" || p.isSuperAdmin === true || p.IsSuperAdmin === true || p.role === "superadmin",
+          isAdmin: p.IsAdmin === true || p.isAdmin === true || p.admin === "admin" || p.Admin === "admin",
+          isSuperAdmin: p.IsSuperAdmin === true || p.isSuperAdmin === true || p.admin === "superadmin" || p.Admin === "superadmin",
         };
       });
 
