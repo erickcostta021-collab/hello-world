@@ -358,81 +358,71 @@ serve(async (req) => {
           
           let contactMap: Record<string, string> = {};
 
-          // Strategy 1: Individual /contact/info lookups (most compatible)
-          for (const phone of phones) {
-            if (Object.keys(contactMap).length >= phones.length) break;
-            const jid = phone + "@s.whatsapp.net";
-            const infoEndpoints = [
-              { method: "POST", url: `${baseUrl}/contact/info`, body: JSON.stringify({ jid }) },
-              { method: "POST", url: `${baseUrl}/contact/info`, body: JSON.stringify({ phone }) },
-              { method: "GET", url: `${baseUrl}/contact/info/${encodeURIComponent(jid)}`, body: null },
-              { method: "GET", url: `${baseUrl}/contact/${encodeURIComponent(jid)}`, body: null },
-              { method: "POST", url: `${baseUrl}/user/info`, body: JSON.stringify({ jid }) },
-            ];
-            for (const ep of infoEndpoints) {
-              try {
-                const fetchOpts: any = {
-                  method: ep.method,
-                  headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
-                };
-                if (ep.body) fetchOpts.body = ep.body;
-                const res = await fetch(ep.url, fetchOpts);
-                if (!res.ok) { await res.text(); continue; }
-                const text = await res.text();
-                try {
-                  const d = JSON.parse(text);
-                  const flat = d?.data || d;
-                  const name = flat?.PushName || flat?.pushName || flat?.notify || flat?.Notify || flat?.name || flat?.Name || flat?.VerifiedName || flat?.verifiedName || flat?.DisplayName || flat?.displayName || "";
-                  if (name) {
-                    contactMap[phone] = name;
-                    console.log(`[list-groups] ✅ Name for ${phone}: ${name} (via ${ep.method} ${ep.url})`);
-                    break;
-                  }
-                } catch { /* not json */ }
-              } catch { /* network error */ }
-            }
-          }
-
-          // Strategy 2: Batch /contact/check (if individual didn't work)
-          if (Object.keys(contactMap).length === 0) {
-            const batchEndpoints = [
-              { method: "POST", url: `${baseUrl}/contact/check`, body: { phones: phones.map((p: string) => p + "@s.whatsapp.net") } },
-              { method: "GET", url: `${baseUrl}/contact/check?phones=${phones.join(",")}`, body: null },
-              { method: "POST", url: `${baseUrl}/chat/contacts`, body: { phones } },
-            ];
-            for (const ep of batchEndpoints) {
-              try {
-                console.log(`[list-groups] Trying batch: ${ep.method} ${ep.url}`);
-                const fetchOpts: any = {
-                  method: ep.method,
-                  headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
-                };
-                if (ep.body) fetchOpts.body = JSON.stringify(ep.body);
-                const res = await fetch(ep.url, fetchOpts);
-                const rawText = await res.text();
-                console.log(`[list-groups] Batch response ${res.status}: ${rawText.substring(0, 500)}`);
-                if (!res.ok) continue;
-                const checkData = JSON.parse(rawText);
-                if (Array.isArray(checkData)) {
-                  for (const c of checkData) {
-                    const cPhone = (c.jid || c.JID || c.phone || c.Phone || c.id || "").split("@")[0];
-                    const cName = c.PushName || c.pushName || c.notify || c.name || c.Name || c.FullName || "";
-                    if (cPhone && cName) contactMap[cPhone] = cName;
-                  }
-                } else if (checkData && typeof checkData === "object") {
-                  for (const [key, val] of Object.entries(checkData)) {
-                    const cPhone = key.split("@")[0];
-                    const v = val as any;
-                    const cName = v?.PushName || v?.pushName || v?.notify || v?.name || v?.Name || "";
-                    if (cPhone && cName) contactMap[cPhone] = cName;
+          // Strategy 1: Try to get all contacts at once via GET endpoints
+          const getContactsEndpoints = [
+            `${baseUrl}/chat/getcontacts`,
+            `${baseUrl}/contact/getcontacts`,
+            `${baseUrl}/contacts`,
+          ];
+          for (const url of getContactsEndpoints) {
+            try {
+              console.log(`[list-groups] Trying GET ${url}`);
+              const res = await fetch(url, {
+                method: "GET",
+                headers: { "Accept": "application/json", "token": instanceData.uazapi_instance_token },
+              });
+              const text = await res.text();
+              console.log(`[list-groups] Response ${res.status}: ${text.substring(0, 800)}`);
+              if (!res.ok) continue;
+              const data = JSON.parse(text);
+              const contacts = Array.isArray(data) ? data : (data?.data || data?.contacts || data?.results || []);
+              if (Array.isArray(contacts) && contacts.length > 0) {
+                for (const c of contacts) {
+                  const cPhone = (c.id || c.jid || c.JID || c.phone || "").split("@")[0];
+                  const cName = c.PushName || c.pushName || c.notify || c.name || c.Name || c.FullName || c.DisplayName || "";
+                  if (cPhone && cName && phones.includes(cPhone)) {
+                    contactMap[cPhone] = cName;
                   }
                 }
                 if (Object.keys(contactMap).length > 0) {
-                  console.log(`[list-groups] ✅ Got ${Object.keys(contactMap).length} names from batch`);
+                  console.log(`[list-groups] ✅ Got ${Object.keys(contactMap).length} names from ${url}`);
                   break;
                 }
-              } catch (e) {
-                console.log(`[list-groups] Batch error: ${e}`);
+              }
+            } catch (e) { console.log(`[list-groups] Error: ${e}`); }
+          }
+
+          // Strategy 2: Individual lookups with logging
+          if (Object.keys(contactMap).length === 0) {
+            for (const phone of phones) {
+              const jid = phone + "@s.whatsapp.net";
+              const infoEndpoints = [
+                { method: "GET", url: `${baseUrl}/user/info/${encodeURIComponent(jid)}` },
+                { method: "GET", url: `${baseUrl}/contact/info/${encodeURIComponent(jid)}` },
+                { method: "POST", url: `${baseUrl}/user/info`, body: JSON.stringify({ jid }) },
+                { method: "POST", url: `${baseUrl}/contact/info`, body: JSON.stringify({ jid }) },
+              ];
+              for (const ep of infoEndpoints) {
+                try {
+                  console.log(`[list-groups] Trying ${ep.method} ${ep.url}`);
+                  const fetchOpts: any = {
+                    method: ep.method,
+                    headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
+                  };
+                  if ((ep as any).body) fetchOpts.body = (ep as any).body;
+                  const res = await fetch(ep.url, fetchOpts);
+                  const text = await res.text();
+                  console.log(`[list-groups] Response ${res.status}: ${text.substring(0, 300)}`);
+                  if (!res.ok) continue;
+                  const d = JSON.parse(text);
+                  const flat = d?.data || d;
+                  const name = flat?.PushName || flat?.pushName || flat?.notify || flat?.Notify || flat?.name || flat?.Name || flat?.VerifiedName || flat?.DisplayName || "";
+                  if (name) {
+                    contactMap[phone] = name;
+                    console.log(`[list-groups] ✅ Name for ${phone}: ${name}`);
+                    break;
+                  }
+                } catch (e) { console.log(`[list-groups] Error: ${e}`); }
               }
             }
           }
