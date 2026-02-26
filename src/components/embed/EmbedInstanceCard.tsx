@@ -22,11 +22,13 @@ import {
   UserPlus,
   User,
   Copy,
-  Link
+  Link,
+  Webhook,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmbedAssignUserDialog } from "./EmbedAssignUserDialog";
-
+import { WebhookConfigDialog } from "@/components/dashboard/WebhookConfigDialog";
+import { supabase } from "@/integrations/supabase/client";
 export interface EmbedInstance {
   id: string;
   instance_name: string;
@@ -66,7 +68,9 @@ export function EmbedInstanceCard({
   const [connecting, setConnecting] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
-
+  const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
+  const [webhookSaving, setWebhookSaving] = useState(false);
+  const [ignoreGroups, setIgnoreGroups] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -397,6 +401,38 @@ export function EmbedInstanceCard({
     setGhlUserName(userName);
   };
 
+  const handleSaveWebhook = async (params: {
+    webhookUrl: string;
+    ignoreGroups: boolean;
+    webhookEvents: string[];
+    createNew: boolean;
+    enabled: boolean;
+    webhookId?: string;
+    excludeMessages?: string;
+  }) => {
+    setWebhookSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("configure-webhook", {
+        body: {
+          instance_id: instance.id,
+          webhook_url_override: params.webhookUrl,
+          webhook_events: params.webhookEvents,
+          create_new: params.createNew,
+          enabled: params.enabled,
+          webhook_id: params.webhookId,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(params.createNew ? "Webhook criado!" : "Webhook atualizado!");
+      setWebhookDialogOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao configurar webhook: " + (err.message || ""));
+    } finally {
+      setWebhookSaving(false);
+    }
+  };
+
   const formatPhoneNumber = (phone: string) => {
     const cleaned = phone.replace(/\D/g, '');
     if (cleaned.length >= 12) {
@@ -494,6 +530,10 @@ export function EmbedInstanceCard({
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
+                    <Webhook className="h-4 w-4 mr-2" />
+                    Configurar Webhooks
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={async () => {
                     try {
@@ -642,6 +682,30 @@ export function EmbedInstanceCard({
         embedToken={embedToken}
         locationId={locationId}
         onAssigned={handleUserAssigned}
+      />
+      {/* Webhook Config Dialog */}
+      <WebhookConfigDialog
+        open={webhookDialogOpen}
+        onOpenChange={setWebhookDialogOpen}
+        instance={{
+          id: instance.id,
+          user_id: "",
+          subaccount_id: null,
+          instance_name: instance.instance_name,
+          uazapi_instance_token: instance.uazapi_instance_token,
+          instance_status: currentStatus,
+          webhook_url: null,
+          ignore_groups: ignoreGroups,
+          ghl_user_id: instance.ghl_user_id || null,
+          phone: connectedPhone,
+          profile_pic_url: profilePicUrl,
+          uazapi_base_url: instance.uazapi_base_url || null,
+          is_official_api: false,
+        }}
+        onSave={handleSaveWebhook}
+        isSaving={webhookSaving}
+        ignoreGroups={ignoreGroups}
+        onIgnoreGroupsChange={setIgnoreGroups}
       />
     </>
   );
