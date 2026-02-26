@@ -88,3 +88,6 @@ verify_jwt = false
 
 [functions.cleanup-command-uploads]
 verify_jwt = false
+
+[functions.configure-webhook]
+verify_jwt = false
