@@ -430,6 +430,7 @@ export async function updateWebhookOnApi(
   createNew?: boolean,
   enabled?: boolean,
   webhookId?: string,
+  excludeMessages?: string,
 ): Promise<void> {
   // Route through Edge Function to avoid CORS issues with direct UAZAPI calls
   // Only update the instance record if not creating a new (additional) webhook
@@ -449,6 +450,7 @@ export async function updateWebhookOnApi(
       webhook_url_override: createNew ? webhookUrl : undefined,
       enabled: enabled ?? true,
       webhook_id: webhookId,
+      exclude_messages: excludeMessages,
     },
   });
 
