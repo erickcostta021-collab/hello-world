@@ -38,6 +38,7 @@ interface WebhookConfigDialogProps {
     ignoreGroups: boolean;
     webhookEvents: string[];
     createNew: boolean;
+    enabled: boolean;
   }) => void;
   isSaving: boolean;
   ignoreGroups: boolean;
@@ -59,7 +60,7 @@ export function WebhookConfigDialog({
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEvents, setWebhookEvents] = useState<string[]>(["messages"]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  
+  const [webhookEnabled, setWebhookEnabled] = useState(true);
 
   // Fetch webhooks when dialog opens
   useEffect(() => {
@@ -82,10 +83,12 @@ export function WebhookConfigDialog({
         setActiveTab(fetched[0].id);
         setWebhookUrl(fetched[0].url);
         setWebhookEvents(fetched[0].events?.length > 0 ? fetched[0].events : ["messages"]);
+        setWebhookEnabled(fetched[0].enabled !== false);
       } else {
         setActiveTab("new");
         setWebhookUrl("");
         setWebhookEvents(["messages"]);
+        setWebhookEnabled(true);
       }
     } catch (err: any) {
       console.error("Failed to fetch webhooks:", err);
@@ -99,11 +102,13 @@ export function WebhookConfigDialog({
     if (tabId === "new") {
       setWebhookUrl("");
       setWebhookEvents(["messages"]);
+      setWebhookEnabled(true);
     } else {
       const wh = webhooks.find((w) => w.id === tabId);
       if (wh) {
         setWebhookUrl(wh.url);
         setWebhookEvents(wh.events?.length > 0 ? wh.events : ["messages"]);
+        setWebhookEnabled(wh.enabled !== false);
       }
     }
   };
@@ -121,6 +126,7 @@ export function WebhookConfigDialog({
       ignoreGroups,
       webhookEvents,
       createNew: isNew,
+      enabled: webhookEnabled,
     });
   };
 
@@ -210,6 +216,8 @@ export function WebhookConfigDialog({
                   onToggleEvent={toggleEvent}
                   ignoreGroups={ignoreGroups}
                   onIgnoreGroupsChange={onIgnoreGroupsChange}
+                  enabled={webhookEnabled}
+                  onEnabledChange={setWebhookEnabled}
                 />
 
                 <div className="flex justify-end gap-2">
@@ -233,6 +241,8 @@ export function WebhookConfigDialog({
                 onToggleEvent={toggleEvent}
                 ignoreGroups={ignoreGroups}
                 onIgnoreGroupsChange={onIgnoreGroupsChange}
+                enabled={webhookEnabled}
+                onEnabledChange={setWebhookEnabled}
               />
 
               <div className="flex justify-end gap-2">
@@ -261,6 +271,8 @@ function WebhookForm({
   onToggleEvent,
   ignoreGroups,
   onIgnoreGroupsChange,
+  enabled,
+  onEnabledChange,
 }: {
   webhookUrl: string;
   onWebhookUrlChange: (url: string) => void;
@@ -268,9 +280,19 @@ function WebhookForm({
   onToggleEvent: (event: string) => void;
   ignoreGroups: boolean;
   onIgnoreGroupsChange: (v: boolean) => void;
+  enabled: boolean;
+  onEnabledChange: (v: boolean) => void;
 }) {
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label htmlFor="webhook-enabled">Webhook Habilitado</Label>
+        <Switch
+          id="webhook-enabled"
+          checked={enabled}
+          onCheckedChange={onEnabledChange}
+        />
+      </div>
       <div className="space-y-2">
         <Label htmlFor="webhook-url">URL do Webhook</Label>
         <Input
