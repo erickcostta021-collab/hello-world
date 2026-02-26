@@ -29,7 +29,7 @@ interface UazapiWebhook {
 }
 
 const ALL_EVENTS = ["messages", "messages_update", "chats", "connection", "qrcode", "history", "call", "contacts", "presence", "groups", "labels", "chat_labels", "blocks", "leads", "sender"] as const;
-const EXCLUDE_OPTIONS = ["wasSentByApi", "wasNotSentByApi", "fromMeYes", "fromMeNo", "isGroupYes", "isGroupNo"] as const;
+const EXCLUDE_OPTIONS = ["wasSentByApi"] as const;
 
 interface WebhookConfigDialogProps {
   open: boolean;
