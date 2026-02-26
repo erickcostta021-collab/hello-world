@@ -283,9 +283,30 @@ export function useInstances(subaccountId?: string) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidateInstanceQueries(queryClient);
       toast.success("Instância criada com sucesso!");
+
+      // Auto-configure webhook with enabled: true
+      if (data) {
+        const webhookUrl = data.webhook_url || settings?.global_webhook_url || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-inbound`;
+        supabase.functions.invoke("configure-webhook", {
+          body: {
+            instance_id: data.id,
+            webhook_events: ["messages"],
+            create_new: false,
+            webhook_url_override: undefined,
+          },
+        }).then(({ data: result }) => {
+          if (result?.error) {
+            console.warn("Auto-configure webhook failed:", result.error);
+          } else {
+            console.log("✅ Webhook auto-configured for new instance");
+          }
+        }).catch((err) => {
+          console.warn("Auto-configure webhook error:", err);
+        });
+      }
     },
     onError: (error) => {
       toast.error("Erro ao criar instância: " + error.message);
