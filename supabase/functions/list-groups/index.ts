@@ -77,12 +77,37 @@ serve(async (req) => {
     // ---- Resolve base URL ----
     let baseUrl = instanceData.uazapi_base_url?.replace(/\/+$/, "");
     if (!baseUrl) {
+      // Try user's own settings
       const { data: settings } = await supabase
         .from("user_settings")
-        .select("uazapi_base_url")
+        .select("uazapi_base_url, shared_from_user_id")
         .eq("user_id", instanceData.user_id)
         .limit(1);
       baseUrl = settings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+
+      // Try shared (effective) user's settings
+      if (!baseUrl && settings?.[0]?.shared_from_user_id) {
+        const { data: sharedSettings } = await supabase
+          .from("user_settings")
+          .select("uazapi_base_url")
+          .eq("user_id", settings[0].shared_from_user_id)
+          .limit(1);
+        baseUrl = sharedSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+      }
+
+      // Last resort: any user with a configured base URL (admin fallback)
+      if (!baseUrl) {
+        const { data: anyUrl } = await supabase
+          .from("user_settings")
+          .select("uazapi_base_url, user_id")
+          .not("uazapi_base_url", "is", null)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        baseUrl = anyUrl?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+        if (baseUrl) {
+          console.log(`Using fallback base URL from user ${anyUrl?.[0]?.user_id}`);
+        }
+      }
     }
     if (!baseUrl) {
       return new Response(JSON.stringify({ error: "UAZAPI base URL not configured" }),
