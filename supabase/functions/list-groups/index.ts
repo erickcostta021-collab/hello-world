@@ -352,41 +352,63 @@ serve(async (req) => {
       const participantsWithoutName = participants.filter((p: any) => !p.name && p.phone);
       if (participantsWithoutName.length > 0) {
         try {
-          // Use /contact/check to batch-get PushNames
-          const phones = participantsWithoutName.map((p: any) => p.phone + "@s.whatsapp.net");
-          console.log(`[list-groups] Fetching names for ${phones.length} contacts via /contact/check`);
-          const checkRes = await fetch(`${baseUrl}/contact/check`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
-            body: JSON.stringify({ phones }),
-          });
-          if (checkRes.ok) {
-            const checkData = await checkRes.json();
-            console.log(`[list-groups] Contact check response keys: ${JSON.stringify(Object.keys(checkData || {})).substring(0, 200)}`);
-            // Response format varies: could be object keyed by JID or array
-            const contactMap: Record<string, string> = {};
-            if (Array.isArray(checkData)) {
-              for (const c of checkData) {
-                const cPhone = (c.jid || c.JID || c.phone || "").split("@")[0];
-                const cName = c.PushName || c.pushName || c.name || c.Name || "";
-                if (cPhone && cName) contactMap[cPhone] = cName;
+          // Try multiple endpoints to get contact names
+          const phones = participantsWithoutName.map((p: any) => p.phone);
+          console.log(`[list-groups] Fetching names for phones: ${JSON.stringify(phones)}`);
+          
+          // Try /contact/check first (wuzapi-style)
+          let contactMap: Record<string, string> = {};
+          const endpoints = [
+            { url: `${baseUrl}/contact/check`, body: { phones: phones.map((p: string) => p + "@s.whatsapp.net") } },
+            { url: `${baseUrl}/contact/check`, body: { phones } },
+            { url: `${baseUrl}/chat/contacts`, body: { phones } },
+          ];
+          
+          for (const ep of endpoints) {
+            try {
+              console.log(`[list-groups] Trying: POST ${ep.url}`);
+              const checkRes = await fetch(ep.url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
+                body: JSON.stringify(ep.body),
+              });
+              const rawText = await checkRes.text();
+              console.log(`[list-groups] Response ${checkRes.status}: ${rawText.substring(0, 500)}`);
+              
+              if (!checkRes.ok) continue;
+              
+              const checkData = JSON.parse(rawText);
+              if (Array.isArray(checkData)) {
+                for (const c of checkData) {
+                  const cPhone = (c.jid || c.JID || c.phone || c.Phone || c.id || "").split("@")[0];
+                  const cName = c.PushName || c.pushName || c.notify || c.name || c.Name || c.FullName || c.fullName || "";
+                  if (cPhone && cName) contactMap[cPhone] = cName;
+                }
+              } else if (checkData && typeof checkData === "object") {
+                for (const [key, val] of Object.entries(checkData)) {
+                  const cPhone = key.split("@")[0];
+                  const v = val as any;
+                  const cName = v?.PushName || v?.pushName || v?.notify || v?.name || v?.Name || v?.FullName || "";
+                  if (cPhone && cName) contactMap[cPhone] = cName;
+                }
               }
-            } else if (checkData && typeof checkData === "object") {
-              for (const [key, val] of Object.entries(checkData)) {
-                const cPhone = key.split("@")[0];
-                const v = val as any;
-                const cName = v?.PushName || v?.pushName || v?.name || v?.Name || v?.FullName || "";
-                if (cPhone && cName) contactMap[cPhone] = cName;
+              
+              if (Object.keys(contactMap).length > 0) {
+                console.log(`[list-groups] ✅ Got ${Object.keys(contactMap).length} names from ${ep.url}`);
+                break;
               }
+            } catch (e) {
+              console.log(`[list-groups] Error on ${ep.url}: ${e}`);
             }
-            // Apply names to participants
-            for (const p of participants) {
-              if (!p.name && contactMap[p.phone]) {
-                p.name = contactMap[p.phone];
-              }
-            }
-            console.log(`[list-groups] Resolved ${Object.keys(contactMap).length} contact names`);
           }
+          
+          // Apply names to participants
+          for (const p of participants) {
+            if (!p.name && contactMap[p.phone]) {
+              p.name = contactMap[p.phone];
+            }
+          }
+          console.log(`[list-groups] Final resolved names: ${JSON.stringify(contactMap)}`);
         } catch (e) {
           console.error("[list-groups] Failed to fetch contact names:", e);
         }
