@@ -266,13 +266,14 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
     }
   };
 
-  const handleSaveWebhook = ({ webhookUrl, ignoreGroups: ig, webhookEvents, createNew }: { webhookUrl: string; ignoreGroups: boolean; webhookEvents: string[]; createNew: boolean }) => {
+  const handleSaveWebhook = ({ webhookUrl, ignoreGroups: ig, webhookEvents, createNew, enabled }: { webhookUrl: string; ignoreGroups: boolean; webhookEvents: string[]; createNew: boolean; enabled: boolean }) => {
     updateInstanceWebhook.mutate({
       instance,
       webhookUrl,
       ignoreGroups: ig,
       webhookEvents,
       createNew,
+      enabled,
     });
     setWebhookDialogOpen(false);
   };
