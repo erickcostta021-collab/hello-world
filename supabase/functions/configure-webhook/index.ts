@@ -58,17 +58,37 @@ serve(async (req) => {
     const ignoreGroups = instance.ignore_groups ?? false;
 
     // Try multiple endpoints, methods, and payload formats (UAZAPI versions differ)
-    // Note: "Token" header with capital T is required by some versions
     const token = instance.uazapi_instance_token;
+
+    // Helper: check if response body confirms webhook was actually set
+    function webhookActuallySet(resText: string, targetUrl: string): boolean {
+      try {
+        const parsed = JSON.parse(resText);
+        // WuzAPI returns array — check if url was set
+        if (Array.isArray(parsed)) {
+          return parsed.some((w: any) => w.url === targetUrl || w.webhookURL === targetUrl);
+        }
+        // Object response — check common fields
+        if (parsed.url === targetUrl || parsed.webhookURL === targetUrl || parsed.webhook_url === targetUrl) return true;
+        if (parsed.success === true || parsed.status === "ok" || parsed.message?.toLowerCase().includes("success")) return true;
+        // If enabled is explicitly false and url is empty, it was NOT set
+        if (parsed.enabled === false && (!parsed.url || parsed.url === "")) return false;
+        // Generic 200 with no url field — assume success
+        return true;
+      } catch {
+        return true; // Can't parse — assume 200 means success
+      }
+    }
+
     const attempts = [
-      // WuzAPI / newer UAZAPI: /webhook with webhookURL
-      { path: "/webhook", method: "POST", payload: { webhookURL: webhookUrl }, headers: { "Token": token } },
-      { path: "/webhook", method: "POST", payload: { webhookURL: webhookUrl }, headers: { "token": token } },
-      { path: "/webhook", method: "PUT", payload: { webhookURL: webhookUrl }, headers: { "Token": token } },
-      // Try with "url" field
-      { path: "/webhook", method: "POST", payload: { url: webhookUrl }, headers: { "Token": token } },
-      { path: "/webhook", method: "POST", payload: { url: webhookUrl }, headers: { "token": token } },
-      // Instance webhook endpoints
+      // WuzAPI format: POST /webhook with url + enabled
+      { path: "/webhook", method: "POST", payload: { url: webhookUrl, enabled: true }, headers: { "Token": token } },
+      { path: "/webhook", method: "POST", payload: { url: webhookUrl, enabled: true }, headers: { "token": token } },
+      // WuzAPI with webhookURL key
+      { path: "/webhook", method: "POST", payload: { webhookURL: webhookUrl, enabled: true }, headers: { "Token": token } },
+      { path: "/webhook", method: "PUT", payload: { url: webhookUrl, enabled: true }, headers: { "Token": token } },
+      { path: "/webhook", method: "PUT", payload: { url: webhookUrl, enabled: true }, headers: { "token": token } },
+      // Instance webhook endpoints (other UAZAPI versions)
       { path: "/instance/webhook", method: "PUT", payload: { url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
       { path: "/instance/webhook", method: "POST", payload: { url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
       { path: "/instance/webhook", method: "PUT", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
@@ -101,12 +121,19 @@ serve(async (req) => {
         });
 
         const resText = await res.text();
-        console.log(`Response from ${method} ${path}: ${res.status} - ${resText.substring(0, 300)}`);
+        console.log(`Response from ${method} ${path}: ${res.status} - ${resText.substring(0, 500)}`);
 
         if (res.ok || res.status === 200) {
-          success = true;
-          console.log(`✅ Webhook configured via ${method} ${path}:`, { baseUrl, webhookUrl });
-          break;
+          // Validate that the webhook was actually applied
+          if (webhookActuallySet(resText, webhookUrl)) {
+            success = true;
+            console.log(`✅ Webhook configured via ${method} ${path}:`, { baseUrl, webhookUrl });
+            break;
+          } else {
+            console.log(`⚠️ Got 200 from ${method} ${path} but webhook not actually set, trying next...`);
+            lastError = `${method} ${path} returned 200 but webhook not applied`;
+            continue;
+          }
         }
         if (res.status === 404 || res.status === 405) continue;
 
