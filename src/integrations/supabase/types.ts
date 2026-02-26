@@ -569,6 +569,7 @@ export type Database = {
           ghl_conversation_provider_id: string
         }[]
       }
+      get_admin_webhook_url: { Args: never; Returns: string }
       get_effective_user_id: { Args: { p_user_id: string }; Returns: string }
       get_token_owner: { Args: { p_agency_token: string }; Returns: string }
       has_role: {

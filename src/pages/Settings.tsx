@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,16 @@ export default function Settings() {
   const [showTokens, setShowTokens] = useState(false);
   const [copiedTrackId, setCopiedTrackId] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+
+  // For non-admins, fetch the admin's webhook URL to display
+  const { data: adminWebhookUrl } = useQuery({
+    queryKey: ["admin-webhook-url"],
+    queryFn: async () => {
+      const { data } = await supabase.rpc("get_admin_webhook_url");
+      return data as string | null;
+    },
+    enabled: !isAdmin,
+  });
 
   // Open password dialog if navigated with state
   useEffect(() => {
@@ -334,7 +345,7 @@ export default function Settings() {
                     <Input
                       id="webhook-url"
                       type="text"
-                      value={formData.global_webhook_url}
+                      value={isAdmin ? formData.global_webhook_url : (adminWebhookUrl || formData.global_webhook_url)}
                       onChange={(e) => isAdmin && setFormData({ ...formData, global_webhook_url: e.target.value })}
                       readOnly={!isAdmin}
                       placeholder="https://seu-webhook.com/endpoint"
@@ -347,12 +358,13 @@ export default function Settings() {
                         size="icon"
                         className="border-border shrink-0"
                         onClick={() => {
-                          if (formData.global_webhook_url) {
-                            navigator.clipboard.writeText(formData.global_webhook_url);
+                          const url = adminWebhookUrl || formData.global_webhook_url;
+                          if (url) {
+                            navigator.clipboard.writeText(url);
                             toast.success("Webhook URL copiado!");
                           }
                         }}
-                        disabled={!formData.global_webhook_url}
+                        disabled={!(adminWebhookUrl || formData.global_webhook_url)}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
