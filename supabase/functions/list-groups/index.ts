@@ -325,12 +325,14 @@ serve(async (req) => {
 
       const data = result.data;
       const rawParticipants = data.participants || data.Participants || data.members || data.Members || data.data?.participants || data.data?.Participants || [];
-      const participants: Participant[] = rawParticipants.map((p: any) => {
+      const participants = rawParticipants.map((p: any) => {
         const jid = p.id || p.JID || p.jid || p.participant || "";
         const phone = jid.split("@")[0] || jid;
+        const name = p.notify || p.Notify || p.pushName || p.PushName || p.name || p.Name || p.verifiedName || p.VerifiedName || "";
         return {
           id: jid,
           phone,
+          name,
           isAdmin: p.admin === "admin" || p.Admin === "admin" || p.isAdmin === true || p.IsAdmin === true || p.role === "admin",
           isSuperAdmin: p.admin === "superadmin" || p.Admin === "superadmin" || p.isSuperAdmin === true || p.IsSuperAdmin === true || p.role === "superadmin",
         };
