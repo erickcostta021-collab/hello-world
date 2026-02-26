@@ -79,17 +79,21 @@ serve(async (req) => {
       }
     }
 
-    // When create_new = true, only use POST methods (to add, not replace)
+    // When create_new = true, use "add" endpoints to create an additional webhook
     const attempts = create_new
       ? [
+          // Try dedicated "add" endpoints first
+          { path: "/webhook/add", method: "POST", payload: { url: webhookUrl, enabled: true, events }, headers: { "Token": token } },
+          { path: "/webhook/add", method: "POST", payload: { url: webhookUrl, enabled: true, events }, headers: { "token": token } },
+          { path: "/webhooks", method: "POST", payload: { url: webhookUrl, enabled: true, events }, headers: { "Token": token } },
+          { path: "/webhooks", method: "POST", payload: { url: webhookUrl, enabled: true, events }, headers: { "token": token } },
+          // Try /webhook with explicit "add" action in body
+          { path: "/webhook", method: "POST", payload: { url: webhookUrl, enabled: true, events, action: "add" }, headers: { "Token": token } },
+          { path: "/webhook", method: "POST", payload: { url: webhookUrl, enabled: true, events, action: "add" }, headers: { "token": token } },
+          // Fallback: regular POST (some versions may auto-add)
           { path: "/webhook", method: "POST", payload: { url: webhookUrl, enabled: true, events }, headers: { "Token": token } },
           { path: "/webhook", method: "POST", payload: { url: webhookUrl, enabled: true, events }, headers: { "token": token } },
-          { path: "/webhook", method: "POST", payload: { webhookURL: webhookUrl, enabled: true, events }, headers: { "Token": token } },
           { path: "/instance/webhook", method: "POST", payload: { url: webhookUrl, ignore_groups: ignoreGroups, events }, headers: { "token": token } },
-          { path: "/instance/webhook", method: "POST", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups, events }, headers: { "token": token } },
-          { path: "/instance/webhook", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups, events }, headers: { "token": token } },
-          { path: "/instance/settings", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups, events }, headers: { "token": token } },
-          { path: "/webhook/set", method: "POST", payload: { webhook_url: webhookUrl, events }, headers: { "token": token } },
         ]
       : [
           { path: "/webhook", method: "POST", payload: { url: webhookUrl, enabled: true, events }, headers: { "Token": token } },
