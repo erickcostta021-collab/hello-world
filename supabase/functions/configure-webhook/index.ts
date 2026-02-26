@@ -207,7 +207,46 @@ serve(async (req) => {
       });
     }
 
-    // Post-config: no extra enable attempts needed, the enabled flag was already sent in the payload
+    // Post-config: if excludeMessages was specified, do a dedicated update to ensure it sticks
+    if (excludeMessagesValue && excludeMessagesValue.length > 0) {
+      console.log(`Post-config: ensuring excludeMessages ${JSON.stringify(excludeMessagesValue)} is applied...`);
+      try {
+        // Fetch current webhooks to find the one we just created/updated by URL
+        const listRes = await fetch(`${baseUrl}/webhook`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json", "Token": token, "token": token },
+        });
+        if (listRes.ok) {
+          const listText = await listRes.text();
+          let webhookList: any[] = [];
+          try { webhookList = JSON.parse(listText); } catch {}
+          if (Array.isArray(webhookList)) {
+            const targetWh = webhook_id
+              ? webhookList.find((w: any) => w.id === webhook_id)
+              : webhookList.find((w: any) => w.url === webhookUrl);
+            if (targetWh?.id) {
+              console.log(`Found webhook ${targetWh.id}, patching excludeMessages...`);
+              const patchPayload = {
+                id: targetWh.id,
+                url: targetWh.url,
+                enabled: targetWh.enabled,
+                events: targetWh.events,
+                excludeMessages: excludeMessagesValue,
+              };
+              const patchRes = await fetch(`${baseUrl}/webhook`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Token": token, "token": token },
+                body: JSON.stringify(patchPayload),
+              });
+              const patchText = await patchRes.text();
+              console.log(`excludeMessages patch result: ${patchRes.status} - ${patchText.substring(0, 500)}`);
+            }
+          }
+        }
+      } catch (e: any) {
+        console.warn(`excludeMessages post-patch failed: ${e.message}`);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, create_new: !!create_new }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
