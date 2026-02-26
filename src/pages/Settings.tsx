@@ -373,7 +373,7 @@ export default function Settings() {
                   <p className="text-xs text-muted-foreground">
                     {isAdmin
                       ? "Ao salvar, este webhook será propagado para todos os usuários automaticamente."
-                      : "URL do webhook global configurado pelo administrador."}
+                      : "URL do webhook global configurado automaticamente."}
                   </p>
                 </div>
               </CardContent>
