@@ -896,7 +896,7 @@ try {
             if (catIndex === 0 && cmdIdx === 1) {
                 var divider = document.createElement('div');
                 divider.style.cssText = 'padding:8px 0 6px;margin-bottom:6px;border-top:1px solid #e5e7eb;margin-top:2px;';
-                divider.innerHTML = '<span style="font-size:12px;font-weight:700;color:#f59e0b;">� ️ Os comandos abaixo devem ser enviados dentro do grupo correspondente</span>';
+                divider.innerHTML = '<span style="font-size:12px;font-weight:700;color:#f59e0b;">⚠️ Os comandos abaixo devem ser enviados dentro do grupo correspondente</span>';
                 container.appendChild(divider);
             }
 
