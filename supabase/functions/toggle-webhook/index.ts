@@ -12,9 +12,9 @@ serve(async (req) => {
   }
 
   try {
-    const { instance_id, webhook_id } = await req.json();
-    if (!instance_id || !webhook_id) {
-      return new Response(JSON.stringify({ error: "instance_id and webhook_id required" }), {
+    const { instance_id, webhook_id, enabled } = await req.json();
+    if (!instance_id || !webhook_id || typeof enabled !== "boolean") {
+      return new Response(JSON.stringify({ error: "instance_id, webhook_id and enabled (boolean) required" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -47,38 +47,39 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     const token = instance.uazapi_instance_token;
 
-    const deleteAttempts = [
-      { path: `/webhook/${webhook_id}`, method: "DELETE", headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "DELETE", headers: { "token": token } },
-      { path: `/webhooks/${webhook_id}`, method: "DELETE", headers: { "Token": token } },
-      { path: `/webhooks/${webhook_id}`, method: "DELETE", headers: { "token": token } },
-      { path: `/webhook/delete`, method: "POST", payload: { id: webhook_id }, headers: { "Token": token } },
-      { path: `/webhook/delete`, method: "POST", payload: { id: webhook_id }, headers: { "token": token } },
-      { path: `/webhook`, method: "DELETE", payload: { id: webhook_id }, headers: { "Token": token } },
-      { path: `/webhook`, method: "DELETE", payload: { id: webhook_id }, headers: { "token": token } },
+    const payload = { id: webhook_id, enabled };
+
+    const attempts = [
+      { path: `/webhook/${webhook_id}`, method: "PUT", headers: { "Token": token } },
+      { path: `/webhook/${webhook_id}`, method: "PUT", headers: { "token": token } },
+      { path: `/webhook/${webhook_id}`, method: "PATCH", headers: { "Token": token } },
+      { path: `/webhook/${webhook_id}`, method: "PATCH", headers: { "token": token } },
+      { path: `/webhook`, method: "PUT", headers: { "Token": token } },
+      { path: `/webhook`, method: "PUT", headers: { "token": token } },
+      { path: `/webhook`, method: "POST", headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", headers: { "token": token } },
+      { path: `/webhooks/${webhook_id}`, method: "PUT", headers: { "Token": token } },
+      { path: `/webhooks/${webhook_id}`, method: "PATCH", headers: { "token": token } },
     ];
 
     let success = false;
     let lastError = "";
 
-    for (const attempt of deleteAttempts) {
+    for (const attempt of attempts) {
       try {
         const url = `${baseUrl}${attempt.path}`;
-        console.log(`Trying to delete webhook: ${attempt.method} ${url}`);
-        const fetchOpts: RequestInit = {
+        console.log(`Trying to toggle webhook: ${attempt.method} ${url} enabled=${enabled}`);
+        const res = await fetch(url, {
           method: attempt.method,
           headers: { "Content-Type": "application/json", ...attempt.headers },
-        };
-        if ((attempt as any).payload) {
-          fetchOpts.body = JSON.stringify((attempt as any).payload);
-        }
-        const res = await fetch(url, fetchOpts);
+          body: JSON.stringify(payload),
+        });
         const resText = await res.text();
         console.log(`Response: ${res.status} - ${resText.substring(0, 300)}`);
 
         if (res.ok) {
           success = true;
-          console.log(`✅ Webhook ${webhook_id} deleted via ${attempt.method} ${attempt.path}`);
+          console.log(`✅ Webhook ${webhook_id} toggled to enabled=${enabled}`);
           break;
         }
         if (res.status === 404 || res.status === 405) continue;
@@ -90,13 +91,13 @@ serve(async (req) => {
     }
 
     if (!success) {
-      return new Response(JSON.stringify({ error: `Failed to delete webhook: ${lastError}` }), {
+      return new Response(JSON.stringify({ error: `Failed to toggle webhook: ${lastError}` }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, enabled }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
