@@ -301,12 +301,23 @@ function WebhookForm({
   excludeMessages: string[];
   onExcludeMessagesChange: (v: string[]) => void;
 }) {
+  const MUTUALLY_EXCLUSIVE: Record<string, string> = {
+    wasSentByApi: "wasNotSentByApi",
+    wasNotSentByApi: "wasSentByApi",
+    fromMeYes: "fromMeNo",
+    fromMeNo: "fromMeYes",
+    isGroupYes: "isGroupNo",
+    isGroupNo: "isGroupYes",
+  };
+
   const toggleExclude = (option: string) => {
-    onExcludeMessagesChange(
-      excludeMessages.includes(option)
-        ? excludeMessages.filter((e) => e !== option)
-        : [...excludeMessages, option]
-    );
+    if (excludeMessages.includes(option)) {
+      onExcludeMessagesChange(excludeMessages.filter((e) => e !== option));
+    } else {
+      const opposite = MUTUALLY_EXCLUSIVE[option];
+      const filtered = opposite ? excludeMessages.filter((e) => e !== opposite) : excludeMessages;
+      onExcludeMessagesChange([...filtered, option]);
+    }
   };
 
   return (
