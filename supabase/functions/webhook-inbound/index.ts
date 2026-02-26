@@ -1481,6 +1481,27 @@ serve(async (req) => {
     // The "sender" field often contains internal LID (linked ID) which is NOT a valid phone
     const from = chatData.wa_chatid || messageData.chatid || eventData.Chat || messageData.sender || "";
     const instanceToken = body.token || body.instanceToken || messageData.instanceToken || "";
+
+    // ================================================================
+    // EARLY GATE: reject immediately if instance token is not registered
+    // This avoids wasting resources on dedup, signature, and processing
+    // for instances that were removed or never registered.
+    // ================================================================
+    if (instanceToken) {
+      const { data: tokenCheck } = await supabase
+        .from("instances")
+        .select("id")
+        .eq("uazapi_instance_token", instanceToken)
+        .maybeSingle();
+
+      if (!tokenCheck) {
+        console.log("⛔ Early gate: instance not registered, ignoring webhook for token:", instanceToken?.substring(0, 8));
+        return new Response(
+          JSON.stringify({ received: true, ignored: true, reason: "instance_not_registered" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
     
     // Check if message was sent by the connected WhatsApp instance (fromMe)
     const isFromMeCheck = messageData.fromMe === true;
