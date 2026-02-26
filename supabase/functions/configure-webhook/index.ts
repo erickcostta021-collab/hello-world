@@ -58,28 +58,36 @@ serve(async (req) => {
     const ignoreGroups = instance.ignore_groups ?? false;
 
     // Try multiple endpoints, methods, and payload formats (UAZAPI versions differ)
+    // Note: "Token" header with capital T is required by some versions
+    const token = instance.uazapi_instance_token;
     const attempts = [
-      // Try with "url" field (some versions expect this)
-      { path: "/instance/webhook", method: "PUT", payload: { url: webhookUrl, ignore_groups: ignoreGroups } },
-      { path: "/instance/webhook", method: "POST", payload: { url: webhookUrl, ignore_groups: ignoreGroups } },
-      // Try with "webhook" field 
-      { path: "/instance/webhook", method: "PUT", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups } },
-      { path: "/instance/webhook", method: "POST", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups } },
-      // Try settings endpoint
-      { path: "/instance/settings", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-      { path: "/instance/settings", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-      { path: "/instance/settings", method: "PATCH", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-      // Standard webhook_url field
-      { path: "/instance/webhook", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-      { path: "/instance/webhook", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-      { path: "/webhook/set", method: "PUT", payload: { webhook_url: webhookUrl } },
-      { path: "/webhook/set", method: "POST", payload: { webhook_url: webhookUrl } },
+      // WuzAPI / newer UAZAPI: /webhook with webhookURL
+      { path: "/webhook", method: "POST", payload: { webhookURL: webhookUrl }, headers: { "Token": token } },
+      { path: "/webhook", method: "POST", payload: { webhookURL: webhookUrl }, headers: { "token": token } },
+      { path: "/webhook", method: "PUT", payload: { webhookURL: webhookUrl }, headers: { "Token": token } },
+      // Try with "url" field
+      { path: "/webhook", method: "POST", payload: { url: webhookUrl }, headers: { "Token": token } },
+      { path: "/webhook", method: "POST", payload: { url: webhookUrl }, headers: { "token": token } },
+      // Instance webhook endpoints
+      { path: "/instance/webhook", method: "PUT", payload: { url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      { path: "/instance/webhook", method: "POST", payload: { url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      { path: "/instance/webhook", method: "PUT", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      { path: "/instance/webhook", method: "POST", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      // Settings endpoint
+      { path: "/instance/settings", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      { path: "/instance/settings", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      { path: "/instance/settings", method: "PATCH", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      // webhook_url field variants
+      { path: "/instance/webhook", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      { path: "/instance/webhook", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups }, headers: { "token": token } },
+      { path: "/webhook/set", method: "PUT", payload: { webhook_url: webhookUrl }, headers: { "token": token } },
+      { path: "/webhook/set", method: "POST", payload: { webhook_url: webhookUrl }, headers: { "token": token } },
     ];
 
     let success = false;
     let lastError = "";
 
-    for (const { path, method, payload } of attempts) {
+    for (const { path, method, payload, headers: attemptHeaders } of attempts) {
       try {
         const url = `${baseUrl}${path}`;
         console.log(`Trying webhook config: ${method} ${url}`, JSON.stringify(payload));
@@ -87,7 +95,7 @@ serve(async (req) => {
           method,
           headers: {
             "Content-Type": "application/json",
-            "token": instance.uazapi_instance_token,
+            ...attemptHeaders,
           },
           body: JSON.stringify(payload),
         });
