@@ -95,16 +95,18 @@ serve(async (req) => {
             webhooks = Array.isArray(parsed.webhook) ? parsed.webhook : [parsed.webhook];
           }
 
-          // Normalize each webhook object
-          const normalized = webhooks.map((w: any, idx: number) => ({
-            id: w.id || w._id || `webhook-${idx}`,
-            url: w.url || w.webhookURL || w.webhook_url || w.webhook || "",
-            enabled: w.enabled !== false,
-            events: w.events || w.listen_events || [],
-            addUrlEvents: w.addUrlEvents ?? false,
-            addUrlTypesMessages: w.addUrlTypesMessages ?? false,
-            excludeMessages: w.excludeMessages || w.exclude_messages || "",
-          }));
+          // Normalize each webhook object and filter out "deleted" ones (empty URL)
+          const normalized = webhooks
+            .map((w: any, idx: number) => ({
+              id: w.id || w._id || `webhook-${idx}`,
+              url: w.url || w.webhookURL || w.webhook_url || w.webhook || "",
+              enabled: w.enabled !== false,
+              events: w.events || w.listen_events || [],
+              addUrlEvents: w.addUrlEvents ?? false,
+              addUrlTypesMessages: w.addUrlTypesMessages ?? false,
+              excludeMessages: w.excludeMessages || w.exclude_messages || "",
+            }))
+            .filter((w: any) => w.url && w.url.trim() !== "");
 
           if (normalized.length > 0 || path === "/webhook") {
             return new Response(JSON.stringify({ webhooks: normalized }), {
