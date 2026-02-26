@@ -366,8 +366,8 @@ export function useInstances(subaccountId?: string) {
 
   // ── Webhook / Config Mutations ──────────────────────────────────────
   const updateInstanceWebhook = useMutation({
-    mutationFn: async ({ instance, webhookUrl, ignoreGroups, webhookEvents }: { instance: Instance; webhookUrl: string; ignoreGroups: boolean; webhookEvents?: string[] }) => {
-      await updateWebhookOnApi(instance, webhookUrl, ignoreGroups, globalBaseUrl, webhookEvents);
+    mutationFn: async ({ instance, webhookUrl, ignoreGroups, webhookEvents, createNew }: { instance: Instance; webhookUrl: string; ignoreGroups: boolean; webhookEvents?: string[]; createNew?: boolean }) => {
+      await updateWebhookOnApi(instance, webhookUrl, ignoreGroups, globalBaseUrl, webhookEvents, createNew);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["instances"] });

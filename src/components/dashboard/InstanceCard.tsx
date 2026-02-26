@@ -268,12 +268,13 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
     }
   };
 
-  const handleSaveWebhook = () => {
+  const handleSaveWebhook = (createNew = false) => {
     updateInstanceWebhook.mutate({
       instance,
       webhookUrl,
       ignoreGroups,
       webhookEvents,
+      createNew,
     });
     setWebhookDialogOpen(false);
   };
@@ -665,7 +666,11 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
             <Button variant="outline" onClick={() => setWebhookDialogOpen(false)} className="border-border">
               Cancelar
             </Button>
-            <Button onClick={handleSaveWebhook} disabled={updateInstanceWebhook.isPending}>
+            <Button variant="outline" onClick={() => handleSaveWebhook(true)} disabled={updateInstanceWebhook.isPending} className="border-primary/50 text-primary hover:bg-primary/10">
+              {updateInstanceWebhook.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar como Novo
+            </Button>
+            <Button onClick={() => handleSaveWebhook(false)} disabled={updateInstanceWebhook.isPending}>
               {updateInstanceWebhook.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
             </Button>
