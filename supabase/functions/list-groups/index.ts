@@ -28,6 +28,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { instanceId, locationId, groupjid } = body;
+    console.log("[list-groups] Received:", { instanceId, locationId, groupjid: groupjid?.substring(0, 20) });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
