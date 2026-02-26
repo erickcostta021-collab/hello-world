@@ -427,11 +427,52 @@ export async function updateWebhookOnApi(
   globalBaseUrl?: string | null,
 ): Promise<void> {
   const base = getBaseUrlForInstance(instance, globalBaseUrl);
-  await fetch(`${base}/instance/webhook`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-    body: JSON.stringify({ webhook_url: webhookUrl, ignore_groups: ignoreGroups }),
-  });
+
+  // Try multiple endpoint/method/payload combinations (UAZAPI versions differ)
+  const attempts = [
+    { path: "/instance/webhook", method: "PUT", payload: { url: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/webhook", method: "POST", payload: { url: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/webhook", method: "PUT", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/webhook", method: "POST", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/settings", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/settings", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/settings", method: "PATCH", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/webhook", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/instance/webhook", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
+    { path: "/webhook/set", method: "PUT", payload: { webhook_url: webhookUrl } },
+    { path: "/webhook/set", method: "POST", payload: { webhook_url: webhookUrl } },
+  ];
+
+  let success = false;
+  let lastError = "";
+
+  for (const { path, method, payload } of attempts) {
+    try {
+      console.log(`Trying webhook config: ${method} ${base}${path}`);
+      const res = await fetch(`${base}${path}`, {
+        method,
+        headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok || res.status === 200) {
+        console.log(`✅ Webhook configured via ${method} ${path}`);
+        success = true;
+        break;
+      }
+      if (res.status === 404 || res.status === 405) continue;
+
+      const text = await res.text();
+      lastError = `${res.status}: ${text.substring(0, 200)}`;
+    } catch (e: any) {
+      lastError = e.message || String(e);
+      continue;
+    }
+  }
+
+  if (!success) {
+    throw new Error(`Falha ao configurar webhook: ${lastError}`);
+  }
 }
 
 export async function reconfigureWebhookOnApi(
