@@ -47,15 +47,12 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     const token = instance.uazapi_instance_token;
 
-    // UAZAPI uses POST /webhook with action field
+    // UAZAPI: action "update" with url="" deletes the webhook (confirmed working)
     const deleteAttempts = [
-      { path: `/webhook`, method: "POST", payload: { action: "remove", id: webhook_id }, headers: { "Token": token } },
-      { path: `/webhook`, method: "POST", payload: { action: "remove", id: webhook_id }, headers: { "token": token } },
-      { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "Token": token } },
-      { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "token": token } },
-      // Try disabling as fallback
       { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
       { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "token": token } },
     ];
 
     let success = false;

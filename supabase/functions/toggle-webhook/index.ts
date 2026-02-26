@@ -73,27 +73,21 @@ serve(async (req) => {
       });
     }
 
-    if (!currentWebhook.url) {
-      return new Response(JSON.stringify({ error: "Não é possível habilitar um webhook sem URL configurada" }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     console.log(`Current webhook: ${JSON.stringify(currentWebhook).substring(0, 500)}`);
 
-    // Step 2: Remove existing webhook
+    // Step 2: Remove existing webhook using action "update" with empty url (UAZAPI pattern)
     let removed = false;
     for (const headerKey of ["Token", "token"]) {
       try {
         const res = await fetch(`${baseUrl}/webhook`, {
           method: "POST",
           headers: { "Content-Type": "application/json", [headerKey]: token },
-          body: JSON.stringify({ action: "remove", id: webhook_id }),
+          body: JSON.stringify({ action: "update", id: webhook_id, url: "", enabled: false }),
         });
         const resText = await res.text();
         console.log(`Remove response (${headerKey}): ${res.status} - ${resText.substring(0, 300)}`);
-        if (res.ok) {
+        if (res.ok && !resText.includes('"Invalid action"')) {
           removed = true;
           break;
         }
