@@ -348,6 +348,50 @@ serve(async (req) => {
         };
       });
 
+      // Fetch contact names for participants that don't have a DisplayName
+      const participantsWithoutName = participants.filter((p: any) => !p.name && p.phone);
+      if (participantsWithoutName.length > 0) {
+        try {
+          // Use /contact/check to batch-get PushNames
+          const phones = participantsWithoutName.map((p: any) => p.phone + "@s.whatsapp.net");
+          console.log(`[list-groups] Fetching names for ${phones.length} contacts via /contact/check`);
+          const checkRes = await fetch(`${baseUrl}/contact/check`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
+            body: JSON.stringify({ phones }),
+          });
+          if (checkRes.ok) {
+            const checkData = await checkRes.json();
+            console.log(`[list-groups] Contact check response keys: ${JSON.stringify(Object.keys(checkData || {})).substring(0, 200)}`);
+            // Response format varies: could be object keyed by JID or array
+            const contactMap: Record<string, string> = {};
+            if (Array.isArray(checkData)) {
+              for (const c of checkData) {
+                const cPhone = (c.jid || c.JID || c.phone || "").split("@")[0];
+                const cName = c.PushName || c.pushName || c.name || c.Name || "";
+                if (cPhone && cName) contactMap[cPhone] = cName;
+              }
+            } else if (checkData && typeof checkData === "object") {
+              for (const [key, val] of Object.entries(checkData)) {
+                const cPhone = key.split("@")[0];
+                const v = val as any;
+                const cName = v?.PushName || v?.pushName || v?.name || v?.Name || v?.FullName || "";
+                if (cPhone && cName) contactMap[cPhone] = cName;
+              }
+            }
+            // Apply names to participants
+            for (const p of participants) {
+              if (!p.name && contactMap[p.phone]) {
+                p.name = contactMap[p.phone];
+              }
+            }
+            console.log(`[list-groups] Resolved ${Object.keys(contactMap).length} contact names`);
+          }
+        } catch (e) {
+          console.error("[list-groups] Failed to fetch contact names:", e);
+        }
+      }
+
       return new Response(JSON.stringify({
         success: true,
         instanceName: instanceData.instance_name,
