@@ -55,6 +55,7 @@ try {
                 { cmd: "#somenteadminedit", desc: "Só admins editam grupo", fields: [] },
                 { cmd: "#editliberado", desc: "Todos editam grupo", fields: [] },
                 { cmd: "#sairgrupo", desc: "Sair do grupo", fields: [] },
+                { cmd: "__members__", desc: "Listar membros do grupo", fields: [], customAction: "members", icon: "📋" },
             ]
         },
         {
@@ -130,12 +131,6 @@ try {
                 ], sep: ":", buildCmd: function(vals) { return "#" + vals[0] + ": " + vals[1]; } },
             ]
         },
-        {
-            name: "Membros",
-            icon: "📋",
-            commands: [],
-            customTab: "members"
-        }
     ];
 
     // ── Inject into GHL chat input and send ──
@@ -736,6 +731,13 @@ try {
     function renderMembersTab(container) {
         container.innerHTML = '';
 
+        var backBtn = document.createElement('button');
+        backBtn.className = 'bc-quick-btn';
+        backBtn.style.cssText += 'margin-bottom:12px;background:#f3f4f6;';
+        backBtn.innerHTML = '<span>◀</span> Voltar para Gerenciar Grupos';
+        backBtn.addEventListener('click', function() { renderCategory(0); });
+        container.appendChild(backBtn);
+
         var headerDiv = document.createElement('div');
         headerDiv.style.cssText = 'margin-bottom:12px;';
         headerDiv.innerHTML = '<span style="font-weight:700;font-size:14px;color:#111827;">👥 Membros do Grupo</span><p style="font-size:12px;color:#6b7280;margin:4px 0 0;">Lista os participantes do grupo atual.</p>';
@@ -875,10 +877,6 @@ try {
         container.innerHTML = '';
         var cat = CATEGORIES[catIndex];
 
-        if (cat.customTab === 'members') {
-            renderMembersTab(container);
-            return;
-        }
 
         cat.commands.forEach(function(cmd, cmdIdx) {
             if (catIndex === 0 && cmdIdx === 1) {
@@ -899,6 +897,16 @@ try {
             }
             if (cmd.customForm === 'carousel') {
                 renderCarouselForm(card);
+                container.appendChild(card);
+                return;
+            }
+
+            if (cmd.customAction === 'members') {
+                card.innerHTML = '<button class="bc-quick-btn" style="background:#f0f9ff;border-color:#bae6fd;"><span style="font-size:15px;">📋</span><div style="text-align:left;"><div style="font-weight:600;color:#0369a1;">Listar membros do grupo</div><div style="font-size:11px;color:#6b7280;">Exibe participantes, admins e donos</div></div></button>';
+                card.querySelector('.bc-quick-btn').addEventListener('click', function() {
+                    var container = document.getElementById('bc-content');
+                    if (container) renderMembersTab(container);
+                });
                 container.appendChild(card);
                 return;
             }
