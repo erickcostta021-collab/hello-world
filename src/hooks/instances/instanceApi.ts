@@ -4,6 +4,7 @@
  */
 
 import type { Database } from "@/integrations/supabase/types";
+import { supabase } from "@/integrations/supabase/client";
 
 type InstanceStatus = Database["public"]["Enums"]["instance_status"];
 
@@ -424,98 +425,37 @@ export async function updateWebhookOnApi(
   instance: Instance,
   webhookUrl: string,
   ignoreGroups: boolean,
-  globalBaseUrl?: string | null,
+  _globalBaseUrl?: string | null,
 ): Promise<void> {
-  const base = getBaseUrlForInstance(instance, globalBaseUrl);
+  // Route through Edge Function to avoid CORS issues with direct UAZAPI calls
+  // First update the instance record so the edge function picks up the new values
+  const { error: updateError } = await supabase
+    .from("instances")
+    .update({ webhook_url: webhookUrl, ignore_groups: ignoreGroups })
+    .eq("id", instance.id);
+  if (updateError) throw updateError;
 
-  // Try multiple endpoint/method/payload combinations (UAZAPI versions differ)
-  const attempts = [
-    { path: "/instance/webhook", method: "PUT", payload: { url: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/webhook", method: "POST", payload: { url: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/webhook", method: "PUT", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/webhook", method: "POST", payload: { webhook: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/settings", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/settings", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/settings", method: "PATCH", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/webhook", method: "PUT", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/instance/webhook", method: "POST", payload: { webhook_url: webhookUrl, ignore_groups: ignoreGroups } },
-    { path: "/webhook/set", method: "PUT", payload: { webhook_url: webhookUrl } },
-    { path: "/webhook/set", method: "POST", payload: { webhook_url: webhookUrl } },
-  ];
+  const { data, error } = await supabase.functions.invoke("configure-webhook", {
+    body: { instance_id: instance.id },
+  });
 
-  let success = false;
-  let lastError = "";
-
-  for (const { path, method, payload } of attempts) {
-    try {
-      console.log(`Trying webhook config: ${method} ${base}${path}`);
-      const res = await fetch(`${base}${path}`, {
-        method,
-        headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok || res.status === 200) {
-        console.log(`✅ Webhook configured via ${method} ${path}`);
-        success = true;
-        break;
-      }
-      if (res.status === 404 || res.status === 405) continue;
-
-      const text = await res.text();
-      lastError = `${res.status}: ${text.substring(0, 200)}`;
-    } catch (e: any) {
-      lastError = e.message || String(e);
-      continue;
-    }
-  }
-
-  if (!success) {
-    throw new Error(`Falha ao configurar webhook: ${lastError}`);
-  }
+  if (error) throw new Error(`Falha ao configurar webhook: ${error.message}`);
+  if (data?.error) throw new Error(`Falha ao configurar webhook: ${data.error}`);
 }
 
 export async function reconfigureWebhookOnApi(
   instance: Instance,
-  webhookUrl: string,
-  ignoreGroups: boolean,
-  globalBaseUrl?: string | null,
+  _webhookUrl: string,
+  _ignoreGroups: boolean,
+  _globalBaseUrl?: string | null,
 ): Promise<void> {
-  const base = getBaseUrlForInstance(instance, globalBaseUrl);
+  // Route through Edge Function to avoid CORS issues
+  const { data, error } = await supabase.functions.invoke("configure-webhook", {
+    body: { instance_id: instance.id },
+  });
 
-  const endpoints = [
-    { path: "/instance/webhook", method: "POST" },
-    { path: "/api/instance/webhook", method: "POST" },
-    { path: "/webhook/set", method: "POST" },
-  ];
-
-  let success = false;
-  let lastError = "";
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(`${base}${endpoint.path}`, {
-        method: endpoint.method,
-        headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-        body: JSON.stringify({ webhook_url: webhookUrl, ignore_groups: ignoreGroups }),
-      });
-
-      if (response.ok || response.status === 200) {
-        success = true;
-        break;
-      }
-      if (response.status === 404 || response.status === 405) continue;
-
-      const errorData = await response.json().catch(() => ({}));
-      lastError = errorData.message || `Erro ${response.status}`;
-    } catch {
-      continue;
-    }
-  }
-
-  if (!success) {
-    throw new Error(lastError || "Nenhum endpoint de webhook funcionou neste servidor UAZAPI");
-  }
+  if (error) throw new Error(`Falha ao reconfigurar webhook: ${error.message}`);
+  if (data?.error) throw new Error(`Falha ao reconfigurar webhook: ${data.error}`);
 }
 
 // ---------------------------------------------------------------------------
