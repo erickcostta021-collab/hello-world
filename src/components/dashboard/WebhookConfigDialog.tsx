@@ -29,6 +29,7 @@ interface UazapiWebhook {
 }
 
 const ALL_EVENTS = ["messages", "messages_update", "chats", "connection", "qrcode", "history", "call", "contacts", "presence", "groups", "labels", "chat_labels", "blocks", "leads", "sender"] as const;
+const EXCLUDE_OPTIONS = ["wasSentByApi", "wasNotSentByApi", "fromMeYes", "fromMeNo", "isGroupYes", "isGroupNo"] as const;
 
 interface WebhookConfigDialogProps {
   open: boolean;
@@ -41,6 +42,7 @@ interface WebhookConfigDialogProps {
     createNew: boolean;
     enabled: boolean;
     webhookId?: string;
+    excludeMessages?: string;
   }) => void;
   isSaving: boolean;
   ignoreGroups: boolean;
@@ -86,11 +88,13 @@ export function WebhookConfigDialog({
         setWebhookUrl(fetched[0].url);
         setWebhookEvents(fetched[0].events?.length > 0 ? fetched[0].events : ["messages"]);
         setWebhookEnabled(fetched[0].enabled !== false);
+        setExcludeMessages(fetched[0].excludeMessages ? fetched[0].excludeMessages.split(",").filter(Boolean) : []);
       } else {
         setActiveTab("new");
         setWebhookUrl("");
         setWebhookEvents(["messages"]);
         setWebhookEnabled(true);
+        setExcludeMessages([]);
       }
     } catch (err: any) {
       console.error("Failed to fetch webhooks:", err);
@@ -105,12 +109,14 @@ export function WebhookConfigDialog({
       setWebhookUrl("");
       setWebhookEvents(["messages"]);
       setWebhookEnabled(true);
+      setExcludeMessages([]);
     } else {
       const wh = webhooks.find((w) => w.id === tabId);
       if (wh) {
         setWebhookUrl(wh.url);
         setWebhookEvents(wh.events?.length > 0 ? wh.events : ["messages"]);
         setWebhookEnabled(wh.enabled !== false);
+        setExcludeMessages(wh.excludeMessages ? wh.excludeMessages.split(",").filter(Boolean) : []);
       }
     }
   };
@@ -130,6 +136,7 @@ export function WebhookConfigDialog({
       createNew: isNew,
       enabled: webhookEnabled,
       webhookId: isNew ? undefined : activeTab,
+      excludeMessages: excludeMessages.length > 0 ? excludeMessages.join(",") : undefined,
     });
   };
 
@@ -148,7 +155,7 @@ export function WebhookConfigDialog({
       setDeletingId(null);
     }
   };
-
+  const [excludeMessages, setExcludeMessages] = useState<string[]>([]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -221,6 +228,8 @@ export function WebhookConfigDialog({
                   onIgnoreGroupsChange={onIgnoreGroupsChange}
                   enabled={webhookEnabled}
                   onEnabledChange={setWebhookEnabled}
+                  excludeMessages={excludeMessages}
+                  onExcludeMessagesChange={setExcludeMessages}
                 />
 
                 <div className="flex justify-end gap-2">
@@ -246,6 +255,8 @@ export function WebhookConfigDialog({
                 onIgnoreGroupsChange={onIgnoreGroupsChange}
                 enabled={webhookEnabled}
                 onEnabledChange={setWebhookEnabled}
+                excludeMessages={excludeMessages}
+                onExcludeMessagesChange={setExcludeMessages}
               />
 
               <div className="flex justify-end gap-2">
@@ -276,6 +287,8 @@ function WebhookForm({
   onIgnoreGroupsChange,
   enabled,
   onEnabledChange,
+  excludeMessages,
+  onExcludeMessagesChange,
 }: {
   webhookUrl: string;
   onWebhookUrlChange: (url: string) => void;
@@ -285,7 +298,17 @@ function WebhookForm({
   onIgnoreGroupsChange: (v: boolean) => void;
   enabled: boolean;
   onEnabledChange: (v: boolean) => void;
+  excludeMessages: string[];
+  onExcludeMessagesChange: (v: string[]) => void;
 }) {
+  const toggleExclude = (option: string) => {
+    onExcludeMessagesChange(
+      excludeMessages.includes(option)
+        ? excludeMessages.filter((e) => e !== option)
+        : [...excludeMessages, option]
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -338,6 +361,33 @@ function WebhookForm({
           </div>
           <p className="text-xs text-muted-foreground">
             Selecione os tipos de eventos que deseja receber no webhook
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center justify-between w-full group">
+          <Label className="cursor-pointer">Excluir dos eventos escutados</Label>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 pt-2">
+          <div className="flex flex-wrap gap-2">
+            {EXCLUDE_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => toggleExclude(option)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  excludeMessages.includes(option)
+                    ? "bg-destructive text-destructive-foreground border-destructive"
+                    : "bg-secondary text-muted-foreground border-border hover:border-destructive/50"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Selecione os tipos de mensagens que deseja excluir do webhook
           </p>
         </CollapsibleContent>
       </Collapsible>
