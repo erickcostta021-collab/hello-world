@@ -233,13 +233,24 @@ serve(async (req) => {
                 events: targetWh.events,
                 excludeMessages: excludeMessagesValue,
               };
-              const patchRes = await fetch(`${baseUrl}/webhook`, {
-                method: "POST",
+              // Try PUT first (update), then POST as fallback
+              let patchRes = await fetch(`${baseUrl}/webhook`, {
+                method: "PUT",
                 headers: { "Content-Type": "application/json", "Token": token, "token": token },
                 body: JSON.stringify(patchPayload),
               });
-              const patchText = await patchRes.text();
-              console.log(`excludeMessages patch result: ${patchRes.status} - ${patchText.substring(0, 500)}`);
+              let patchText = await patchRes.text();
+              console.log(`excludeMessages PUT result: ${patchRes.status} - ${patchText.substring(0, 500)}`);
+              if (!patchRes.ok) {
+                console.log(`PUT failed, trying POST with id...`);
+                patchRes = await fetch(`${baseUrl}/webhook`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "Token": token, "token": token },
+                  body: JSON.stringify({ ...patchPayload, action: "update" }),
+                });
+                patchText = await patchRes.text();
+                console.log(`excludeMessages POST result: ${patchRes.status} - ${patchText.substring(0, 500)}`);
+              }
             }
           }
         }
