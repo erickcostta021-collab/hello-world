@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { CANONICAL_APP_ORIGIN, getOAuthRedirectUri } from "@/lib/canonicalOrigin";
+import { supabase } from "@/integrations/supabase/client";
 import { Save, Loader2, Eye, EyeOff, Info, CheckCircle2, Wand2, Copy, Check, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { RegisteredUsersPanel } from "@/components/settings/RegisteredUsersPanel";
@@ -68,6 +69,16 @@ export default function Settings() {
         onError: (err) => reject(err),
       });
     });
+
+    // If admin changed the global webhook URL, propagate to all users
+    if (isAdmin && formData.global_webhook_url) {
+      try {
+        await supabase.rpc("propagate_global_webhook", { p_webhook_url: formData.global_webhook_url });
+        toast.success("Webhook propagado para todos os usuários!");
+      } catch (err) {
+        console.error("Error propagating webhook:", err);
+      }
+    }
 
     // If global webhook URL is set, apply it to all instances
     if (formData.global_webhook_url) {
@@ -315,19 +326,42 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="webhook-url">
+                  <Label htmlFor="webhook-url" className="flex items-center gap-2">
                     Webhook URL Global (UAZAPI)
+                    {!isAdmin && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
                   </Label>
-                  <Input
-                    id="webhook-url"
-                    type="text"
-                    value={formData.global_webhook_url}
-                    onChange={(e) => setFormData({ ...formData, global_webhook_url: e.target.value })}
-                    placeholder="https://seu-webhook.com/endpoint"
-                    className="bg-secondary border-border"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="webhook-url"
+                      type="text"
+                      value={formData.global_webhook_url}
+                      onChange={(e) => isAdmin && setFormData({ ...formData, global_webhook_url: e.target.value })}
+                      readOnly={!isAdmin}
+                      placeholder="https://seu-webhook.com/endpoint"
+                      className={`bg-secondary border-border ${!isAdmin ? "cursor-default opacity-75" : ""}`}
+                    />
+                    {!isAdmin && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="border-border shrink-0"
+                        onClick={() => {
+                          if (formData.global_webhook_url) {
+                            navigator.clipboard.writeText(formData.global_webhook_url);
+                            toast.success("Webhook URL copiado!");
+                          }
+                        }}
+                        disabled={!formData.global_webhook_url}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    URL do webhook global que será configurado automaticamente na Uazapi ao salvar.
+                    {isAdmin
+                      ? "Ao salvar, este webhook será propagado para todos os usuários automaticamente."
+                      : "URL do webhook global configurado pelo administrador."}
                   </p>
                 </div>
               </CardContent>
