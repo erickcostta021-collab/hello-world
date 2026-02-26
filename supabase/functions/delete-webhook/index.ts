@@ -47,15 +47,26 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     const token = instance.uazapi_instance_token;
 
+    // UAZAPI returns 405 for DELETE methods, so we use POST/PUT to remove/disable webhooks
     const deleteAttempts = [
-      { path: `/webhook/${webhook_id}`, method: "DELETE", headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "DELETE", headers: { "token": token } },
-      { path: `/webhooks/${webhook_id}`, method: "DELETE", headers: { "Token": token } },
-      { path: `/webhooks/${webhook_id}`, method: "DELETE", headers: { "token": token } },
-      { path: `/webhook/delete`, method: "POST", payload: { id: webhook_id }, headers: { "Token": token } },
-      { path: `/webhook/delete`, method: "POST", payload: { id: webhook_id }, headers: { "token": token } },
-      { path: `/webhook`, method: "DELETE", payload: { id: webhook_id }, headers: { "Token": token } },
-      { path: `/webhook`, method: "DELETE", payload: { id: webhook_id }, headers: { "token": token } },
+      // Try removing by setting url to empty via PUT
+      { path: `/webhook/${webhook_id}`, method: "PUT", payload: { url: "", enabled: false }, headers: { "Token": token } },
+      { path: `/webhook/${webhook_id}`, method: "PUT", payload: { url: "", enabled: false }, headers: { "token": token } },
+      // Try PATCH
+      { path: `/webhook/${webhook_id}`, method: "PATCH", payload: { url: "", enabled: false }, headers: { "Token": token } },
+      { path: `/webhook/${webhook_id}`, method: "PATCH", payload: { url: "", enabled: false }, headers: { "token": token } },
+      // Try POST with remove action
+      { path: `/webhook/remove`, method: "POST", payload: { id: webhook_id }, headers: { "Token": token } },
+      { path: `/webhook/remove`, method: "POST", payload: { id: webhook_id }, headers: { "token": token } },
+      // Try POST to /webhook with id and empty url
+      { path: `/webhook`, method: "POST", payload: { id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
+      // Try PUT to /webhook with id
+      { path: `/webhook`, method: "PUT", payload: { id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
+      { path: `/webhook`, method: "PUT", payload: { id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
+      // Try DELETE as last resort
+      { path: `/webhook/${webhook_id}`, method: "DELETE", payload: null, headers: { "Token": token } },
+      { path: `/webhook/${webhook_id}`, method: "DELETE", payload: null, headers: { "token": token } },
     ];
 
     let success = false;
@@ -69,8 +80,8 @@ serve(async (req) => {
           method: attempt.method,
           headers: { "Content-Type": "application/json", ...attempt.headers },
         };
-        if ((attempt as any).payload) {
-          fetchOpts.body = JSON.stringify((attempt as any).payload);
+        if (attempt.payload) {
+          fetchOpts.body = JSON.stringify(attempt.payload);
         }
         const res = await fetch(url, fetchOpts);
         const resText = await res.text();
@@ -78,7 +89,7 @@ serve(async (req) => {
 
         if (res.ok) {
           success = true;
-          console.log(`✅ Webhook ${webhook_id} deleted via ${attempt.method} ${attempt.path}`);
+          console.log(`✅ Webhook ${webhook_id} deleted/disabled via ${attempt.method} ${attempt.path}`);
           break;
         }
         if (res.status === 404 || res.status === 405) continue;
@@ -90,7 +101,7 @@ serve(async (req) => {
     }
 
     if (!success) {
-      return new Response(JSON.stringify({ error: `Failed to delete webhook: ${lastError}` }), {
+      return new Response(JSON.stringify({ error: `Não foi possível remover o webhook. A UAZAPI pode não suportar exclusão direta. Tente desabilitar o webhook.` }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
