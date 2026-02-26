@@ -782,6 +782,17 @@ try {
             loadBtn.innerHTML = '<span>⏳</span> Carregando...';
             resultDiv.innerHTML = '';
 
+            // Get selected instance ID from bridge-switcher dropdown
+            var switcherSelect = document.getElementById('bridge-instance-selector');
+            var selectedInstanceId = switcherSelect ? switcherSelect.value : null;
+
+            var bodyPayload = { groupjid: groupjid };
+            if (selectedInstanceId && selectedInstanceId !== '...') {
+                bodyPayload.instanceId = selectedInstanceId;
+            } else {
+                bodyPayload.locationId = locationId;
+            }
+
             var url = 'https://jtabmlyjgtrgimnhvixb.supabase.co/functions/v1/list-groups';
             fetch(url, {
                 method: 'POST',
@@ -790,7 +801,7 @@ try {
                     'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0YWJtbHlqZ3RyZ2ltbmh2aXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMjM0MTYsImV4cCI6MjA4NDY5OTQxNn0.UmypVGfLvhgP_RNIYsIXL4Bd8xo6SXRb0noVVLDPk8E',
                     'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0YWJtbHlqZ3RyZ2ltbmh2aXhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxMjM0MTYsImV4cCI6MjA4NDY5OTQxNn0.UmypVGfLvhgP_RNIYsIXL4Bd8xo6SXRb0noVVLDPk8E'
                 },
-                body: JSON.stringify({ locationId: locationId, groupjid: groupjid })
+                body: JSON.stringify(bodyPayload)
             })
             .then(function(res) { return res.json(); })
             .then(function(data) {
