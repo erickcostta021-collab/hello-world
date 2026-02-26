@@ -47,19 +47,13 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     const token = instance.uazapi_instance_token;
 
-    const payload = { id: webhook_id, enabled };
-
+    // UAZAPI uses POST /webhook with action field
     const attempts = [
-      { path: `/webhook/${webhook_id}`, method: "PUT", headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "PUT", headers: { "token": token } },
-      { path: `/webhook/${webhook_id}`, method: "PATCH", headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "PATCH", headers: { "token": token } },
-      { path: `/webhook`, method: "PUT", headers: { "Token": token } },
-      { path: `/webhook`, method: "PUT", headers: { "token": token } },
-      { path: `/webhook`, method: "POST", headers: { "Token": token } },
-      { path: `/webhook`, method: "POST", headers: { "token": token } },
-      { path: `/webhooks/${webhook_id}`, method: "PUT", headers: { "Token": token } },
-      { path: `/webhooks/${webhook_id}`, method: "PATCH", headers: { "token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, enabled }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, enabled }, headers: { "token": token } },
+      // Try without action field but with id
+      { path: `/webhook/${webhook_id}`, method: "POST", payload: { enabled }, headers: { "Token": token } },
+      { path: `/webhook/${webhook_id}`, method: "POST", payload: { enabled }, headers: { "token": token } },
     ];
 
     let success = false;
@@ -68,16 +62,16 @@ serve(async (req) => {
     for (const attempt of attempts) {
       try {
         const url = `${baseUrl}${attempt.path}`;
-        console.log(`Trying to toggle webhook: ${attempt.method} ${url} enabled=${enabled}`);
+        console.log(`Trying to toggle webhook: ${attempt.method} ${url} payload=${JSON.stringify(attempt.payload)}`);
         const res = await fetch(url, {
           method: attempt.method,
           headers: { "Content-Type": "application/json", ...attempt.headers },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(attempt.payload),
         });
         const resText = await res.text();
         console.log(`Response: ${res.status} - ${resText.substring(0, 300)}`);
 
-        if (res.ok) {
+        if (res.ok && !resText.includes('"error"')) {
           success = true;
           console.log(`✅ Webhook ${webhook_id} toggled to enabled=${enabled}`);
           break;
@@ -91,7 +85,7 @@ serve(async (req) => {
     }
 
     if (!success) {
-      return new Response(JSON.stringify({ error: `Failed to toggle webhook: ${lastError}` }), {
+      return new Response(JSON.stringify({ error: `Não foi possível alterar o webhook: ${lastError}` }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

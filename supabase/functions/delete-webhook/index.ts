@@ -47,26 +47,15 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     const token = instance.uazapi_instance_token;
 
-    // UAZAPI returns 405 for DELETE methods, so we use POST/PUT to remove/disable webhooks
+    // UAZAPI uses POST /webhook with action field
     const deleteAttempts = [
-      // Try removing by setting url to empty via PUT
-      { path: `/webhook/${webhook_id}`, method: "PUT", payload: { url: "", enabled: false }, headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "PUT", payload: { url: "", enabled: false }, headers: { "token": token } },
-      // Try PATCH
-      { path: `/webhook/${webhook_id}`, method: "PATCH", payload: { url: "", enabled: false }, headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "PATCH", payload: { url: "", enabled: false }, headers: { "token": token } },
-      // Try POST with remove action
-      { path: `/webhook/remove`, method: "POST", payload: { id: webhook_id }, headers: { "Token": token } },
-      { path: `/webhook/remove`, method: "POST", payload: { id: webhook_id }, headers: { "token": token } },
-      // Try POST to /webhook with id and empty url
-      { path: `/webhook`, method: "POST", payload: { id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
-      { path: `/webhook`, method: "POST", payload: { id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
-      // Try PUT to /webhook with id
-      { path: `/webhook`, method: "PUT", payload: { id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
-      { path: `/webhook`, method: "PUT", payload: { id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
-      // Try DELETE as last resort
-      { path: `/webhook/${webhook_id}`, method: "DELETE", payload: null, headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "DELETE", payload: null, headers: { "token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "remove", id: webhook_id }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "remove", id: webhook_id }, headers: { "token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "delete", id: webhook_id }, headers: { "token": token } },
+      // Try disabling as fallback
+      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "Token": token } },
+      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, url: "", enabled: false }, headers: { "token": token } },
     ];
 
     let success = false;
@@ -75,21 +64,18 @@ serve(async (req) => {
     for (const attempt of deleteAttempts) {
       try {
         const url = `${baseUrl}${attempt.path}`;
-        console.log(`Trying to delete webhook: ${attempt.method} ${url}`);
-        const fetchOpts: RequestInit = {
+        console.log(`Trying to delete webhook: ${attempt.method} ${url} payload=${JSON.stringify(attempt.payload)}`);
+        const res = await fetch(url, {
           method: attempt.method,
           headers: { "Content-Type": "application/json", ...attempt.headers },
-        };
-        if (attempt.payload) {
-          fetchOpts.body = JSON.stringify(attempt.payload);
-        }
-        const res = await fetch(url, fetchOpts);
+          body: JSON.stringify(attempt.payload),
+        });
         const resText = await res.text();
         console.log(`Response: ${res.status} - ${resText.substring(0, 300)}`);
 
-        if (res.ok) {
+        if (res.ok && !resText.includes('"error"')) {
           success = true;
-          console.log(`✅ Webhook ${webhook_id} deleted/disabled via ${attempt.method} ${attempt.path}`);
+          console.log(`✅ Webhook ${webhook_id} removed via ${attempt.method} ${attempt.path}`);
           break;
         }
         if (res.status === 404 || res.status === 405) continue;
@@ -101,7 +87,7 @@ serve(async (req) => {
     }
 
     if (!success) {
-      return new Response(JSON.stringify({ error: `Não foi possível remover o webhook. A UAZAPI pode não suportar exclusão direta. Tente desabilitar o webhook.` }), {
+      return new Response(JSON.stringify({ error: `Não foi possível remover o webhook: ${lastError}` }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
