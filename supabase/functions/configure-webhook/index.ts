@@ -80,56 +80,45 @@ serve(async (req) => {
       }
     }
 
-    // If webhook_id is provided, try to update that specific webhook directly first
+    // If webhook_id is provided, update that specific webhook directly
     if (webhook_id && !create_new) {
       console.log(`Updating existing webhook ${webhook_id} with enabled=${enabledFlag}`);
       const updatePayload = { id: webhook_id, url: webhookUrl, enabled: enabledFlag, events };
-      const updateAttempts = [
-        { path: `/webhook`, method: "PUT", body: updatePayload },
-        { path: `/webhook`, method: "POST", body: updatePayload },
-        { path: `/webhook`, method: "PATCH", body: updatePayload },
-        { path: `/webhook/${webhook_id}`, method: "PUT", body: { url: webhookUrl, enabled: enabledFlag, events } },
-        { path: `/webhook/${webhook_id}`, method: "PATCH", body: { url: webhookUrl, enabled: enabledFlag, events } },
-        { path: `/webhook/${webhook_id}`, method: "POST", body: { url: webhookUrl, enabled: enabledFlag, events } },
-      ];
-      for (const attempt of updateAttempts) {
-        try {
-          const res = await fetch(`${baseUrl}${attempt.path}`, {
-            method: attempt.method,
-            headers: { "Content-Type": "application/json", "Token": token, "token": token },
-            body: JSON.stringify(attempt.body),
+      // POST /webhook with id in body is the known working pattern for this UAZAPI version
+      try {
+        const res = await fetch(`${baseUrl}/webhook`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Token": token, "token": token },
+          body: JSON.stringify(updatePayload),
+        });
+        const resText = await res.text();
+        console.log(`Update webhook POST /webhook: ${res.status} - ${resText.substring(0, 500)}`);
+        if (res.ok) {
+          console.log(`✅ Webhook ${webhook_id} updated (enabled=${enabledFlag})`);
+          return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
-          const resText = await res.text();
-          console.log(`Update attempt ${attempt.method} ${attempt.path}: ${res.status} - ${resText.substring(0, 500)}`);
-          if (res.ok) {
-            try {
-              const parsed = JSON.parse(resText);
-              // Check if the response confirms the update
-              if (Array.isArray(parsed)) {
-                const target = parsed.find((w: any) => w.id === webhook_id);
-                if (target && target.enabled === enabledFlag) {
-                  console.log(`✅ Webhook ${webhook_id} updated successfully (enabled=${enabledFlag})`);
-                  return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
-                    headers: { ...corsHeaders, "Content-Type": "application/json" },
-                  });
-                }
-              } else if (parsed.enabled === enabledFlag || parsed.success) {
-                console.log(`✅ Webhook ${webhook_id} updated successfully (enabled=${enabledFlag})`);
-                return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
-                  headers: { ...corsHeaders, "Content-Type": "application/json" },
-                });
-              }
-            } catch {
-              console.log(`✅ Webhook ${webhook_id} possibly updated (non-JSON response)`);
-              return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-              });
-            }
-          }
-          if (res.status === 404 || res.status === 405) continue;
-        } catch (e: any) {
-          console.warn(`Update attempt failed: ${e.message}`);
         }
+      } catch (e: any) {
+        console.warn(`Update via POST /webhook failed: ${e.message}`);
+      }
+      // Fallback: PUT /webhook
+      try {
+        const res = await fetch(`${baseUrl}/webhook`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "Token": token, "token": token },
+          body: JSON.stringify(updatePayload),
+        });
+        const resText = await res.text();
+        console.log(`Update webhook PUT /webhook: ${res.status} - ${resText.substring(0, 500)}`);
+        if (res.ok) {
+          console.log(`✅ Webhook ${webhook_id} updated via PUT (enabled=${enabledFlag})`);
+          return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (e: any) {
+        console.warn(`Update via PUT /webhook failed: ${e.message}`);
       }
       console.log(`Direct update of webhook ${webhook_id} failed, falling back to standard flow`);
     }
@@ -213,76 +202,7 @@ serve(async (req) => {
       });
     }
 
-    // After creating/configuring, ensure the webhook enabled state matches the request
-    if (enabledFlag) try {
-      // List all webhooks to find the one we just created/updated
-      const listRes = await fetch(`${baseUrl}/webhook`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", "Token": token, "token": token },
-      });
-      if (listRes.ok) {
-        const webhooks = await listRes.json();
-        if (Array.isArray(webhooks)) {
-          const target = webhooks.find((w: any) => w.url === webhookUrl);
-          if (target && target.id && target.enabled === false) {
-            console.log(`Webhook ${target.id} found but disabled, enabling it...`);
-            const enablePayload = { ...target, enabled: true, events };
-            const enableAttempts = [
-              // ID in body via PUT/POST /webhook (most likely for this UAZAPI version)
-              { path: `/webhook`, method: "PUT", body: { id: target.id, enabled: true, url: webhookUrl, events } },
-              { path: `/webhook`, method: "POST", body: { id: target.id, enabled: true, url: webhookUrl, events } },
-              { path: `/webhook`, method: "PATCH", body: { id: target.id, enabled: true, url: webhookUrl, events } },
-              // Full object update
-              { path: `/webhook`, method: "PUT", body: enablePayload },
-              { path: `/webhook`, method: "POST", body: enablePayload },
-              // ID in path
-              { path: `/webhook/${target.id}`, method: "PUT", body: { enabled: true } },
-              { path: `/webhook/${target.id}`, method: "PATCH", body: { enabled: true } },
-              { path: `/webhook/${target.id}`, method: "POST", body: { enabled: true } },
-            ];
-            for (const attempt of enableAttempts) {
-              try {
-                const enableRes = await fetch(`${baseUrl}${attempt.path}`, {
-                  method: attempt.method,
-                  headers: { "Content-Type": "application/json", "Token": token, "token": token },
-                  body: JSON.stringify(attempt.body),
-                });
-                const enableText = await enableRes.text();
-                console.log(`Enable attempt ${attempt.method} ${attempt.path}: ${enableRes.status} - ${enableText.substring(0, 500)}`);
-                if (enableRes.ok || enableRes.status === 200) {
-                  // Verify it actually got enabled by re-listing
-                  try {
-                    const parsed = JSON.parse(enableText);
-                    // Check if the response itself shows enabled
-                    if (parsed.enabled === true) {
-                      console.log(`✅ Webhook ${target.id} enabled via ${attempt.method} ${attempt.path}`);
-                      break;
-                    }
-                    // If response is array, check if our webhook is now enabled
-                    if (Array.isArray(parsed)) {
-                      const updated = parsed.find((w: any) => w.id === target.id);
-                      if (updated && updated.enabled === true) {
-                        console.log(`✅ Webhook ${target.id} enabled via ${attempt.method} ${attempt.path}`);
-                        break;
-                      }
-                    }
-                  } catch {
-                    // Non-JSON 200 response, assume success
-                    console.log(`✅ Webhook ${target.id} possibly enabled (non-JSON response)`);
-                    break;
-                  }
-                }
-                if (enableRes.status === 404 || enableRes.status === 405) continue;
-              } catch (e: any) {
-                console.warn(`Enable attempt failed: ${e.message}`);
-              }
-            }
-          }
-        }
-      }
-    } catch (e: any) {
-      console.warn("Post-config enable check failed:", e.message);
-    }
+    // Post-config: no extra enable attempts needed, the enabled flag was already sent in the payload
 
     return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, create_new: !!create_new }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
