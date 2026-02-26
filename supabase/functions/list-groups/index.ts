@@ -378,10 +378,14 @@ serve(async (req) => {
               const contacts = Array.isArray(data) ? data : (data?.data || data?.contacts || data?.results || []);
               if (Array.isArray(contacts) && contacts.length > 0) {
                 for (const c of contacts) {
-                  const cPhone = (c.id || c.jid || c.JID || c.phone || "").split("@")[0];
-                  const cName = c.PushName || c.pushName || c.notify || c.name || c.Name || c.FullName || c.DisplayName || "";
-                  if (cPhone && cName && phones.includes(cPhone)) {
-                    contactMap[cPhone] = cName;
+                  const cJid = c.id || c.jid || c.JID || c.phone || "";
+                  const cPhone = cJid.split("@")[0];
+                  const cName = c.contact_name || c.contact_FirstName || c.PushName || c.pushName || c.notify || c.name || c.Name || c.FullName || c.DisplayName || "";
+                  if (cPhone && cName) {
+                    // Match against our participant phones
+                    if (phones.includes(cPhone)) {
+                      contactMap[cPhone] = cName;
+                    }
                   }
                 }
                 if (Object.keys(contactMap).length > 0) {
