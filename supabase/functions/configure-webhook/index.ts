@@ -161,6 +161,59 @@ serve(async (req) => {
       });
     }
 
+    // After creating/configuring, ensure the webhook is enabled by finding its ID and PUTting enabled:true
+    try {
+      // List all webhooks to find the one we just created/updated
+      const listRes = await fetch(`${baseUrl}/webhook`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", "Token": token, "token": token },
+      });
+      if (listRes.ok) {
+        const webhooks = await listRes.json();
+        if (Array.isArray(webhooks)) {
+          const target = webhooks.find((w: any) => w.url === webhookUrl);
+          if (target && target.id && target.enabled === false) {
+            console.log(`Webhook ${target.id} found but disabled, enabling it...`);
+            // Try PUT /webhook/{id} to enable
+            const enableAttempts = [
+              { path: `/webhook/${target.id}`, method: "PUT" },
+              { path: `/webhook/${target.id}`, method: "PATCH" },
+              { path: `/webhook/update/${target.id}`, method: "PUT" },
+              { path: `/webhook/update/${target.id}`, method: "POST" },
+            ];
+            for (const attempt of enableAttempts) {
+              try {
+                const enableRes = await fetch(`${baseUrl}${attempt.path}`, {
+                  method: attempt.method,
+                  headers: { "Content-Type": "application/json", "Token": token, "token": token },
+                  body: JSON.stringify({ enabled: true, url: webhookUrl, events }),
+                });
+                const enableText = await enableRes.text();
+                console.log(`Enable attempt ${attempt.method} ${attempt.path}: ${enableRes.status} - ${enableText.substring(0, 300)}`);
+                if (enableRes.ok) {
+                  // Check if it actually got enabled
+                  try {
+                    const parsed = JSON.parse(enableText);
+                    if (parsed.enabled === true || parsed.success || enableRes.status === 200) {
+                      console.log(`✅ Webhook ${target.id} enabled successfully`);
+                      break;
+                    }
+                  } catch {
+                    console.log(`✅ Webhook ${target.id} enable response not JSON, assuming success`);
+                    break;
+                  }
+                }
+              } catch (e: any) {
+                console.warn(`Enable attempt failed: ${e.message}`);
+              }
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn("Post-config enable check failed:", e.message);
+    }
+
     return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, create_new: !!create_new }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
