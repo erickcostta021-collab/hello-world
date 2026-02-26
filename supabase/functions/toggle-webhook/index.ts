@@ -47,13 +47,50 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     const token = instance.uazapi_instance_token;
 
-    // UAZAPI uses POST /webhook with action field
+    // Step 1: Fetch current webhook data to get full object
+    let currentWebhook: any = null;
+    try {
+      const listRes = await fetch(`${baseUrl}/webhook`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", "Token": token },
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const webhooks = Array.isArray(listData) ? listData : (listData.webhooks || []);
+        currentWebhook = webhooks.find((w: any) => w.id === webhook_id || w._id === webhook_id);
+      }
+    } catch (e) {
+      console.log("Failed to fetch webhooks for pre-read:", e);
+    }
+
+    if (!currentWebhook) {
+      // Try with lowercase token
+      try {
+        const listRes = await fetch(`${baseUrl}/webhook`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json", "token": token },
+        });
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const webhooks = Array.isArray(listData) ? listData : (listData.webhooks || []);
+          currentWebhook = webhooks.find((w: any) => w.id === webhook_id || w._id === webhook_id);
+        }
+      } catch (e) {
+        console.log("Failed to fetch webhooks (lowercase token):", e);
+      }
+    }
+
+    // Build full payload with all existing fields + toggled enabled
+    const fullPayload = currentWebhook
+      ? { ...currentWebhook, enabled, action: "update" }
+      : { action: "update", id: webhook_id, enabled };
+
+    console.log(`Toggle payload: ${JSON.stringify(fullPayload).substring(0, 500)}`);
+
+    // Step 2: Send update with full object
     const attempts = [
-      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, enabled }, headers: { "Token": token } },
-      { path: `/webhook`, method: "POST", payload: { action: "update", id: webhook_id, enabled }, headers: { "token": token } },
-      // Try without action field but with id
-      { path: `/webhook/${webhook_id}`, method: "POST", payload: { enabled }, headers: { "Token": token } },
-      { path: `/webhook/${webhook_id}`, method: "POST", payload: { enabled }, headers: { "token": token } },
+      { headers: { "Token": token } },
+      { headers: { "token": token } },
     ];
 
     let success = false;
@@ -61,20 +98,34 @@ serve(async (req) => {
 
     for (const attempt of attempts) {
       try {
-        const url = `${baseUrl}${attempt.path}`;
-        console.log(`Trying to toggle webhook: ${attempt.method} ${url} payload=${JSON.stringify(attempt.payload)}`);
-        const res = await fetch(url, {
-          method: attempt.method,
+        const res = await fetch(`${baseUrl}/webhook`, {
+          method: "POST",
           headers: { "Content-Type": "application/json", ...attempt.headers },
-          body: JSON.stringify(attempt.payload),
+          body: JSON.stringify(fullPayload),
         });
         const resText = await res.text();
-        console.log(`Response: ${res.status} - ${resText.substring(0, 300)}`);
+        console.log(`Toggle response: ${res.status} - ${resText.substring(0, 500)}`);
 
-        if (res.ok && !resText.includes('"error"')) {
-          success = true;
-          console.log(`✅ Webhook ${webhook_id} toggled to enabled=${enabled}`);
-          break;
+        if (res.ok) {
+          // Verify the change actually took effect
+          try {
+            const parsed = JSON.parse(resText);
+            const resultWebhooks = Array.isArray(parsed) ? parsed : (parsed.webhooks || [parsed]);
+            const updated = resultWebhooks.find((w: any) => (w.id === webhook_id || w._id === webhook_id));
+            if (updated && updated.enabled === enabled) {
+              success = true;
+              console.log(`✅ Webhook ${webhook_id} confirmed toggled to enabled=${enabled}`);
+              break;
+            } else if (updated) {
+              console.log(`⚠️ Response OK but enabled=${updated.enabled}, expected=${enabled}`);
+              lastError = `Webhook not updated: enabled is still ${updated.enabled}`;
+              continue;
+            }
+          } catch {
+            // Can't parse, assume success if 200
+            success = true;
+            break;
+          }
         }
         if (res.status === 404 || res.status === 405) continue;
         lastError = `${res.status}: ${resText.substring(0, 200)}`;
