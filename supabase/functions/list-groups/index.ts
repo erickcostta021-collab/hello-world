@@ -213,8 +213,8 @@ serve(async (req) => {
     // ======== Helper: try group info on a specific server ========
     async function tryGroupInfoOnServer(serverUrl: string, token: string, gid: string): Promise<{ data: any; error: string }> {
       const endpoints = [
-        { url: `${serverUrl}/group/info`, method: "POST", body: { groupjid: gid, getInviteLink: false, getRequestsParticipants: true, force: false } },
-        { url: `${serverUrl}/group/info`, method: "POST", body: { jid: gid, getInviteLink: false } },
+        { url: `${serverUrl}/group/info`, method: "POST", body: { groupjid: gid, getInviteLink: false, getRequestsParticipants: true, force: true } },
+        { url: `${serverUrl}/group/info`, method: "POST", body: { jid: gid, getInviteLink: false, force: true } },
         { url: `${serverUrl}/group/${encodeURIComponent(gid)}`, method: "GET", body: null },
         { url: `${serverUrl}/group/metadata/${encodeURIComponent(gid)}`, method: "GET", body: null },
       ];
@@ -230,7 +230,7 @@ serve(async (req) => {
           if (ep.body) fetchOpts.body = JSON.stringify(ep.body);
           const response = await fetch(ep.url, fetchOpts);
           const text = await response.text();
-          console.log(`Response ${ep.method} ${ep.url}: ${response.status} - ${text.substring(0, 200)}`);
+          console.log(`Response ${ep.method} ${ep.url}: ${response.status} - ${text.substring(0, 1500)}`);
 
           if (response.status === 401) {
             lastError = "Invalid token";
@@ -325,13 +325,27 @@ serve(async (req) => {
 
       const data = result.data;
       const rawParticipants = data.participants || data.Participants || data.members || data.Members || data.data?.participants || data.data?.Participants || [];
+      
+      // Log first 2 raw participants to understand the data structure
+      if (rawParticipants.length > 0) {
+        console.log("[list-groups] Raw participant sample:", JSON.stringify(rawParticipants.slice(0, 2)));
+      }
+
       const participants = rawParticipants.map((p: any) => {
         const jid = p.id || p.JID || p.jid || p.participant || "";
-        const phone = jid.split("@")[0] || jid;
+        // Try to get actual phone number: prefer dedicated phone/pn fields, then fall back to JID
+        // LID format (e.g. 122578685394991@lid) is NOT a phone number
+        const rawPhone = jid.split("@")[0] || jid;
+        const isLid = jid.includes("@lid");
+        const phone = p.phone || p.Phone || p.pn || p.PN || p.number || p.Number || 
+                       p.wa_id || p.WaId || 
+                       (isLid ? "" : rawPhone);
+        const lid = isLid ? rawPhone : (p.lid || p.LID || "");
         const name = p.notify || p.Notify || p.pushName || p.PushName || p.name || p.Name || p.verifiedName || p.VerifiedName || "";
         return {
           id: jid,
-          phone,
+          phone: phone || lid, // fallback to LID if no phone available
+          lid,
           name,
           isAdmin: p.admin === "admin" || p.Admin === "admin" || p.isAdmin === true || p.IsAdmin === true || p.role === "admin",
           isSuperAdmin: p.admin === "superadmin" || p.Admin === "superadmin" || p.isSuperAdmin === true || p.IsSuperAdmin === true || p.role === "superadmin",
