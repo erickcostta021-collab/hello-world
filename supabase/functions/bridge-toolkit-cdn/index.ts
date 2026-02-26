@@ -6,7 +6,7 @@ const corsHeaders = {
 
 const BRIDGE_TOOLKIT_SCRIPT = `
 (function() {
-    console.log("🚀 Bridge Toolkit v23: Iniciando (Edit Button Fix)...");
+    console.log("🚀 Bridge Toolkit v24: Iniciando (Group Members)...");
 
     const BRIDGE_CONFIG = {
         supabase_url: 'https://jsupvprudyxyiyxwqxuq.supabase.co',
@@ -757,12 +757,12 @@ const BRIDGE_TOOLKIT_SCRIPT = `
             top: \${adjustedTop}px !important; 
             left: \${adjustedLeft}px !important; 
             z-index: 2147483647 !important; 
-            background: #ffffff !important; 
-            background-color: #ffffff !important;
+            background: #1e1e2e !important; 
+            background-color: #1e1e2e !important;
             border-radius: 12px !important; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; 
-            width: 240px !important; 
-            border: 1px solid #e0e0e0 !important; 
+            box-shadow: 0 4px 24px rgba(0,0,0,0.5) !important; 
+            width: 260px !important; 
+            border: 1px solid #333348 !important; 
             font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;
             pointer-events: auto !important;
             visibility: visible !important;
@@ -840,25 +840,37 @@ const BRIDGE_TOOLKIT_SCRIPT = `
         ];
         
         menu.innerHTML = \`
-            <div id="emoji-quick" style="display:flex !important; justify-content:space-around; align-items:center; padding:12px; border-bottom:1px solid #e0e0e0; background:#ffffff !important;">
-                \${quickEmojis.map(em => \`<span class="em-btn" style="cursor:pointer; font-size:22px; transition:transform 0.1s;" title="Reagir com \${em}">\${em}</span>\`).join('')}
-                <span id="emoji-expand" style="cursor:pointer; font-size:14px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; background:#9ca3af; color:white; border-radius:50%; transition:background 0.2s;" title="Mais emojis">+</span>
+            <div id="bridge-menu-main">
+                <div id="emoji-quick" style="display:flex !important; justify-content:space-around; align-items:center; padding:12px; border-bottom:1px solid #333348; background:#1e1e2e !important;">
+                    \${quickEmojis.map(em => \`<span class="em-btn" style="cursor:pointer; font-size:22px; transition:transform 0.1s;" title="Reagir com \${em}">\${em}</span>\`).join('')}
+                    <span id="emoji-expand" style="cursor:pointer; font-size:14px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; background:#444; color:white; border-radius:50%; transition:background 0.2s;" title="Mais emojis">+</span>
+                </div>
+                <div id="emoji-more" style="display:none; flex-wrap:wrap; justify-content:flex-start; gap:4px; padding:12px; border-bottom:1px solid #333348; max-height:200px; overflow-y:auto; background:#1e1e2e !important;">
+                    \${allEmojis.map(em => \`<span class="em-btn" style="cursor:pointer; font-size:20px; transition:transform 0.1s; padding:2px;" title="Reagir com \${em}">\${em}</span>\`).join('')}
+                </div>
+                <div class="menu-opt" data-act="reply" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition: background 0.2s; background:#1e1e2e !important; color:#e0e0e0 !important;"><span>↩️</span> Responder</div>
+                <div class="menu-opt" data-act="copy" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition: background 0.2s; background:#1e1e2e !important; color:#e0e0e0 !important;"><span>📋</span> Copiar</div>
+                \${isOutbound ? \`<div class="menu-opt" data-act="edit" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition: background 0.2s; background:#1e1e2e !important; color:#e0e0e0 !important;"><span>✏️</span> Editar</div>\` : ''}
+                \${isOutbound ? \`<div class="menu-opt" data-act="delete" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; color:#ef4444 !important; transition: background 0.2s; background:#1e1e2e !important;"><span>🗑️</span> Apagar</div>\` : ''}
+                <div class="menu-opt" data-act="members" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition: background 0.2s; background:#1e1e2e !important; color:#e0e0e0 !important; border-top:1px solid #333348;"><span>👥</span> Listar Membros</div>
             </div>
-            <div id="emoji-more" style="display:none; flex-wrap:wrap; justify-content:flex-start; gap:4px; padding:12px; border-bottom:1px solid #e0e0e0; max-height:200px; overflow-y:auto; background:#ffffff !important;">
-                \${allEmojis.map(em => \`<span class="em-btn" style="cursor:pointer; font-size:20px; transition:transform 0.1s; padding:2px;" title="Reagir com \${em}">\${em}</span>\`).join('')}
+            <div id="bridge-menu-members" style="display:none;">
+                <div style="padding:12px 16px; display:flex; align-items:center; gap:8px; border-bottom:1px solid #333348; background:#16161e !important;">
+                    <span id="bridge-members-back" style="cursor:pointer; font-size:18px; color:#8b8bae;">←</span>
+                    <span style="font-weight:600; color:#e0e0e0; font-size:14px;">👥 Membros do Grupo</span>
+                </div>
+                <div id="bridge-members-loading" style="padding:20px; text-align:center; color:#8b8bae; font-size:13px;">Carregando membros...</div>
+                <div id="bridge-members-list" style="display:none; max-height:300px; overflow-y:auto;"></div>
+                <div id="bridge-members-error" style="display:none; padding:16px; text-align:center; color:#ef4444; font-size:13px;"></div>
             </div>
-            <div class="menu-opt" data-act="reply" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition: background 0.2s; background:#ffffff !important; color:#333333 !important;"><span>↩️</span> Responder</div>
-            <div class="menu-opt" data-act="copy" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition: background 0.2s; background:#ffffff !important; color:#333333 !important;"><span>📋</span> Copiar</div>
-            \${isOutbound ? \`<div class="menu-opt" data-act="edit" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; transition: background 0.2s; background:#ffffff !important; color:#333333 !important;"><span>✏️</span> Editar</div>\` : ''}
-            \${isOutbound ? \`<div class="menu-opt" data-act="delete" style="padding:12px 16px; cursor:pointer; display:flex; align-items:center; gap:12px; color:#ef4444 !important; transition: background 0.2s; background:#ffffff !important;"><span>🗑️</span> Apagar</div>\` : ''}
         \`;
 
         document.body.appendChild(menu);
 
         // Hover effect
         menu.querySelectorAll('.menu-opt').forEach(opt => {
-            opt.addEventListener('mouseenter', () => opt.style.background = '#f5f5f5');
-            opt.addEventListener('mouseleave', () => opt.style.background = '#ffffff');
+            opt.addEventListener('mouseenter', () => opt.style.background = '#2a2a3e');
+            opt.addEventListener('mouseleave', () => opt.style.background = '#1e1e2e');
         });
 
         // Expand emoji button
@@ -872,7 +884,7 @@ const BRIDGE_TOOLKIT_SCRIPT = `
                 emojiExpanded = !emojiExpanded;
                 morePanel.style.display = emojiExpanded ? 'flex' : 'none';
                 expandBtn.innerText = emojiExpanded ? '➖' : '➕';
-                expandBtn.style.background = emojiExpanded ? '#e0e0e0' : '#f0f0f0';
+                expandBtn.style.background = emojiExpanded ? '#555' : '#444';
             };
         }
 
@@ -897,14 +909,131 @@ const BRIDGE_TOOLKIT_SCRIPT = `
             };
         });
 
+        // Back button for members view
+        const backBtn = menu.querySelector('#bridge-members-back');
+        if (backBtn) {
+            backBtn.onclick = (e) => {
+                e.stopPropagation();
+                menu.querySelector('#bridge-menu-members').style.display = 'none';
+                menu.querySelector('#bridge-menu-main').style.display = 'block';
+            };
+        }
+
+        // Helper: extract groupjid from email field
+        const extractGroupJid = () => {
+            // Same logic as bridge-switcher: look for email input with @g.us value
+            const inputs = document.querySelectorAll('input.hr-input__input-el, input[type="text"], input[type="email"]');
+            for (const input of inputs) {
+                const val = (input.value || '').trim();
+                if (val.includes('@g.us')) {
+                    console.log("👥 Bridge: Found groupjid from email field:", val);
+                    return val;
+                }
+            }
+            // Also check for any input whose value matches group pattern
+            const allInputs = document.querySelectorAll('input');
+            for (const input of allInputs) {
+                const val = (input.value || '').trim();
+                if (/^\\d+@g\\.us$/.test(val)) {
+                    console.log("👥 Bridge: Found groupjid from input:", val);
+                    return val;
+                }
+            }
+            return null;
+        };
+
+        // Load group members
+        const loadGroupMembers = async () => {
+            const mainView = menu.querySelector('#bridge-menu-main');
+            const membersView = menu.querySelector('#bridge-menu-members');
+            const loadingEl = menu.querySelector('#bridge-members-loading');
+            const listEl = menu.querySelector('#bridge-members-list');
+            const errorEl = menu.querySelector('#bridge-members-error');
+
+            mainView.style.display = 'none';
+            membersView.style.display = 'block';
+            loadingEl.style.display = 'block';
+            listEl.style.display = 'none';
+            errorEl.style.display = 'none';
+
+            const groupjid = extractGroupJid();
+            if (!groupjid) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Grupo não identificado. Verifique se o campo de email contém o JID do grupo.';
+                return;
+            }
+
+            const urlMatch = window.location.href.match(/location[_/]?([a-zA-Z0-9]+)/i);
+            const locationId = urlMatch ? urlMatch[1] : null;
+            if (!locationId) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Não foi possível identificar a subconta.';
+                return;
+            }
+
+            try {
+                const url = BRIDGE_CONFIG.supabase_url + '/functions/v1/list-groups';
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': BRIDGE_CONFIG.supabase_anon_key,
+                        'Authorization': 'Bearer ' + BRIDGE_CONFIG.supabase_anon_key,
+                    },
+                    body: JSON.stringify({ locationId, groupjid })
+                });
+
+                const data = await response.json();
+                loadingEl.style.display = 'none';
+
+                if (!data.success || !data.participants) {
+                    errorEl.style.display = 'block';
+                    errorEl.textContent = data.error || 'Falha ao buscar membros do grupo.';
+                    return;
+                }
+
+                // Update header with group name
+                const headerSpan = membersView.querySelector('div > span:last-child');
+                if (headerSpan && data.groupName) {
+                    headerSpan.textContent = '👥 ' + data.groupName + ' (' + data.participantCount + ')';
+                }
+
+                // Render participants
+                listEl.innerHTML = data.participants.map(p => {
+                    const role = p.isSuperAdmin ? '👑' : p.isAdmin ? '🛡️' : '';
+                    const roleText = p.isSuperAdmin ? 'Dono' : p.isAdmin ? 'Admin' : '';
+                    return '<div style="padding:10px 16px; border-bottom:1px solid #2a2a3e; display:flex; align-items:center; justify-content:space-between; color:#e0e0e0; font-size:13px;">' +
+                        '<div style="display:flex; align-items:center; gap:8px;">' +
+                            '<span style="font-size:16px;">👤</span>' +
+                            '<span>' + p.phone + '</span>' +
+                        '</div>' +
+                        (role ? '<span style="font-size:11px; background:#333348; padding:2px 8px; border-radius:10px; color:#8b8bae;">' + role + ' ' + roleText + '</span>' : '') +
+                    '</div>';
+                }).join('');
+                listEl.style.display = 'block';
+
+            } catch (e) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = 'Erro de conexão: ' + e.message;
+            }
+        };
+
         // Menu options
         menu.querySelectorAll('.menu-opt').forEach(opt => {
             opt.onclick = async () => {
                 const act = opt.getAttribute('data-act');
+                
+                if (act === 'members') {
+                    await loadGroupMembers();
+                    return;
+                }
+                
                 menu.remove();
                 
                 if (act === 'reply') {
-                    // Extract location_id from URL or DOM
                     const urlMatch = window.location.href.match(/location[_/]?([a-zA-Z0-9]+)/i);
                     const locationId = urlMatch ? urlMatch[1] : null;
                     
