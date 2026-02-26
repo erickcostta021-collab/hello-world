@@ -579,6 +579,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      propagate_global_webhook: {
+        Args: { p_webhook_url: string }
+        Returns: undefined
+      }
       upsert_subaccounts: {
         Args: { p_locations: Json; p_user_id: string }
         Returns: undefined
