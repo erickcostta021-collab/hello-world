@@ -91,3 +91,9 @@ verify_jwt = false
 
 [functions.configure-webhook]
 verify_jwt = false
+
+[functions.list-webhooks]
+verify_jwt = false
+
+[functions.delete-webhook]
+verify_jwt = false
