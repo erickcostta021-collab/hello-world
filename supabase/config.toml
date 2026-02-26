@@ -97,6 +97,3 @@ verify_jwt = false
 
 [functions.delete-webhook]
 verify_jwt = false
-
-[functions.toggle-webhook]
-verify_jwt = false
