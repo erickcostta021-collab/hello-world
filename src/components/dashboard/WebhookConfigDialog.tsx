@@ -28,7 +28,7 @@ interface UazapiWebhook {
   excludeMessages: string;
 }
 
-const ALL_EVENTS = ["messages", "messages_update", "chats", "connection", "qrcode", "history", "call", "contacts", "presence"] as const;
+const ALL_EVENTS = ["messages", "messages_update", "chats", "connection", "qrcode", "history", "call", "contacts", "presence", "groups", "labels", "chat_labels", "blocks", "leads", "sender"] as const;
 
 interface WebhookConfigDialogProps {
   open: boolean;
