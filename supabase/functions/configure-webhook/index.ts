@@ -221,11 +221,13 @@ serve(async (req) => {
           let webhookList: any[] = [];
           try { webhookList = JSON.parse(listText); } catch {}
           if (Array.isArray(webhookList)) {
+            // Use last match (newest) when create_new, first match otherwise
+            const matchingWebhooks = webhookList.filter((w: any) => w.url === webhookUrl);
             const targetWh = webhook_id
               ? webhookList.find((w: any) => w.id === webhook_id)
-              : webhookList.find((w: any) => w.url === webhookUrl);
+              : (matchingWebhooks.length > 0 ? matchingWebhooks[matchingWebhooks.length - 1] : null);
             if (targetWh?.id) {
-              console.log(`Found webhook ${targetWh.id}, patching excludeMessages...`);
+              console.log(`Found webhook ${targetWh.id} (${matchingWebhooks.length} matches), patching excludeMessages...`);
               const patchPayload = {
                 id: targetWh.id,
                 url: targetWh.url,
