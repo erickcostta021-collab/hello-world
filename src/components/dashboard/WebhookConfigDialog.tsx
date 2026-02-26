@@ -39,6 +39,7 @@ interface WebhookConfigDialogProps {
     webhookEvents: string[];
     createNew: boolean;
     enabled: boolean;
+    webhookId?: string;
   }) => void;
   isSaving: boolean;
   ignoreGroups: boolean;
@@ -127,6 +128,7 @@ export function WebhookConfigDialog({
       webhookEvents,
       createNew: isNew,
       enabled: webhookEnabled,
+      webhookId: isNew ? undefined : activeTab,
     });
   };
 

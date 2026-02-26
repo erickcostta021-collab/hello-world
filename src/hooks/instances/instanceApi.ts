@@ -429,6 +429,7 @@ export async function updateWebhookOnApi(
   webhookEvents?: string[],
   createNew?: boolean,
   enabled?: boolean,
+  webhookId?: string,
 ): Promise<void> {
   // Route through Edge Function to avoid CORS issues with direct UAZAPI calls
   // Only update the instance record if not creating a new (additional) webhook
@@ -441,7 +442,14 @@ export async function updateWebhookOnApi(
   }
 
   const { data, error } = await supabase.functions.invoke("configure-webhook", {
-    body: { instance_id: instance.id, webhook_events: webhookEvents, create_new: createNew, webhook_url_override: createNew ? webhookUrl : undefined, enabled: enabled ?? true },
+    body: {
+      instance_id: instance.id,
+      webhook_events: webhookEvents,
+      create_new: createNew,
+      webhook_url_override: createNew ? webhookUrl : undefined,
+      enabled: enabled ?? true,
+      webhook_id: webhookId,
+    },
   });
 
   if (error) throw new Error(`Falha ao configurar webhook: ${error.message}`);
