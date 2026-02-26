@@ -1,0 +1,5 @@
+UPDATE cdn_scripts SET content = replace(content,
+    'onclick="navigator.clipboard.writeText(''' || chr(92) || '''' || ''' + p.phone + ''' || chr(92) || '''' || ''').then(function(){var el=event.target.closest(''' || chr(92) || '''' || '''div''' || chr(92) || '''' || ''');var orig=el.style.background;el.style.background=''' || chr(92) || '''' || '''#d1fae5''' || chr(92) || '''' || ''';setTimeout(function(){el.style.background=orig;},600);})"',
+    'onclick="(function(ph){try{navigator.clipboard.writeText(ph).catch(function(){var t=document.createElement(''' || chr(92) || '''' || '''textarea''' || chr(92) || '''' || ''');t.value=ph;t.style.cssText=''' || chr(92) || '''' || '''position:fixed;opacity:0''' || chr(92) || '''' || ''';document.body.appendChild(t);t.select();document.execCommand(''' || chr(92) || '''' || '''copy''' || chr(92) || '''' || ''');document.body.removeChild(t);});}catch(e){}})(''' || chr(92) || '''' || ''' + p.phone + ''' || chr(92) || '''' || ''')"'
+), updated_at = now()
+WHERE id = 'ec7a8c6f-62f5-4097-a288-690cb3f3d1b1';
