@@ -824,7 +824,10 @@ try {
                     listHtml += '<div style="padding:10px 14px;background:' + bg + ';display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #f3f4f6;cursor:pointer;" onclick="navigator.clipboard.writeText(\'' + p.phone + '\').then(function(){var el=event.target.closest(\'div\');var orig=el.style.background;el.style.background=\'#d1fae5\';setTimeout(function(){el.style.background=orig;},600);})">' +
                         '<div style="display:flex;align-items:center;gap:8px;">' +
                             '<span style="font-size:15px;">👤</span>' +
-                            '<span style="font-size:13px;color:#111827;">' + p.phone + '</span>' +
+                            '<div style="display:flex;flex-direction:column;">' +
+                                (p.name ? '<span style="font-size:13px;color:#111827;font-weight:500;">' + p.name + '</span>' : '') +
+                                '<span style="font-size:' + (p.name ? '11' : '13') + 'px;color:' + (p.name ? '#6b7280' : '#111827') + ';">' + p.phone + '</span>' +
+                            '</div>' +
                         '</div>' +
                         (role ? '<span style="font-size:11px;background:#f0fdf4;border:1px solid #bbf7d0;padding:2px 8px;border-radius:10px;color:#16a34a;">' + role + '</span>' : '') +
                     '</div>';
