@@ -84,6 +84,8 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
   const [deleteFromUazapi, setDeleteFromUazapi] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [ignoreGroups, setIgnoreGroups] = useState(instance.ignore_groups || false);
+  const ALL_EVENTS = ["messages", "messages_update", "chats", "connection", "qrcode", "history", "call", "contacts", "presence"] as const;
+  const [webhookEvents, setWebhookEvents] = useState<string[]>(["messages"]);
   const [syncing, setSyncing] = useState(false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(instance.phone || null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(instance.profile_pic_url || null);
@@ -271,8 +273,15 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
       instance,
       webhookUrl,
       ignoreGroups,
+      webhookEvents,
     });
     setWebhookDialogOpen(false);
+  };
+
+  const toggleEvent = (event: string) => {
+    setWebhookEvents(prev =>
+      prev.includes(event) ? prev.filter(e => e !== event) : [...prev, event]
+    );
   };
 
   const handleDelete = () => {
@@ -630,6 +639,26 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
                 checked={ignoreGroups}
                 onCheckedChange={setIgnoreGroups}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Escutar Eventos</Label>
+              <div className="flex flex-wrap gap-2">
+                {ALL_EVENTS.map(event => (
+                  <button
+                    key={event}
+                    type="button"
+                    onClick={() => toggleEvent(event)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      webhookEvents.includes(event)
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {event}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">Selecione os tipos de eventos que deseja receber no webhook</p>
             </div>
           </div>
           <div className="flex justify-end gap-2">
