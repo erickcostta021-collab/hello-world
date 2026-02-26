@@ -174,35 +174,53 @@ serve(async (req) => {
           const target = webhooks.find((w: any) => w.url === webhookUrl);
           if (target && target.id && target.enabled === false) {
             console.log(`Webhook ${target.id} found but disabled, enabling it...`);
-            // Try PUT /webhook/{id} to enable
+            const enablePayload = { ...target, enabled: true, events };
             const enableAttempts = [
-              { path: `/webhook/${target.id}`, method: "PUT" },
-              { path: `/webhook/${target.id}`, method: "PATCH" },
-              { path: `/webhook/update/${target.id}`, method: "PUT" },
-              { path: `/webhook/update/${target.id}`, method: "POST" },
+              // ID in body via PUT/POST /webhook (most likely for this UAZAPI version)
+              { path: `/webhook`, method: "PUT", body: { id: target.id, enabled: true, url: webhookUrl, events } },
+              { path: `/webhook`, method: "POST", body: { id: target.id, enabled: true, url: webhookUrl, events } },
+              { path: `/webhook`, method: "PATCH", body: { id: target.id, enabled: true, url: webhookUrl, events } },
+              // Full object update
+              { path: `/webhook`, method: "PUT", body: enablePayload },
+              { path: `/webhook`, method: "POST", body: enablePayload },
+              // ID in path
+              { path: `/webhook/${target.id}`, method: "PUT", body: { enabled: true } },
+              { path: `/webhook/${target.id}`, method: "PATCH", body: { enabled: true } },
+              { path: `/webhook/${target.id}`, method: "POST", body: { enabled: true } },
             ];
             for (const attempt of enableAttempts) {
               try {
                 const enableRes = await fetch(`${baseUrl}${attempt.path}`, {
                   method: attempt.method,
                   headers: { "Content-Type": "application/json", "Token": token, "token": token },
-                  body: JSON.stringify({ enabled: true, url: webhookUrl, events }),
+                  body: JSON.stringify(attempt.body),
                 });
                 const enableText = await enableRes.text();
-                console.log(`Enable attempt ${attempt.method} ${attempt.path}: ${enableRes.status} - ${enableText.substring(0, 300)}`);
-                if (enableRes.ok) {
-                  // Check if it actually got enabled
+                console.log(`Enable attempt ${attempt.method} ${attempt.path}: ${enableRes.status} - ${enableText.substring(0, 500)}`);
+                if (enableRes.ok || enableRes.status === 200) {
+                  // Verify it actually got enabled by re-listing
                   try {
                     const parsed = JSON.parse(enableText);
-                    if (parsed.enabled === true || parsed.success || enableRes.status === 200) {
-                      console.log(`✅ Webhook ${target.id} enabled successfully`);
+                    // Check if the response itself shows enabled
+                    if (parsed.enabled === true) {
+                      console.log(`✅ Webhook ${target.id} enabled via ${attempt.method} ${attempt.path}`);
                       break;
                     }
+                    // If response is array, check if our webhook is now enabled
+                    if (Array.isArray(parsed)) {
+                      const updated = parsed.find((w: any) => w.id === target.id);
+                      if (updated && updated.enabled === true) {
+                        console.log(`✅ Webhook ${target.id} enabled via ${attempt.method} ${attempt.path}`);
+                        break;
+                      }
+                    }
                   } catch {
-                    console.log(`✅ Webhook ${target.id} enable response not JSON, assuming success`);
+                    // Non-JSON 200 response, assume success
+                    console.log(`✅ Webhook ${target.id} possibly enabled (non-JSON response)`);
                     break;
                   }
                 }
+                if (enableRes.status === 404 || enableRes.status === 405) continue;
               } catch (e: any) {
                 console.warn(`Enable attempt failed: ${e.message}`);
               }
