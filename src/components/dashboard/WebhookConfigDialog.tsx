@@ -58,6 +58,7 @@ export function WebhookConfigDialog({
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEvents, setWebhookEvents] = useState<string[]>(["messages"]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Fetch webhooks when dialog opens
   useEffect(() => {
@@ -125,18 +126,32 @@ export function WebhookConfigDialog({
   const handleDelete = async (webhookId: string) => {
     setDeletingId(webhookId);
     try {
-      const { data, error } = await supabase.functions.invoke("delete-webhook", {
+      const { data } = await supabase.functions.invoke("delete-webhook", {
         body: { instance_id: instance.id, webhook_id: webhookId },
       });
-      if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Webhook removido!");
-      // Refresh list
       await fetchWebhooks();
     } catch (err: any) {
       toast.error("Erro ao remover webhook: " + (err.message || ""));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleToggle = async (webhookId: string, currentEnabled: boolean) => {
+    setTogglingId(webhookId);
+    try {
+      const { data } = await supabase.functions.invoke("toggle-webhook", {
+        body: { instance_id: instance.id, webhook_id: webhookId, enabled: !currentEnabled },
+      });
+      if (data?.error) throw new Error(data.error);
+      toast.success(!currentEnabled ? "Webhook habilitado!" : "Webhook desabilitado!");
+      await fetchWebhooks();
+    } catch (err: any) {
+      toast.error("Erro ao alterar webhook: " + (err.message || ""));
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -182,19 +197,31 @@ export function WebhookConfigDialog({
                   <div className="text-xs text-muted-foreground font-mono">
                     ID: {wh.id}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7"
-                    onClick={() => handleDelete(wh.id)}
-                    disabled={deletingId === wh.id}
-                  >
-                    {deletingId === wh.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground">
+                        {wh.enabled ? "Ativo" : "Inativo"}
+                      </span>
+                      <Switch
+                        checked={wh.enabled}
+                        onCheckedChange={() => handleToggle(wh.id, wh.enabled)}
+                        disabled={togglingId === wh.id}
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7"
+                      onClick={() => handleDelete(wh.id)}
+                      disabled={deletingId === wh.id}
+                    >
+                      {deletingId === wh.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <WebhookForm
@@ -204,7 +231,6 @@ export function WebhookConfigDialog({
                   onToggleEvent={toggleEvent}
                   ignoreGroups={ignoreGroups}
                   onIgnoreGroupsChange={onIgnoreGroupsChange}
-                  enabled={wh.enabled}
                 />
 
                 <div className="flex justify-end gap-2">
@@ -256,7 +282,6 @@ function WebhookForm({
   onToggleEvent,
   ignoreGroups,
   onIgnoreGroupsChange,
-  enabled,
 }: {
   webhookUrl: string;
   onWebhookUrlChange: (url: string) => void;
@@ -264,18 +289,9 @@ function WebhookForm({
   onToggleEvent: (event: string) => void;
   ignoreGroups: boolean;
   onIgnoreGroupsChange: (v: boolean) => void;
-  enabled?: boolean;
 }) {
   return (
     <div className="space-y-4">
-      {enabled !== undefined && (
-        <div className="flex items-center justify-between">
-          <Label>Habilitado</Label>
-          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-            {enabled ? "Sim" : "Não"}
-          </span>
-        </div>
-      )}
       <div className="space-y-2">
         <Label htmlFor="webhook-url">URL do Webhook</Label>
         <Input
