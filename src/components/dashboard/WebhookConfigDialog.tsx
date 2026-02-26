@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,7 +59,7 @@ export function WebhookConfigDialog({
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookEvents, setWebhookEvents] = useState<string[]>(["messages"]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
+  
 
   // Fetch webhooks when dialog opens
   useEffect(() => {
@@ -139,21 +140,6 @@ export function WebhookConfigDialog({
     }
   };
 
-  const handleToggle = async (webhookId: string, currentEnabled: boolean) => {
-    setTogglingId(webhookId);
-    try {
-      const { data } = await supabase.functions.invoke("toggle-webhook", {
-        body: { instance_id: instance.id, webhook_id: webhookId, enabled: !currentEnabled },
-      });
-      if (data?.error) throw new Error(data.error);
-      toast.success(!currentEnabled ? "Webhook habilitado!" : "Webhook desabilitado!");
-      await fetchWebhooks();
-    } catch (err: any) {
-      toast.error("Erro ao alterar webhook: " + (err.message || ""));
-    } finally {
-      setTogglingId(null);
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -198,16 +184,9 @@ export function WebhookConfigDialog({
                     ID: {wh.id}
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground">
-                        {wh.enabled ? "Ativo" : "Inativo"}
-                      </span>
-                      <Switch
-                        checked={wh.enabled}
-                        onCheckedChange={() => handleToggle(wh.id, wh.enabled)}
-                        disabled={togglingId === wh.id}
-                      />
-                    </div>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${wh.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                      {wh.enabled ? "Ativo" : "Inativo"}
+                    </span>
                     <Button
                       variant="ghost"
                       size="sm"
