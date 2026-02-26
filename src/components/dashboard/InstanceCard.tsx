@@ -54,6 +54,7 @@ import { useGHLUsers, GHLUser } from "@/hooks/useGHLUsers";
 import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
 import { AssignGHLUserDialog } from "./AssignGHLUserDialog";
+import { WebhookConfigDialog } from "./WebhookConfigDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface InstanceCardProps {
@@ -82,10 +83,7 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteFromUazapi, setDeleteFromUazapi] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
   const [ignoreGroups, setIgnoreGroups] = useState(instance.ignore_groups || false);
-  const ALL_EVENTS = ["messages", "messages_update", "chats", "connection", "qrcode", "history", "call", "contacts", "presence"] as const;
-  const [webhookEvents, setWebhookEvents] = useState<string[]>(["messages"]);
   const [syncing, setSyncing] = useState(false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(instance.phone || null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(instance.profile_pic_url || null);
@@ -268,21 +266,15 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
     }
   };
 
-  const handleSaveWebhook = (createNew = false) => {
+  const handleSaveWebhook = ({ webhookUrl, ignoreGroups: ig, webhookEvents, createNew }: { webhookUrl: string; ignoreGroups: boolean; webhookEvents: string[]; createNew: boolean }) => {
     updateInstanceWebhook.mutate({
       instance,
       webhookUrl,
-      ignoreGroups,
+      ignoreGroups: ig,
       webhookEvents,
       createNew,
     });
     setWebhookDialogOpen(false);
-  };
-
-  const toggleEvent = (event: string) => {
-    setWebhookEvents(prev =>
-      prev.includes(event) ? prev.filter(e => e !== event) : [...prev, event]
-    );
   };
 
   const handleDelete = () => {
@@ -614,69 +606,15 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
       </Dialog>
 
       {/* Webhook Dialog */}
-      <Dialog open={webhookDialogOpen} onOpenChange={setWebhookDialogOpen}>
-        <DialogContent className="bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="text-card-foreground">Configurar Webhook</DialogTitle>
-            <DialogDescription>
-              Configure a URL do webhook para receber mensagens
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="webhook-url">URL do Webhook</Label>
-              <Input
-                id="webhook-url"
-                value={webhookUrl}
-                onChange={(e) => setWebhookUrl(e.target.value)}
-                placeholder="https://seu-webhook.com/endpoint"
-                className="bg-secondary border-border"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="ignore-groups">Ignorar mensagens de grupos</Label>
-              <Switch
-                id="ignore-groups"
-                checked={ignoreGroups}
-                onCheckedChange={setIgnoreGroups}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Escutar Eventos</Label>
-              <div className="flex flex-wrap gap-2">
-                {ALL_EVENTS.map(event => (
-                  <button
-                    key={event}
-                    type="button"
-                    onClick={() => toggleEvent(event)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                      webhookEvents.includes(event)
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
-                    }`}
-                  >
-                    {event}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Selecione os tipos de eventos que deseja receber no webhook</p>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setWebhookDialogOpen(false)} className="border-border">
-              Cancelar
-            </Button>
-            <Button variant="outline" onClick={() => handleSaveWebhook(true)} disabled={updateInstanceWebhook.isPending} className="border-primary/50 text-primary hover:bg-primary/10">
-              {updateInstanceWebhook.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Salvar como Novo
-            </Button>
-            <Button onClick={() => handleSaveWebhook(false)} disabled={updateInstanceWebhook.isPending}>
-              {updateInstanceWebhook.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Salvar
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <WebhookConfigDialog
+        open={webhookDialogOpen}
+        onOpenChange={setWebhookDialogOpen}
+        instance={instance}
+        onSave={handleSaveWebhook}
+        isSaving={updateInstanceWebhook.isPending}
+        ignoreGroups={ignoreGroups}
+        onIgnoreGroupsChange={setIgnoreGroups}
+      />
 
       {/* Delete Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
