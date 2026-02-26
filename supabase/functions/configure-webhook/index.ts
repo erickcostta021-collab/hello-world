@@ -15,7 +15,7 @@ serve(async (req) => {
     const { instance_id, webhook_events, create_new, webhook_url_override } = await req.json();
     if (!instance_id) {
       return new Response(JSON.stringify({ error: "instance_id required" }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -34,7 +34,7 @@ serve(async (req) => {
 
     if (error || !instance) {
       return new Response(JSON.stringify({ error: "Instance not found" }), {
-        status: 404,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -49,7 +49,7 @@ serve(async (req) => {
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     if (!baseUrl) {
       return new Response(JSON.stringify({ error: "No UAZAPI base URL configured" }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -156,7 +156,7 @@ serve(async (req) => {
 
     if (!success) {
       return new Response(JSON.stringify({ error: `Failed to configure webhook: ${lastError}` }), {
-        status: 502,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -166,7 +166,7 @@ serve(async (req) => {
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
