@@ -438,6 +438,13 @@ serve(async (req) => {
             }
           }
           console.log(`[list-groups] Final resolved names: ${JSON.stringify(contactMap)}`);
+
+          // Apply resolved names back to participants
+          for (const p of participants) {
+            if (!p.name && p.phone && contactMap[p.phone]) {
+              p.name = contactMap[p.phone];
+            }
+          }
         } catch (e) {
           console.error("[list-groups] Failed to fetch contact names:", e);
         }
