@@ -110,6 +110,21 @@ serve(async (req) => {
           }
         }
       }
+
+      // Final fallback: use admin user's base URL
+      if (!baseUrl) {
+        const { data: adminSettings } = await supabase
+          .from("user_settings")
+          .select("uazapi_base_url, user_id")
+          .not("uazapi_base_url", "is", null)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        const adminUrl = adminSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+        if (adminUrl) {
+          baseUrl = adminUrl;
+          console.log(`Using admin fallback base URL from user ${adminSettings?.[0]?.user_id}`);
+        }
+      }
     }
     if (!baseUrl) {
       return new Response(JSON.stringify({ error: "UAZAPI base URL not configured" }),
