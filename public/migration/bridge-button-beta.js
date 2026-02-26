@@ -743,30 +743,6 @@ try {
         headerDiv.innerHTML = '<span style="font-weight:700;font-size:14px;color:#111827;">👥 Membros do Grupo</span><p style="font-size:12px;color:#6b7280;margin:4px 0 0;">Lista os participantes do grupo atual.</p>';
         container.appendChild(headerDiv);
 
-        var groupjid = extractGroupJid();
-        var locationId = extractLocationId();
-
-        if (!groupjid) {
-            var warn = document.createElement('div');
-            warn.style.cssText = 'padding:16px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;color:#92400e;font-size:13px;text-align:center;';
-            warn.innerHTML = '⚠️ <strong>Grupo não identificado.</strong><br>Verifique se o campo de email do contato contém o JID do grupo (ex: 120363...@g.us).';
-            container.appendChild(warn);
-            return;
-        }
-
-        if (!locationId) {
-            var warn2 = document.createElement('div');
-            warn2.style.cssText = 'padding:16px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;color:#92400e;font-size:13px;text-align:center;';
-            warn2.textContent = '⚠️ Não foi possível identificar a subconta na URL.';
-            container.appendChild(warn2);
-            return;
-        }
-
-        var infoDiv = document.createElement('div');
-        infoDiv.style.cssText = 'padding:8px 12px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;margin-bottom:12px;font-size:12px;color:#0369a1;';
-        infoDiv.innerHTML = '📍 Grupo: <strong>' + groupjid + '</strong>';
-        container.appendChild(infoDiv);
-
         var loadBtn = document.createElement('button');
         loadBtn.className = 'bc-send-btn';
         loadBtn.style.cssText += 'width:100%;justify-content:center;margin-bottom:12px;';
@@ -778,6 +754,19 @@ try {
         container.appendChild(resultDiv);
 
         loadBtn.addEventListener('click', function() {
+            var groupjid = extractGroupJid();
+            var locationId = extractLocationId();
+
+            if (!groupjid || !/^\d+@g\.us$/.test(groupjid)) {
+                resultDiv.innerHTML = '<div style="padding:16px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;color:#92400e;font-size:13px;text-align:center;">⚠️ <strong>Você precisa estar dentro de um grupo e ser admin do grupo.</strong><br>Verifique se o campo de email do contato contém o JID do grupo (ex: 120363...@g.us).</div>';
+                return;
+            }
+
+            if (!locationId) {
+                resultDiv.innerHTML = '<div style="padding:16px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;color:#92400e;font-size:13px;text-align:center;">⚠️ Não foi possível identificar a subconta na URL.</div>';
+                return;
+            }
+
             loadBtn.disabled = true;
             loadBtn.innerHTML = '<span>⏳</span> Carregando...';
             resultDiv.innerHTML = '';
