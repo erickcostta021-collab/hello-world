@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { instance_id, webhook_events, create_new, webhook_url_override, enabled: webhookEnabled, webhook_id } = await req.json();
+    const { instance_id, webhook_events, create_new, webhook_url_override, enabled: webhookEnabled, webhook_id, exclude_messages } = await req.json();
     if (!instance_id) {
       return new Response(JSON.stringify({ error: "instance_id required" }), {
         status: 200,
@@ -61,6 +61,10 @@ serve(async (req) => {
     const ignoreGroups = instance.ignore_groups ?? false;
     const events = Array.isArray(webhook_events) && webhook_events.length > 0 ? webhook_events : ["messages"];
     const enabledFlag = webhookEnabled !== undefined ? webhookEnabled : true;
+    // Parse excludeMessages: convert comma-separated string to array or keep as-is
+    const excludeMessagesValue = exclude_messages
+      ? (typeof exclude_messages === "string" ? exclude_messages.split(",").filter(Boolean) : exclude_messages)
+      : undefined;
 
     const token = instance.uazapi_instance_token;
 
@@ -83,7 +87,7 @@ serve(async (req) => {
     // If webhook_id is provided, update that specific webhook directly
     if (webhook_id && !create_new) {
       console.log(`Updating existing webhook ${webhook_id} with enabled=${enabledFlag}`);
-      const updatePayload = { id: webhook_id, url: webhookUrl, enabled: enabledFlag, events };
+      const updatePayload = { id: webhook_id, url: webhookUrl, enabled: enabledFlag, events, ...(excludeMessagesValue ? { excludeMessages: excludeMessagesValue } : {}) };
       // POST /webhook with id in body is the known working pattern for this UAZAPI version
       try {
         const res = await fetch(`${baseUrl}/webhook`, {
@@ -161,14 +165,15 @@ serve(async (req) => {
     for (const { path, method, payload, headers: attemptHeaders } of attempts) {
       try {
         const url = `${baseUrl}${path}`;
-        console.log(`Trying webhook config: ${method} ${url}`, JSON.stringify(payload));
+        const finalPayload = excludeMessagesValue ? { ...payload, excludeMessages: excludeMessagesValue } : payload;
+        console.log(`Trying webhook config: ${method} ${url}`, JSON.stringify(finalPayload));
         const res = await fetch(url, {
           method,
           headers: {
             "Content-Type": "application/json",
             ...attemptHeaders,
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(finalPayload),
         });
 
         const resText = await res.text();

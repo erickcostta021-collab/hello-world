@@ -420,6 +420,7 @@ export function EmbedInstanceCard({
           create_new: params.createNew,
           enabled: params.enabled,
           webhook_id: params.webhookId,
+          exclude_messages: params.excludeMessages,
         },
       });
       if (error) throw error;
