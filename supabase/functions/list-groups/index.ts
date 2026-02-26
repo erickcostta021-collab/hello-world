@@ -20,6 +20,74 @@ interface Participant {
   isSuperAdmin: boolean;
 }
 
+/**
+ * Resolve the UAZAPI base URL for a given user_id by checking:
+ * 1. user_settings.uazapi_base_url
+ * 2. shared_from_user_id chain
+ * 3. get_effective_user_id RPC
+ */
+async function resolveBaseUrlForUser(supabase: any, userId: string): Promise<string | null> {
+  // Direct settings
+  const { data: settings } = await supabase
+    .from("user_settings")
+    .select("uazapi_base_url, shared_from_user_id")
+    .eq("user_id", userId)
+    .limit(1);
+
+  const url = settings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+  if (url) return url;
+
+  // Shared from
+  if (settings?.[0]?.shared_from_user_id) {
+    const { data: sharedSettings } = await supabase
+      .from("user_settings")
+      .select("uazapi_base_url")
+      .eq("user_id", settings[0].shared_from_user_id)
+      .limit(1);
+    const sharedUrl = sharedSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+    if (sharedUrl) return sharedUrl;
+  }
+
+  // Effective user
+  const { data: effectiveId } = await supabase.rpc("get_effective_user_id", { p_user_id: userId });
+  if (effectiveId && effectiveId !== userId) {
+    const { data: effectiveSettings } = await supabase
+      .from("user_settings")
+      .select("uazapi_base_url")
+      .eq("user_id", effectiveId)
+      .limit(1);
+    const effectiveUrl = effectiveSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+    if (effectiveUrl) return effectiveUrl;
+  }
+
+  return null;
+}
+
+/**
+ * Get admin fallback base URL
+ */
+async function getAdminBaseUrl(supabase: any): Promise<string | null> {
+  const { data: adminRoles } = await supabase
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "admin");
+  
+  if (!adminRoles?.length) return null;
+
+  const { data: adminSettings } = await supabase
+    .from("user_settings")
+    .select("uazapi_base_url, user_id")
+    .not("uazapi_base_url", "is", null)
+    .in("user_id", adminRoles.map((r: any) => r.user_id))
+    .limit(1);
+
+  const url = adminSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+  if (url) {
+    console.log(`Using admin fallback base URL from ${adminSettings[0].user_id}`);
+  }
+  return url || null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -34,10 +102,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ---- Resolve instance ----
+    // ---- Resolve instance + base URL (token must match server) ----
     let instanceData: any = null;
+    let baseUrl: string | null = null;
 
     if (instanceId) {
+      // Direct instance lookup
       const { data, error } = await supabase
         .from("instances")
         .select("uazapi_instance_token, instance_name, user_id, uazapi_base_url, subaccount_id")
@@ -48,162 +118,229 @@ serve(async (req) => {
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       instanceData = data[0];
+      baseUrl = instanceData.uazapi_base_url?.replace(/\/+$/, "") || null;
+
+      if (!baseUrl) {
+        baseUrl = await resolveBaseUrlForUser(supabase, instanceData.user_id);
+      }
+
+      // If still no base URL, try to find it from another instance in the same subaccount
+      // that has a resolvable URL (same server, different owner)
+      if (!baseUrl && instanceData.subaccount_id) {
+        const { data: siblingInstances } = await supabase
+          .from("instances")
+          .select("uazapi_base_url, user_id")
+          .eq("subaccount_id", instanceData.subaccount_id)
+          .neq("id", instanceId);
+
+        for (const sibling of siblingInstances || []) {
+          const siblingUrl = sibling.uazapi_base_url?.replace(/\/+$/, "");
+          if (siblingUrl) {
+            baseUrl = siblingUrl;
+            console.log(`Using sibling instance base URL: ${baseUrl}`);
+            break;
+          }
+          const ownerUrl = await resolveBaseUrlForUser(supabase, sibling.user_id);
+          if (ownerUrl) {
+            baseUrl = ownerUrl;
+            console.log(`Using sibling owner base URL: ${baseUrl}`);
+            break;
+          }
+        }
+      }
     } else if (locationId) {
-      // Find active instance for this location via subaccount
-      const { data: sub } = await supabase
+      // Find ALL subaccounts for this location, then find the best instance
+      const { data: subs } = await supabase
         .from("ghl_subaccounts")
-        .select("id")
-        .eq("location_id", locationId)
-        .limit(1);
-      if (!sub?.length) {
+        .select("id, user_id")
+        .eq("location_id", locationId);
+
+      if (!subs?.length) {
         return new Response(JSON.stringify({ error: "Subaccount not found for location" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      const { data: instances } = await supabase
+
+      const subIds = subs.map((s: any) => s.id);
+      const { data: allInstances } = await supabase
         .from("instances")
-        .select("uazapi_instance_token, instance_name, user_id, uazapi_base_url, subaccount_id, instance_status")
-        .eq("subaccount_id", sub[0].id)
+        .select("id, uazapi_instance_token, instance_name, user_id, uazapi_base_url, subaccount_id, instance_status")
+        .in("subaccount_id", subIds)
         .order("instance_status", { ascending: true }); // connected first
-      if (!instances?.length) {
+
+      if (!allInstances?.length) {
         return new Response(JSON.stringify({ error: "No instance found for this location" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-      // Prefer connected instance
-      instanceData = instances.find((i: any) => i.instance_status === "connected") || instances[0];
+
+      console.log(`[list-groups] Found ${allInstances.length} instances across ${subs.length} subaccounts for location ${locationId}`);
+
+      // Try to find an instance with a resolvable base URL, preferring connected ones
+      for (const inst of allInstances) {
+        let url = inst.uazapi_base_url?.replace(/\/+$/, "") || null;
+        if (!url) {
+          url = await resolveBaseUrlForUser(supabase, inst.user_id);
+        }
+        if (url) {
+          instanceData = inst;
+          baseUrl = url;
+          console.log(`[list-groups] Selected instance "${inst.instance_name}" (${inst.id}) with base URL ${url}`);
+          break;
+        }
+      }
+
+      // If no instance has a resolvable URL, use first connected + admin fallback
+      if (!instanceData) {
+        instanceData = allInstances.find((i: any) => i.instance_status === "connected") || allInstances[0];
+        console.log(`[list-groups] No instance with resolvable URL, using "${instanceData.instance_name}"`);
+      }
     } else {
       return new Response(JSON.stringify({ error: "instanceId or locationId is required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ---- Resolve base URL ----
-    let baseUrl = instanceData.uazapi_base_url?.replace(/\/+$/, "");
+    // Final fallback: admin base URL
     if (!baseUrl) {
-      // Try user's own settings
-      const { data: settings } = await supabase
-        .from("user_settings")
-        .select("uazapi_base_url, shared_from_user_id")
-        .eq("user_id", instanceData.user_id)
-        .limit(1);
-      baseUrl = settings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
-
-      // Try shared (effective) user's settings
-      if (!baseUrl && settings?.[0]?.shared_from_user_id) {
-        const { data: sharedSettings } = await supabase
-          .from("user_settings")
-          .select("uazapi_base_url")
-          .eq("user_id", settings[0].shared_from_user_id)
-          .limit(1);
-        baseUrl = sharedSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
-      }
-
-      // Last resort: get effective user id and try their settings
-      if (!baseUrl) {
-        const { data: effectiveId } = await supabase.rpc("get_effective_user_id", { p_user_id: instanceData.user_id });
-        if (effectiveId && effectiveId !== instanceData.user_id) {
-          const { data: effectiveSettings } = await supabase
-            .from("user_settings")
-            .select("uazapi_base_url")
-            .eq("user_id", effectiveId)
-            .limit(1);
-          baseUrl = effectiveSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
-          if (baseUrl) {
-            console.log(`Using effective user base URL from ${effectiveId}`);
-          }
-        }
-      }
-
-      // Final fallback: use admin user's base URL (prioritize admin role)
-      if (!baseUrl) {
-        const { data: adminSettings } = await supabase
-          .from("user_settings")
-          .select("uazapi_base_url, user_id")
-          .not("uazapi_base_url", "is", null)
-          .in("user_id", (await supabase.from("user_roles").select("user_id").eq("role", "admin")).data?.map((r: any) => r.user_id) || [])
-          .limit(1);
-        const adminUrl = adminSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
-        if (adminUrl) {
-          baseUrl = adminUrl;
-          console.log(`Using admin fallback base URL from admin user ${adminSettings?.[0]?.user_id}`);
-        }
-      }
+      baseUrl = await getAdminBaseUrl(supabase);
     }
+
     if (!baseUrl) {
       return new Response(JSON.stringify({ error: "UAZAPI base URL not configured" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ======== GROUP INFO (members) ========
-    if (groupjid) {
-      console.log(`Fetching group info for ${groupjid} from ${baseUrl}`);
-      
-      // Try multiple UAZAPI endpoints for group info
+    console.log(`[list-groups] Using instance "${instanceData.instance_name}" token=${instanceData.uazapi_instance_token.substring(0,8)}... baseUrl=${baseUrl}`);
+
+    // ======== Helper: try group info on a specific server ========
+    async function tryGroupInfoOnServer(serverUrl: string, token: string, gid: string): Promise<{ data: any; error: string }> {
       const endpoints = [
-        { url: `${baseUrl}/group/info`, method: "POST", body: { groupjid, getInviteLink: false, getRequestsParticipants: true, force: false } },
-        { url: `${baseUrl}/group/info`, method: "POST", body: { jid: groupjid, getInviteLink: false } },
-        { url: `${baseUrl}/group/${encodeURIComponent(groupjid)}`, method: "GET", body: null },
-        { url: `${baseUrl}/group/metadata/${encodeURIComponent(groupjid)}`, method: "GET", body: null },
+        { url: `${serverUrl}/group/info`, method: "POST", body: { groupjid: gid, getInviteLink: false, getRequestsParticipants: true, force: false } },
+        { url: `${serverUrl}/group/info`, method: "POST", body: { jid: gid, getInviteLink: false } },
+        { url: `${serverUrl}/group/${encodeURIComponent(gid)}`, method: "GET", body: null },
+        { url: `${serverUrl}/group/metadata/${encodeURIComponent(gid)}`, method: "GET", body: null },
       ];
 
-      let data: any = null;
       let lastError = "";
-
       for (const ep of endpoints) {
         try {
           console.log(`Trying: ${ep.method} ${ep.url}`);
           const fetchOpts: any = {
             method: ep.method,
-            headers: {
-              "Accept": "application/json",
-              "Content-Type": "application/json",
-              "token": instanceData.uazapi_instance_token,
-            },
+            headers: { "Accept": "application/json", "Content-Type": "application/json", "token": token },
           };
           if (ep.body) fetchOpts.body = JSON.stringify(ep.body);
-
           const response = await fetch(ep.url, fetchOpts);
           const text = await response.text();
           console.log(`Response ${ep.method} ${ep.url}: ${response.status} - ${text.substring(0, 200)}`);
 
-          if (response.ok) {
-            try { data = JSON.parse(text); } catch { data = null; }
-            if (data && (data.participants || data.members || data.data?.participants)) {
-              console.log("✅ Got group info from:", ep.url);
-              break;
-            }
-            // Reset if no participants found
-            data = null;
-          } else {
-            lastError = text;
+          if (response.status === 401) {
+            lastError = "Invalid token";
+            break; // Token doesn't belong to this server, skip remaining endpoints
           }
+          if (response.ok) {
+            try {
+              const parsed = JSON.parse(text);
+              // Check both lowercase and PascalCase (Go-style) field names
+              const hasParticipants = parsed && (
+                parsed.participants || parsed.Participants ||
+                parsed.members || parsed.Members ||
+                parsed.data?.participants || parsed.data?.Participants ||
+                parsed.JID // UAZAPI Go response with group info
+              );
+              if (hasParticipants) {
+                console.log("✅ Got group info from:", ep.url);
+                return { data: parsed, error: "" };
+              }
+            } catch { /* continue */ }
+          }
+          lastError = text;
         } catch (e) {
           console.error(`Error trying ${ep.url}:`, e);
           lastError = String(e);
         }
       }
+      return { data: null, error: lastError };
+    }
 
-      if (!data) {
-        return new Response(JSON.stringify({ error: `Failed to fetch group info: ${lastError}` }),
+    // ======== GROUP INFO (members) ========
+    if (groupjid) {
+      console.log(`Fetching group info for ${groupjid} from ${baseUrl}`);
+
+      // First: try with resolved instance + base URL
+      let result = await tryGroupInfoOnServer(baseUrl, instanceData.uazapi_instance_token, groupjid);
+
+      // If failed, try ALL instances for the same location with ALL known servers
+      if (!result.data) {
+        console.log("[list-groups] Primary attempt failed, trying all instances × all servers...");
+
+        // Get all known UAZAPI servers
+        const { data: allServers } = await supabase
+          .from("user_settings")
+          .select("uazapi_base_url")
+          .not("uazapi_base_url", "is", null);
+        const knownServers = [...new Set((allServers || []).map((s: any) => s.uazapi_base_url?.replace(/\/+$/, "")).filter(Boolean))];
+
+        // Get all instances for this location (if we came via locationId, we already have them)
+        let allLocationInstances: any[] = [];
+        if (locationId) {
+          const { data: subs } = await supabase.from("ghl_subaccounts").select("id").eq("location_id", locationId);
+          if (subs?.length) {
+            const { data: insts } = await supabase.from("instances").select("id, uazapi_instance_token, instance_name, instance_status").in("subaccount_id", subs.map((s: any) => s.id));
+            allLocationInstances = insts || [];
+          }
+        } else if (instanceData.subaccount_id) {
+          // Get location from subaccount, then all instances
+          const { data: sub } = await supabase.from("ghl_subaccounts").select("location_id").eq("id", instanceData.subaccount_id).limit(1);
+          if (sub?.[0]?.location_id) {
+            const { data: subs } = await supabase.from("ghl_subaccounts").select("id").eq("location_id", sub[0].location_id);
+            if (subs?.length) {
+              const { data: insts } = await supabase.from("instances").select("id, uazapi_instance_token, instance_name, instance_status").in("subaccount_id", subs.map((s: any) => s.id));
+              allLocationInstances = insts || [];
+            }
+          }
+        }
+
+        // Try each instance token on each known server
+        outerLoop:
+        for (const inst of allLocationInstances) {
+          if (inst.id === instanceId && inst.uazapi_instance_token === instanceData.uazapi_instance_token) continue; // Already tried
+          for (const server of knownServers) {
+            if (server === baseUrl && inst.uazapi_instance_token === instanceData.uazapi_instance_token) continue; // Already tried
+            console.log(`[list-groups] Trying instance "${inst.instance_name}" on ${server}`);
+            result = await tryGroupInfoOnServer(server, inst.uazapi_instance_token, groupjid);
+            if (result.data) {
+              instanceData = inst; // Update instance data for response
+              // Save the working base URL on the instance for future use
+              await supabase.from("instances").update({ uazapi_base_url: server }).eq("id", inst.id);
+              console.log(`[list-groups] ✅ Auto-saved base URL ${server} for instance ${inst.id}`);
+              break outerLoop;
+            }
+          }
+        }
+      }
+
+      if (!result.data) {
+        return new Response(JSON.stringify({ error: `Failed to fetch group info: ${result.error}` }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Extract participants from various UAZAPI response formats
-      const rawParticipants = data.participants || data.members || data.data?.participants || [];
+      const data = result.data;
+      const rawParticipants = data.participants || data.Participants || data.members || data.Members || data.data?.participants || data.data?.Participants || [];
       const participants: Participant[] = rawParticipants.map((p: any) => {
-        const jid = p.id || p.jid || p.participant || "";
+        const jid = p.id || p.JID || p.jid || p.participant || "";
         const phone = jid.split("@")[0] || jid;
         return {
           id: jid,
           phone,
-          isAdmin: p.admin === "admin" || p.isAdmin === true || p.role === "admin",
-          isSuperAdmin: p.admin === "superadmin" || p.isSuperAdmin === true || p.role === "superadmin",
+          isAdmin: p.admin === "admin" || p.Admin === "admin" || p.isAdmin === true || p.IsAdmin === true || p.role === "admin",
+          isSuperAdmin: p.admin === "superadmin" || p.Admin === "superadmin" || p.isSuperAdmin === true || p.IsSuperAdmin === true || p.role === "superadmin",
         };
       });
 
       return new Response(JSON.stringify({
         success: true,
         instanceName: instanceData.instance_name,
-        groupName: data.subject || data.name || data.groupName || groupjid,
-        groupDescription: data.desc || data.description || "",
+        groupName: data.subject || data.Subject || data.name || data.Name || data.groupName || groupjid,
+        groupDescription: data.desc || data.Desc || data.description || data.Description || data.Topic || "",
         participantCount: participants.length,
         participants,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
