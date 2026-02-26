@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Loader2, Plus, Trash2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Instance } from "@/hooks/useInstances";
@@ -313,28 +314,33 @@ function WebhookForm({
           onCheckedChange={onIgnoreGroupsChange}
         />
       </div>
-      <div className="space-y-2">
-        <Label>Escutar Eventos</Label>
-        <div className="flex flex-wrap gap-2">
-          {ALL_EVENTS.map((event) => (
-            <button
-              key={event}
-              type="button"
-              onClick={() => onToggleEvent(event)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                webhookEvents.includes(event)
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
-              }`}
-            >
-              {event}
-            </button>
-          ))}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Selecione os tipos de eventos que deseja receber no webhook
-        </p>
-      </div>
+      <Collapsible>
+        <CollapsibleTrigger className="flex items-center justify-between w-full group">
+          <Label className="cursor-pointer">Escutar Eventos</Label>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-2 pt-2">
+          <div className="flex flex-wrap gap-2">
+            {ALL_EVENTS.map((event) => (
+              <button
+                key={event}
+                type="button"
+                onClick={() => onToggleEvent(event)}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  webhookEvents.includes(event)
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+                }`}
+              >
+                {event}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Selecione os tipos de eventos que deseja receber no webhook
+          </p>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
