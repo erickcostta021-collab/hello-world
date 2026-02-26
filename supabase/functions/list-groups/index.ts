@@ -95,17 +95,19 @@ serve(async (req) => {
         baseUrl = sharedSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
       }
 
-      // Last resort: any user with a configured base URL (admin fallback)
+      // Last resort: get effective user id and try their settings
       if (!baseUrl) {
-        const { data: anyUrl } = await supabase
-          .from("user_settings")
-          .select("uazapi_base_url, user_id")
-          .not("uazapi_base_url", "is", null)
-          .order("created_at", { ascending: true })
-          .limit(1);
-        baseUrl = anyUrl?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
-        if (baseUrl) {
-          console.log(`Using fallback base URL from user ${anyUrl?.[0]?.user_id}`);
+        const { data: effectiveId } = await supabase.rpc("get_effective_user_id", { p_user_id: instanceData.user_id });
+        if (effectiveId && effectiveId !== instanceData.user_id) {
+          const { data: effectiveSettings } = await supabase
+            .from("user_settings")
+            .select("uazapi_base_url")
+            .eq("user_id", effectiveId)
+            .limit(1);
+          baseUrl = effectiveSettings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
+          if (baseUrl) {
+            console.log(`Using effective user base URL from ${effectiveId}`);
+          }
         }
       }
     }
@@ -117,31 +119,56 @@ serve(async (req) => {
     // ======== GROUP INFO (members) ========
     if (groupjid) {
       console.log(`Fetching group info for ${groupjid} from ${baseUrl}`);
-      const infoUrl = `${baseUrl}/group/info`;
-      const response = await fetch(infoUrl, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          "token": instanceData.uazapi_instance_token,
-        },
-        body: JSON.stringify({
-          groupjid,
-          getInviteLink: false,
-          getRequestsParticipants: true,
-          force: false,
-        }),
-      });
+      
+      // Try multiple UAZAPI endpoints for group info
+      const endpoints = [
+        { url: `${baseUrl}/group/info`, method: "POST", body: { groupjid, getInviteLink: false, getRequestsParticipants: true, force: false } },
+        { url: `${baseUrl}/group/info`, method: "POST", body: { jid: groupjid, getInviteLink: false } },
+        { url: `${baseUrl}/group/${encodeURIComponent(groupjid)}`, method: "GET", body: null },
+        { url: `${baseUrl}/group/metadata/${encodeURIComponent(groupjid)}`, method: "GET", body: null },
+      ];
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`UAZAPI group/info error (${response.status}):`, errorText);
-        return new Response(JSON.stringify({ error: `Failed to fetch group info: ${errorText}` }),
-          { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      let data: any = null;
+      let lastError = "";
+
+      for (const ep of endpoints) {
+        try {
+          console.log(`Trying: ${ep.method} ${ep.url}`);
+          const fetchOpts: any = {
+            method: ep.method,
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json",
+              "token": instanceData.uazapi_instance_token,
+            },
+          };
+          if (ep.body) fetchOpts.body = JSON.stringify(ep.body);
+
+          const response = await fetch(ep.url, fetchOpts);
+          const text = await response.text();
+          console.log(`Response ${ep.method} ${ep.url}: ${response.status} - ${text.substring(0, 200)}`);
+
+          if (response.ok) {
+            try { data = JSON.parse(text); } catch { data = null; }
+            if (data && (data.participants || data.members || data.data?.participants)) {
+              console.log("✅ Got group info from:", ep.url);
+              break;
+            }
+            // Reset if no participants found
+            data = null;
+          } else {
+            lastError = text;
+          }
+        } catch (e) {
+          console.error(`Error trying ${ep.url}:`, e);
+          lastError = String(e);
+        }
       }
 
-      const data = await response.json();
-      console.log("Group info response keys:", Object.keys(data));
+      if (!data) {
+        return new Response(JSON.stringify({ error: `Failed to fetch group info: ${lastError}` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
 
       // Extract participants from various UAZAPI response formats
       const rawParticipants = data.participants || data.members || data.data?.participants || [];
