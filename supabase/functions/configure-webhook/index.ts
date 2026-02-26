@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { instance_id, webhook_events, create_new, webhook_url_override, enabled: webhookEnabled } = await req.json();
+    const { instance_id, webhook_events, create_new, webhook_url_override, enabled: webhookEnabled, webhook_id } = await req.json();
     if (!instance_id) {
       return new Response(JSON.stringify({ error: "instance_id required" }), {
         status: 200,
@@ -78,6 +78,60 @@ serve(async (req) => {
       } catch {
         return true;
       }
+    }
+
+    // If webhook_id is provided, try to update that specific webhook directly first
+    if (webhook_id && !create_new) {
+      console.log(`Updating existing webhook ${webhook_id} with enabled=${enabledFlag}`);
+      const updatePayload = { id: webhook_id, url: webhookUrl, enabled: enabledFlag, events };
+      const updateAttempts = [
+        { path: `/webhook`, method: "PUT", body: updatePayload },
+        { path: `/webhook`, method: "POST", body: updatePayload },
+        { path: `/webhook`, method: "PATCH", body: updatePayload },
+        { path: `/webhook/${webhook_id}`, method: "PUT", body: { url: webhookUrl, enabled: enabledFlag, events } },
+        { path: `/webhook/${webhook_id}`, method: "PATCH", body: { url: webhookUrl, enabled: enabledFlag, events } },
+        { path: `/webhook/${webhook_id}`, method: "POST", body: { url: webhookUrl, enabled: enabledFlag, events } },
+      ];
+      for (const attempt of updateAttempts) {
+        try {
+          const res = await fetch(`${baseUrl}${attempt.path}`, {
+            method: attempt.method,
+            headers: { "Content-Type": "application/json", "Token": token, "token": token },
+            body: JSON.stringify(attempt.body),
+          });
+          const resText = await res.text();
+          console.log(`Update attempt ${attempt.method} ${attempt.path}: ${res.status} - ${resText.substring(0, 500)}`);
+          if (res.ok) {
+            try {
+              const parsed = JSON.parse(resText);
+              // Check if the response confirms the update
+              if (Array.isArray(parsed)) {
+                const target = parsed.find((w: any) => w.id === webhook_id);
+                if (target && target.enabled === enabledFlag) {
+                  console.log(`✅ Webhook ${webhook_id} updated successfully (enabled=${enabledFlag})`);
+                  return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
+                    headers: { ...corsHeaders, "Content-Type": "application/json" },
+                  });
+                }
+              } else if (parsed.enabled === enabledFlag || parsed.success) {
+                console.log(`✅ Webhook ${webhook_id} updated successfully (enabled=${enabledFlag})`);
+                return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
+                  headers: { ...corsHeaders, "Content-Type": "application/json" },
+                });
+              }
+            } catch {
+              console.log(`✅ Webhook ${webhook_id} possibly updated (non-JSON response)`);
+              return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+          }
+          if (res.status === 404 || res.status === 405) continue;
+        } catch (e: any) {
+          console.warn(`Update attempt failed: ${e.message}`);
+        }
+      }
+      console.log(`Direct update of webhook ${webhook_id} failed, falling back to standard flow`);
     }
 
     // When create_new = true, use "add" endpoints to create an additional webhook
