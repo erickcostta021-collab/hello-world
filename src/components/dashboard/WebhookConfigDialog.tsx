@@ -25,7 +25,7 @@ interface UazapiWebhook {
   events: string[];
   addUrlEvents: boolean;
   addUrlTypesMessages: boolean;
-  excludeMessages: string;
+  excludeMessages: string[] | string;
 }
 
 const ALL_EVENTS = ["messages", "messages_update", "chats", "connection", "qrcode", "history", "call", "contacts", "presence", "groups", "labels", "chat_labels", "blocks", "leads", "sender"] as const;
@@ -88,7 +88,7 @@ export function WebhookConfigDialog({
         setWebhookUrl(fetched[0].url);
         setWebhookEvents(fetched[0].events?.length > 0 ? fetched[0].events : ["messages"]);
         setWebhookEnabled(fetched[0].enabled !== false);
-        setExcludeMessages(fetched[0].excludeMessages ? fetched[0].excludeMessages.split(",").filter(Boolean) : []);
+        setExcludeMessages(fetched[0].excludeMessages ? (Array.isArray(fetched[0].excludeMessages) ? fetched[0].excludeMessages : fetched[0].excludeMessages.split(",").filter(Boolean)) : []);
       } else {
         setActiveTab("new");
         setWebhookUrl("");
@@ -116,7 +116,7 @@ export function WebhookConfigDialog({
         setWebhookUrl(wh.url);
         setWebhookEvents(wh.events?.length > 0 ? wh.events : ["messages"]);
         setWebhookEnabled(wh.enabled !== false);
-        setExcludeMessages(wh.excludeMessages ? wh.excludeMessages.split(",").filter(Boolean) : []);
+        setExcludeMessages(wh.excludeMessages ? (Array.isArray(wh.excludeMessages) ? wh.excludeMessages : wh.excludeMessages.split(",").filter(Boolean)) : []);
       }
     }
   };
