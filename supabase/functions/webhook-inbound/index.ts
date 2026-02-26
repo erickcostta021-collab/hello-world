@@ -1488,7 +1488,11 @@ serve(async (req) => {
     // for instances that were removed or never registered.
     // ================================================================
     if (instanceToken) {
-      const { data: tokenCheck } = await supabase
+      const _gateClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { data: tokenCheck } = await _gateClient
         .from("instances")
         .select("id")
         .eq("uazapi_instance_token", instanceToken)
