@@ -584,18 +584,27 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           text: msgText,
         };
       });
-      // Filter out anti-ban button messages (type "button" paired with a main message to the same number)
+      // Filter out anti-ban button messages so they don't appear as duplicate contacts
       const filtered = list.filter((msg, idx) => {
+        // Check top-level type
         const msgType = String(msg.type || "").toLowerCase();
-        if (msgType === "button") {
-          // Check if previous message in list is to the same number (paired anti-ban button)
-          if (idx > 0 && list[idx - 1].number === msg.number) return false;
-          // Also check send_payload for button type
-          try {
-            const sp = typeof (msg as any).send_payload === "string" ? JSON.parse((msg as any).send_payload) : (msg as any).send_payload;
-            if (sp?.type === "button") return false;
-          } catch { /* ignore */ }
-        }
+        if (msgType === "button") return false;
+        // Check send_payload for button type (API may store type inside payload)
+        try {
+          const raw = (msg as any).send_payload || (msg as any).sendPayload;
+          if (raw) {
+            const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
+            if (sp?.type === "button" || sp?.messageType === "button") return false;
+          }
+        } catch { /* ignore */ }
+        // Check if this is a duplicate number right after another with same number and has buttonText/choices
+        try {
+          const raw = (msg as any).send_payload || (msg as any).sendPayload;
+          if (raw) {
+            const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
+            if (sp?.buttonText || sp?.choices) return false;
+          }
+        } catch { /* ignore */ }
         return true;
       });
       setCampaignMessages(filtered);
