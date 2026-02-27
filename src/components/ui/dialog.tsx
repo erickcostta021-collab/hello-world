@@ -87,7 +87,7 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
  * Only this section scrolls — header and footer stay fixed.
  */
 const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex-1 overflow-y-auto px-6 pb-6", className)} {...props} />
+  <div data-dialog-body="" className={cn("flex-1 overflow-y-auto px-6 pb-6", className)} {...props} />
 );
 DialogBody.displayName = "DialogBody";
 
