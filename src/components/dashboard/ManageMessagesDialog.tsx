@@ -494,8 +494,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           return s.split("@")[0].replace(/\D/g, "");
         };
         const phone = extractPhone(item.chatid) || extractPhone(item.chatId) || extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
-        // Extract name from multiple possible fields
-        const name = String(item.name || item.contactName || item.contact_name || item.recipientName || item.recipient_name || item.senderName || "");
+        // Extract name from multiple possible fields, fallback to send_payload params
+        let name = String(item.name || item.contactName || item.contact_name || item.recipientName || item.recipient_name || "");
+        if (!name && item.send_payload) {
+          try {
+            const sp = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
+            name = String(sp?.name || sp?.contactName || sp?.firstName || sp?.first_name || "");
+          } catch { /* ignore */ }
+        }
         // Extract text: try direct fields, then parse from send_payload
         let msgText = String(item.text || item.message || item.body || "");
         if (!msgText && item.send_payload) {
