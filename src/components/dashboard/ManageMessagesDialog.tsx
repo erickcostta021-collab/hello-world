@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import {
   Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
   Pause, Play, Trash, RefreshCw, Search, FolderOpen, AlertTriangle, ChevronDown, ChevronUp,
-  Upload, Sparkles, ShieldCheck, Info, Scissors, Shield, Eye, MessageSquare,
+  Upload, Sparkles, ShieldCheck, Info, Scissors, Shield, Eye, MessageSquare, Maximize2, Minimize2,
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
@@ -409,6 +409,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [campaignMessages, setCampaignMessages] = useState<CampaignMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [clearHours, setClearHours] = useState("168");
   const [clearingDone, setClearingDone] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
@@ -1653,7 +1654,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-2xl">
+      <DialogContent className={cn("bg-card border-border transition-all duration-300", isFullscreen ? "max-w-[95vw] max-h-[95vh]" : "max-w-2xl")}>
         <DialogHeader>
           <DialogTitle className="text-card-foreground flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
@@ -1985,6 +1986,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                             <div className="flex items-center gap-1 shrink-0">
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCampaignFolderId(fId)} title="Usar ID para controle">
                                 <Search className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsFullscreen(prev => !prev)} title={isFullscreen ? "Reduzir" : "Expandir tela"}>
+                                {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
                               </Button>
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
                                 setMsgFolderId(fId);
