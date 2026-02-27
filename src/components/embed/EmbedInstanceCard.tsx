@@ -518,6 +518,47 @@ export function EmbedInstanceCard({
                       </span>
                     </div>
                   )}
+                  {/* Base URL */}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Copy className="h-3 w-3 text-muted-foreground" />
+                    <span
+                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      title="Clique para copiar Base URL"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const info = await callUazapiProxy("get-info" as any);
+                          if (info?.baseUrl) {
+                            await copyToClipboard(info.baseUrl);
+                            toast.success("Base URL copiada!");
+                          }
+                        } catch { toast.error("Erro ao copiar"); }
+                      }}
+                    >
+                      {instance.uazapi_base_url || "Base URL"}
+                    </span>
+                  </div>
+
+                  {/* Token */}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Copy className="h-3 w-3 text-muted-foreground" />
+                    <span
+                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      title="Clique para copiar o token"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const info = await callUazapiProxy("get-info" as any);
+                          if (info?.token) {
+                            await copyToClipboard(info.token);
+                            toast.success("Token copiado!");
+                          }
+                        } catch { toast.error("Erro ao copiar"); }
+                      }}
+                    >
+                      {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
+                    </span>
+                  </div>
                 </div>
               </div>
               
@@ -535,38 +576,6 @@ export function EmbedInstanceCard({
                   <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
                     <Webhook className="h-4 w-4 mr-2" />
                     Configurar Webhooks
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      const info = await callUazapiProxy("get-info" as any);
-                      if (info?.token) {
-                        await copyToClipboard(info.token);
-                        toast.success("Token copiado!");
-                      } else {
-                        toast.error("Token não disponível");
-                      }
-                    } catch {
-                      toast.error("Erro ao copiar token");
-                    }
-                  }}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copiar Token
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    try {
-                      const info = await callUazapiProxy("get-info" as any);
-                      if (info?.baseUrl) {
-                        await copyToClipboard(info.baseUrl);
-                        toast.success("Base URL copiada!");
-                      } else {
-                        toast.error("Base URL não disponível");
-                      }
-                    } catch {
-                      toast.error("Erro ao copiar Base URL");
-                    }
-                  }}>
-                    <Link className="h-4 w-4 mr-2" />
-                    Copiar Base URL
                   </DropdownMenuItem>
                   {trackId && (
                     <DropdownMenuItem onClick={async () => {
