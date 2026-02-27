@@ -1997,12 +1997,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                                 setLoadingFullscreen(true);
                                 setFullscreenMessages([]);
                                 try {
-                                  const base = getBaseUrlForInstance(instance);
-                                  const resp = await fetch(`${base}/message/list/${instance.instance_name}`, {
+                                  const base = getBaseUrl();
+                                  const resp = await fetch(`${base}/sender/listmessages`, {
                                     method: "POST",
-                                    headers: { "Content-Type": "application/json", apikey: instance.uazapi_instance_token },
+                                    headers: getHeaders(),
                                     body: JSON.stringify({ folder_id: fId, page: 1, pageSize: 100 }),
                                   });
+                                  if (!resp.ok) throw new Error(`Erro ${resp.status}`);
                                   const data = await resp.json();
                                   const list: CampaignMessage[] = Array.isArray(data) ? data : data?.messages || [];
                                   const filtered = list.filter((msg) => {
