@@ -21,10 +21,20 @@ import { cn } from "@/lib/utils";
 import { Instance } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
-import { Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks, Pause, Play, Trash } from "lucide-react";
+import {
+  Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
+  Pause, Play, Trash, RefreshCw, Search, FolderOpen, AlertTriangle, ChevronDown, ChevronUp,
+} from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 interface ManageMessagesDialogProps {
   open: boolean;
@@ -73,6 +83,30 @@ function emptyAdvancedMsg(): AdvancedMessage {
   return { number: "", type: "text", text: "" };
 }
 
+// ─── Campaign folder type ───
+interface CampaignFolder {
+  folder_id?: string;
+  id?: string;
+  info?: string;
+  status?: string;
+  total?: number;
+  sent?: number;
+  failed?: number;
+  scheduled?: number;
+  created_at?: string;
+  [key: string]: unknown;
+}
+
+interface CampaignMessage {
+  id?: string;
+  number?: string;
+  status?: string;
+  type?: string;
+  text?: string;
+  sent_at?: string;
+  [key: string]: unknown;
+}
+
 export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMessagesDialogProps) {
   const { settings } = useSettings();
   const [sending, setSending] = useState(false);
@@ -112,24 +146,124 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
   const [campaignAction, setCampaignAction] = useState<"stop" | "continue" | "delete">("stop");
   const [executingAction, setExecutingAction] = useState(false);
 
+  // ─── List folders ───
+  const [folders, setFolders] = useState<CampaignFolder[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState(false);
+  const [folderStatusFilter, setFolderStatusFilter] = useState("");
+
+  // ─── List messages ───
+  const [msgFolderId, setMsgFolderId] = useState("");
+  const [msgStatusFilter, setMsgStatusFilter] = useState("");
+  const [msgPage, setMsgPage] = useState(1);
+  const [msgPageSize, setMsgPageSize] = useState(10);
+  const [campaignMessages, setCampaignMessages] = useState<CampaignMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
+
+  // ─── Clear done ───
+  const [clearHours, setClearHours] = useState("168");
+  const [clearingDone, setClearingDone] = useState(false);
+
+  // ─── Clear all ───
+  const [clearingAll, setClearingAll] = useState(false);
+
+  const getBaseUrl = () => getBaseUrlForInstance(instance, settings?.uazapi_base_url);
+  const getHeaders = () => ({ "Content-Type": "application/json", Accept: "application/json", token: instance.uazapi_instance_token });
+
+  // ─── Campaign control ───
   const handleCampaignAction = async () => {
     if (!campaignFolderId.trim()) { toast.error("Informe o ID da campanha"); return; }
-    const baseUrl = getBaseUrlForInstance(instance, settings?.uazapi_base_url);
     setExecutingAction(true);
     try {
-      const res = await fetch(`${baseUrl}/sender/edit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json", token: instance.uazapi_instance_token },
+      const res = await fetch(`${getBaseUrl()}/sender/edit`, {
+        method: "POST", headers: getHeaders(),
         body: JSON.stringify({ folder_id: campaignFolderId.trim(), action: campaignAction }),
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const labels = { stop: "pausada", continue: "retomada", delete: "deletada" };
       toast.success(`Campanha ${labels[campaignAction]} com sucesso!`);
       setCampaignFolderId("");
+      // Refresh folders list
+      if (folders.length > 0) handleListFolders();
     } catch (err: any) {
-      console.error("Erro ao controlar campanha:", err);
       toast.error(`Erro: ${err.message}`);
     } finally { setExecutingAction(false); }
+  };
+
+  // ─── List folders ───
+  const handleListFolders = async () => {
+    setLoadingFolders(true);
+    try {
+      const url = new URL(`${getBaseUrl()}/sender/listfolders`);
+      if (folderStatusFilter) url.searchParams.set("status", folderStatusFilter);
+      const res = await fetch(url.toString(), {
+        method: "GET", headers: getHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.folders || data.data || []);
+      setFolders(list);
+      if (list.length === 0) toast.info("Nenhuma campanha encontrada");
+    } catch (err: any) {
+      toast.error(`Erro ao listar campanhas: ${err.message}`);
+    } finally { setLoadingFolders(false); }
+  };
+
+  // ─── List messages of a folder ───
+  const handleListMessages = async (folderId?: string) => {
+    const id = folderId || msgFolderId;
+    if (!id.trim()) { toast.error("Informe o ID da campanha"); return; }
+    setLoadingMessages(true);
+    try {
+      const body: Record<string, unknown> = { folder_id: id.trim() };
+      if (msgStatusFilter) body.messageStatus = msgStatusFilter;
+      body.page = msgPage;
+      body.pageSize = msgPageSize;
+      const res = await fetch(`${getBaseUrl()}/sender/listmessages`, {
+        method: "POST", headers: getHeaders(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.messages || data.data || []);
+      setCampaignMessages(list);
+      setExpandedFolder(id.trim());
+      if (list.length === 0) toast.info("Nenhuma mensagem encontrada");
+    } catch (err: any) {
+      toast.error(`Erro ao listar mensagens: ${err.message}`);
+    } finally { setLoadingMessages(false); }
+  };
+
+  // ─── Clear done ───
+  const handleClearDone = async () => {
+    setClearingDone(true);
+    try {
+      const res = await fetch(`${getBaseUrl()}/sender/cleardone`, {
+        method: "POST", headers: getHeaders(),
+        body: JSON.stringify({ hours: parseInt(clearHours) || 168 }),
+      });
+      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      toast.success("Limpeza de mensagens enviadas iniciada!");
+      if (folders.length > 0) handleListFolders();
+    } catch (err: any) {
+      toast.error(`Erro: ${err.message}`);
+    } finally { setClearingDone(false); }
+  };
+
+  // ─── Clear all ───
+  const handleClearAll = async () => {
+    setClearingAll(true);
+    try {
+      const res = await fetch(`${getBaseUrl()}/sender/clearall`, {
+        method: "DELETE", headers: { Accept: "application/json", token: instance.uazapi_instance_token },
+      });
+      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      toast.success("Toda a fila de mensagens foi limpa!");
+      setFolders([]);
+      setCampaignMessages([]);
+    } catch (err: any) {
+      toast.error(`Erro: ${err.message}`);
+    } finally { setClearingAll(false); }
   };
 
   const handleAddChoice = () => setChoices([...choices, ""]);
@@ -181,7 +315,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
     if (numberList.length === 0) { toast.error("Adicione pelo menos um número"); return; }
     if (messageType === "text" && !text.trim()) { toast.error("Digite a mensagem"); return; }
 
-    const baseUrl = getBaseUrlForInstance(instance, settings?.uazapi_base_url);
+    const baseUrl = getBaseUrl();
     const body: Record<string, unknown> = {
       numbers: numberList,
       type: messageType,
@@ -212,15 +346,12 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
     setSending(true);
     try {
       const res = await fetch(`${baseUrl}/sender/simple`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json", token: instance.uazapi_instance_token },
-        body: JSON.stringify(body),
+        method: "POST", headers: getHeaders(), body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       toast.success(`Campanha simples criada! ${numberList.length} número(s) na fila.`);
       onOpenChange(false);
     } catch (err: any) {
-      console.error("Erro ao criar campanha:", err);
       toast.error(`Erro: ${err.message}`);
     } finally { setSending(false); }
   };
@@ -230,7 +361,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
     const validMessages = advMessages.filter((m) => m.number.trim());
     if (validMessages.length === 0) { toast.error("Adicione pelo menos uma mensagem com número"); return; }
 
-    const baseUrl = getBaseUrlForInstance(instance, settings?.uazapi_base_url);
+    const baseUrl = getBaseUrl();
     const messages = validMessages.map((m) => {
       const clean = m.number.replace(/\D/g, "");
       const obj: Record<string, unknown> = {
@@ -273,15 +404,12 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
     setSending(true);
     try {
       const res = await fetch(`${baseUrl}/sender/advanced`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json", token: instance.uazapi_instance_token },
-        body: JSON.stringify(body),
+        method: "POST", headers: getHeaders(), body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       toast.success(`Envio avançado criado! ${messages.length} mensagem(ns) na fila.`);
       onOpenChange(false);
     } catch (err: any) {
-      console.error("Erro ao criar envio avançado:", err);
       toast.error(`Erro: ${err.message}`);
     } finally { setSending(false); }
   };
@@ -290,6 +418,19 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
   const showContactFields = messageType === "contact";
   const showLocationFields = messageType === "location";
   const showChoiceFields = ["list", "button", "poll", "carousel"].includes(messageType);
+
+  const getStatusColor = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "scheduled": return "border-yellow-500/50 text-yellow-500";
+      case "sending": return "border-blue-500/50 text-blue-500";
+      case "paused": return "border-orange-500/50 text-orange-500";
+      case "done": return "border-green-500/50 text-green-500";
+      case "deleting": return "border-destructive/50 text-destructive";
+      case "sent": return "border-green-500/50 text-green-500";
+      case "failed": return "border-destructive/50 text-destructive";
+      default: return "border-muted-foreground/50 text-muted-foreground";
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -550,67 +691,208 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
               Criar Envio Avançado
             </Button>
           </TabsContent>
+
           {/* ════════ CAMPAIGNS TAB ════════ */}
           <TabsContent value="campaigns" className="space-y-4 mt-4">
-            <div className="space-y-1">
+
+            {/* ── List Folders ── */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-card-foreground flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4 text-primary" /> Campanhas
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Select value={folderStatusFilter} onValueChange={setFolderStatusFilter}>
+                    <SelectTrigger className="bg-secondary border-border h-8 w-[130px] text-xs">
+                      <SelectValue placeholder="Todos status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="scheduled">Agendada</SelectItem>
+                      <SelectItem value="sending">Enviando</SelectItem>
+                      <SelectItem value="paused">Pausada</SelectItem>
+                      <SelectItem value="done">Concluída</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={handleListFolders} disabled={loadingFolders} className="border-border h-8">
+                    {loadingFolders ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                    <span className="ml-1 text-xs">Carregar</span>
+                  </Button>
+                </div>
+              </div>
+
+              {folders.length > 0 && (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {folders.map((f, idx) => {
+                    const fId = f.folder_id || f.id || `folder-${idx}`;
+                    const isExpanded = expandedFolder === fId;
+                    return (
+                      <Card key={idx} className="bg-secondary/30 border-border/50">
+                        <CardContent className="p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Badge variant="outline" className={cn("text-[10px] shrink-0", getStatusColor(f.status))}>
+                                {f.status || "—"}
+                              </Badge>
+                              <span className="text-xs font-medium truncate">{f.info || fId}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Button
+                                variant="ghost" size="icon" className="h-6 w-6"
+                                onClick={() => { setCampaignFolderId(fId); }}
+                                title="Usar ID para controle"
+                              >
+                                <Search className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-6 w-6"
+                                onClick={() => {
+                                  setMsgFolderId(fId);
+                                  if (isExpanded) { setExpandedFolder(null); setCampaignMessages([]); }
+                                  else handleListMessages(fId);
+                                }}
+                              >
+                                {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex gap-3 text-[10px] text-muted-foreground">
+                            {f.total != null && <span>Total: {f.total}</span>}
+                            {f.sent != null && <span>Enviadas: {f.sent}</span>}
+                            {f.failed != null && <span>Falhas: {f.failed}</span>}
+                            {f.scheduled != null && <span>Agendadas: {f.scheduled}</span>}
+                          </div>
+                          {/* Inline messages */}
+                          {isExpanded && campaignMessages.length > 0 && (
+                            <div className="mt-2 rounded border border-border overflow-hidden">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="h-7">
+                                    <TableHead className="text-[10px] px-2 py-1">Número</TableHead>
+                                    <TableHead className="text-[10px] px-2 py-1">Tipo</TableHead>
+                                    <TableHead className="text-[10px] px-2 py-1">Status</TableHead>
+                                    <TableHead className="text-[10px] px-2 py-1">Texto</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {campaignMessages.map((cm, mi) => (
+                                    <TableRow key={mi} className="h-7">
+                                      <TableCell className="text-[10px] px-2 py-1 font-mono">{cm.number || "—"}</TableCell>
+                                      <TableCell className="text-[10px] px-2 py-1">{cm.type || "—"}</TableCell>
+                                      <TableCell className="text-[10px] px-2 py-1">
+                                        <Badge variant="outline" className={cn("text-[9px]", getStatusColor(cm.status))}>{cm.status || "—"}</Badge>
+                                      </TableCell>
+                                      <TableCell className="text-[10px] px-2 py-1 max-w-[120px] truncate">{cm.text || "—"}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                              {loadingMessages && <div className="p-2 text-center"><Loader2 className="h-3 w-3 animate-spin mx-auto" /></div>}
+                            </div>
+                          )}
+                          {isExpanded && campaignMessages.length === 0 && !loadingMessages && (
+                            <p className="text-[10px] text-muted-foreground text-center py-2">Nenhuma mensagem encontrada</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Campaign Control ── */}
+            <div className="space-y-3 pt-2 border-t border-border">
               <h3 className="text-sm font-semibold text-card-foreground">Controlar Campanha</h3>
-              <p className="text-xs text-muted-foreground">Pause, retome ou delete campanhas de envio em massa.</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>ID da Campanha (folder_id)</Label>
-              <Input placeholder="Ex: folder_123" value={campaignFolderId} onChange={(e) => setCampaignFolderId(e.target.value)} className="bg-secondary border-border" />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Ação</Label>
+              <div className="space-y-2">
+                <Label className="text-xs">ID da Campanha (folder_id)</Label>
+                <Input placeholder="Ex: folder_123" value={campaignFolderId} onChange={(e) => setCampaignFolderId(e.target.value)} className="bg-secondary border-border" />
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 <Button
                   variant={campaignAction === "stop" ? "default" : "outline"}
                   onClick={() => setCampaignAction("stop")}
-                  className={cn("border-border", campaignAction === "stop" && "bg-yellow-600 hover:bg-yellow-700 text-white")}
+                  className={cn("border-border text-xs", campaignAction === "stop" && "bg-yellow-600 hover:bg-yellow-700 text-white")}
+                  size="sm"
                 >
-                  <Pause className="h-4 w-4 mr-1" /> Pausar
+                  <Pause className="h-3.5 w-3.5 mr-1" /> Pausar
                 </Button>
                 <Button
                   variant={campaignAction === "continue" ? "default" : "outline"}
                   onClick={() => setCampaignAction("continue")}
-                  className={cn("border-border", campaignAction === "continue" && "bg-green-600 hover:bg-green-700 text-white")}
+                  className={cn("border-border text-xs", campaignAction === "continue" && "bg-green-600 hover:bg-green-700 text-white")}
+                  size="sm"
                 >
-                  <Play className="h-4 w-4 mr-1" /> Continuar
+                  <Play className="h-3.5 w-3.5 mr-1" /> Continuar
                 </Button>
                 <Button
                   variant={campaignAction === "delete" ? "default" : "outline"}
                   onClick={() => setCampaignAction("delete")}
-                  className={cn("border-border", campaignAction === "delete" && "bg-destructive hover:bg-destructive/90 text-white")}
+                  className={cn("border-border text-xs", campaignAction === "delete" && "bg-destructive hover:bg-destructive/90 text-white")}
+                  size="sm"
                 >
-                  <Trash className="h-4 w-4 mr-1" /> Deletar
+                  <Trash className="h-3.5 w-3.5 mr-1" /> Deletar
                 </Button>
               </div>
+              <Button onClick={handleCampaignAction} disabled={executingAction || !campaignFolderId.trim()} className="w-full bg-primary hover:bg-primary/90" size="sm">
+                {executingAction ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ListChecks className="h-4 w-4 mr-2" />}
+                Executar Ação
+              </Button>
             </div>
 
-            <Card className="bg-secondary/30 border-border/50">
-              <CardContent className="p-4 space-y-2">
-                <h4 className="text-xs font-semibold text-muted-foreground">Status das Campanhas</h4>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-500">scheduled</Badge>
-                  <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-500">sending</Badge>
-                  <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-500">paused</Badge>
-                  <Badge variant="outline" className="text-xs border-green-500/50 text-green-500">done</Badge>
-                  <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">deleting</Badge>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <strong>Pausar:</strong> Interrompe temporariamente o envio.<br />
-                  <strong>Continuar:</strong> Retoma uma campanha pausada.<br />
-                  <strong>Deletar:</strong> Remove a campanha e mensagens não enviadas.
-                </p>
-              </CardContent>
-            </Card>
+            {/* ── Cleanup ── */}
+            <div className="space-y-3 pt-2 border-t border-border">
+              <h3 className="text-sm font-semibold text-card-foreground">Limpeza</h3>
 
-            <Button onClick={handleCampaignAction} disabled={executingAction || !campaignFolderId.trim()} className="w-full bg-primary hover:bg-primary/90">
-              {executingAction ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ListChecks className="h-4 w-4 mr-2" />}
-              Executar Ação
-            </Button>
+              {/* Clear done */}
+              <Card className="bg-secondary/30 border-border/50">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-card-foreground">Limpar Enviadas</p>
+                      <p className="text-[10px] text-muted-foreground">Remove mensagens já enviadas mais antigas que o período informado.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number" placeholder="168" value={clearHours}
+                      onChange={(e) => setClearHours(e.target.value)}
+                      className="bg-secondary border-border w-24 h-8 text-xs"
+                    />
+                    <span className="text-[10px] text-muted-foreground">horas</span>
+                    <Button variant="outline" size="sm" onClick={handleClearDone} disabled={clearingDone} className="border-border ml-auto h-8 text-xs">
+                      {clearingDone ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                      Limpar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Clear all */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 h-8 text-xs">
+                    <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                    Limpar Toda a Fila (irreversível)
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar toda a fila?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação é <strong>irreversível</strong>. Todas as mensagens da fila de envio em massa serão removidas, incluindo pendentes e já enviadas.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClearAll} disabled={clearingAll} className="bg-destructive hover:bg-destructive/90">
+                      {clearingAll ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      Confirmar Limpeza
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </TabsContent>
         </Tabs>
       </DialogContent>
