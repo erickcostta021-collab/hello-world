@@ -547,17 +547,24 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Agendar (opcional)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-secondary border-border", !scheduledFor && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {scheduledFor ? format(scheduledFor, "PPP", { locale: ptBR }) : "Selecionar data"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={scheduledFor} onSelect={setScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
-                </PopoverContent>
-              </Popover>
+              <div className="flex gap-2">
+                <Input
+                  type="datetime-local"
+                  value={scheduledFor ? format(scheduledFor, "yyyy-MM-dd'T'HH:mm") : ""}
+                  onChange={(e) => setScheduledFor(e.target.value ? new Date(e.target.value) : undefined)}
+                  className="flex-1 bg-secondary border-border"
+                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className="shrink-0 bg-secondary border-border">
+                      <CalendarIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar mode="single" selected={scheduledFor} onSelect={setScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <Button onClick={handleSendSimple} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
@@ -577,17 +584,24 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Agendar (opcional)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-secondary border-border", !advScheduledFor && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {advScheduledFor ? format(advScheduledFor, "PPP", { locale: ptBR }) : "Selecionar data"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={advScheduledFor} onSelect={setAdvScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
-                </PopoverContent>
-              </Popover>
+              <div className="flex gap-2">
+                <Input
+                  type="datetime-local"
+                  value={advScheduledFor ? format(advScheduledFor, "yyyy-MM-dd'T'HH:mm") : ""}
+                  onChange={(e) => setAdvScheduledFor(e.target.value ? new Date(e.target.value) : undefined)}
+                  className="flex-1 bg-secondary border-border"
+                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon" className="shrink-0 bg-secondary border-border">
+                      <CalendarIcon className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar mode="single" selected={advScheduledFor} onSelect={setAdvScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
             {/* Messages list */}
