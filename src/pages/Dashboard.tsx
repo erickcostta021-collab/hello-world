@@ -5,15 +5,17 @@ import { SubaccountCard } from "@/components/dashboard/SubaccountCard";
 import { InstanceCard } from "@/components/dashboard/InstanceCard";
 import { AddInstanceDialog } from "@/components/dashboard/AddInstanceDialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSubaccounts, Subaccount } from "@/hooks/useSubaccounts";
 import { useInstances } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
-import { RefreshCw, Search, ArrowLeft, Loader2, AlertCircle, Plus, Smartphone, Link2, Eye, Lock, CreditCard, Clock } from "lucide-react";
+import { RefreshCw, Search, ArrowLeft, Loader2, AlertCircle, Plus, Smartphone, Link2, Eye, Lock, CreditCard, Clock, ChevronDown, RotateCw, KeyRound } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CANONICAL_APP_ORIGIN } from "@/lib/canonicalOrigin";
@@ -21,10 +23,58 @@ import { CANONICAL_APP_ORIGIN } from "@/lib/canonicalOrigin";
 export default function Dashboard() {
   const [selectedSubaccount, setSelectedSubaccount] = useState<Subaccount | null>(null);
   const [search, setSearch] = useState("");
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [embedPassword, setEmbedPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
   const { subaccounts, isLoading, syncSubaccounts, isSharedAccount } = useSubaccounts();
   const { instances, syncAllInstancesStatus, linkedInstanceCount, unlinkedInstanceCount, instanceLimit } = useInstances(selectedSubaccount?.id);
   const { settings } = useSettings();
   const { hasActiveSubscription, isInGracePeriod, gracePeriodEndsAt } = useSubscription();
+
+  const handleRegenerateLink = async () => {
+    if (!selectedSubaccount) return;
+    try {
+      const { data: tokenData } = await supabase.rpc("generate_embed_token");
+      const token = tokenData || btoa(crypto.randomUUID()).slice(0, 20);
+      await supabase
+        .from("ghl_subaccounts")
+        .update({ embed_token: token })
+        .eq("id", selectedSubaccount.id);
+      const embedUrl = `${CANONICAL_APP_ORIGIN}/embed/${token}?iframe=true`;
+      await navigator.clipboard.writeText(embedUrl);
+      toast.success("Novo link gerado e copiado!");
+    } catch {
+      toast.error("Erro ao gerar novo link");
+    }
+  };
+
+  const handleSavePassword = async () => {
+    if (!selectedSubaccount) return;
+    setSavingPassword(true);
+    try {
+      await supabase
+        .from("ghl_subaccounts")
+        .update({ embed_password: embedPassword.trim() || null })
+        .eq("id", selectedSubaccount.id);
+      toast.success(embedPassword.trim() ? "Senha definida com sucesso!" : "Senha removida!");
+      setPasswordDialogOpen(false);
+    } catch {
+      toast.error("Erro ao salvar senha");
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const openPasswordDialog = async () => {
+    if (!selectedSubaccount) return;
+    const { data } = await supabase
+      .from("ghl_subaccounts")
+      .select("embed_password")
+      .eq("id", selectedSubaccount.id)
+      .single();
+    setEmbedPassword((data as any)?.embed_password || "");
+    setPasswordDialogOpen(true);
+  };
 
   const filteredSubaccounts = subaccounts.filter((s) =>
     s.account_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -86,36 +136,54 @@ export default function Dashboard() {
                   )}
                   <span className="hidden sm:inline ml-2">Atualizar Status</span>
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!hasActiveSubscription}
-                  onClick={async () => {
-                    try {
-                      let token = selectedSubaccount.embed_token;
-                      
-                      if (!token) {
-                        const { data: tokenData } = await supabase.rpc("generate_embed_token");
-                        token = tokenData || btoa(crypto.randomUUID()).slice(0, 20);
-                        
-                        await supabase
-                          .from("ghl_subaccounts")
-                          .update({ embed_token: token })
-                          .eq("id", selectedSubaccount.id);
+                <div className="flex items-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!hasActiveSubscription}
+                    onClick={async () => {
+                      try {
+                        let token = selectedSubaccount.embed_token;
+                        if (!token) {
+                          const { data: tokenData } = await supabase.rpc("generate_embed_token");
+                          token = tokenData || btoa(crypto.randomUUID()).slice(0, 20);
+                          await supabase.from("ghl_subaccounts").update({ embed_token: token }).eq("id", selectedSubaccount.id);
+                        }
+                        const embedUrl = `${CANONICAL_APP_ORIGIN}/embed/${token}?iframe=true`;
+                        await navigator.clipboard.writeText(embedUrl);
+                        toast.success("Link copiado para a área de transferência!");
+                      } catch {
+                        toast.error("Erro ao gerar link");
                       }
-                      
-                      const embedUrl = `${CANONICAL_APP_ORIGIN}/embed/${token}?iframe=true`;
-                      await navigator.clipboard.writeText(embedUrl);
-                      toast.success("Link copiado para a área de transferência!");
-                    } catch (error) {
-                      toast.error("Erro ao gerar link");
-                    }
-                  }}
-                  className={hasActiveSubscription ? "border-border" : "border-border opacity-40 cursor-not-allowed"}
-                >
-                  <Link2 className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Copiar Link GHL</span>
-                </Button>
+                    }}
+                    className={`rounded-r-none ${hasActiveSubscription ? "border-border" : "border-border opacity-40 cursor-not-allowed"}`}
+                  >
+                    <Link2 className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Copiar Link GHL</span>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!hasActiveSubscription}
+                        className="rounded-l-none border-l-0 px-2 border-border"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleRegenerateLink}>
+                        <RotateCw className="h-4 w-4 mr-2" />
+                        Gerar novo link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={openPasswordDialog}>
+                        <KeyRound className="h-4 w-4 mr-2" />
+                        Definir senha
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
                 {!isSharedAccount && hasActiveSubscription && (
                   <AddInstanceDialog subaccount={selectedSubaccount} hasUAZAPIConfig={hasUAZAPIConfig} />
                 )}
@@ -201,6 +269,34 @@ export default function Dashboard() {
               </p>
             </div>
           )}
+
+
+          {/* Password Dialog */}
+          <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Senha do Link GHL</DialogTitle>
+                <DialogDescription>
+                  Defina uma senha para proteger o acesso ao link embed. Deixe em branco para remover a senha.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogBody>
+                <Input
+                  type="text"
+                  placeholder="Digite a senha..."
+                  value={embedPassword}
+                  onChange={(e) => setEmbedPassword(e.target.value)}
+                />
+              </DialogBody>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setPasswordDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleSavePassword} disabled={savingPassword}>
+                  {savingPassword ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </DashboardLayout>
     );

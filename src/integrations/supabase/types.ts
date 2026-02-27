@@ -141,6 +141,7 @@ export type Database = {
           account_name: string
           company_id: string | null
           created_at: string
+          embed_password: string | null
           embed_token: string | null
           ghl_access_token: string | null
           ghl_refresh_token: string | null
@@ -160,6 +161,7 @@ export type Database = {
           account_name: string
           company_id?: string | null
           created_at?: string
+          embed_password?: string | null
           embed_token?: string | null
           ghl_access_token?: string | null
           ghl_refresh_token?: string | null
@@ -179,6 +181,7 @@ export type Database = {
           account_name?: string
           company_id?: string | null
           created_at?: string
+          embed_password?: string | null
           embed_token?: string | null
           ghl_access_token?: string | null
           ghl_refresh_token?: string | null

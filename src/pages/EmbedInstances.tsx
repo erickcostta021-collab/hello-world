@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useEmbedSupabase } from "@/hooks/useEmbedSupabase";
-import { Smartphone, Loader2, RefreshCw } from "lucide-react";
+import { Smartphone, Loader2, RefreshCw, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmbedInstanceCard, EmbedInstance } from "@/components/embed/EmbedInstanceCard";
 
 interface SubaccountData {
@@ -11,6 +12,7 @@ interface SubaccountData {
   location_id: string;
   user_id: string;
   uazapi_base_url?: string | null;
+  embed_password?: string | null;
 }
 
 export default function EmbedInstances() {
@@ -25,6 +27,10 @@ export default function EmbedInstances() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [trackId, setTrackId] = useState<string | null>(null);
+  const [passwordRequired, setPasswordRequired] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+  const [storedPassword, setStoredPassword] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!embedToken) {
@@ -39,7 +45,7 @@ export default function EmbedInstances() {
       // Fetch subaccount by embed token - only safe columns, NO tokens
       const { data: subData, error: subError } = await supabase
         .from("ghl_subaccounts")
-        .select("id, account_name, location_id, user_id")
+        .select("id, account_name, location_id, user_id, embed_password")
         .eq("embed_token", embedToken)
         .maybeSingle();
 
@@ -58,7 +64,17 @@ export default function EmbedInstances() {
         return;
       }
 
-      setSubaccount(subData);
+      // Check if password is required
+      if ((subData as any).embed_password) {
+        setStoredPassword((subData as any).embed_password);
+        setPasswordRequired(true);
+        setLoading(false);
+        // Don't load instances until password is verified
+        setSubaccount(subData as SubaccountData);
+        return;
+      }
+
+      setSubaccount(subData as SubaccountData);
 
       // Fetch track_id via server-side proxy (RLS blocks direct access)
       try {
@@ -100,6 +116,48 @@ export default function EmbedInstances() {
     }
   };
 
+  const loadInstancesAfterPassword = async () => {
+    if (!subaccount) return;
+    setLoading(true);
+    try {
+      const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/uazapi-proxy-embed`;
+      const trackRes = await fetch(proxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ embedToken, action: "get-track-id" }),
+      });
+      const trackData = await trackRes.json().catch(() => null);
+      setTrackId(trackData?.trackId || null);
+
+      const { data: instData } = await supabase
+        .from("instances")
+        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url, embed_visible_options")
+        .eq("subaccount_id", subaccount.id)
+        .order("instance_name");
+
+      setInstances((instData || []).map(i => ({
+        ...i,
+        uazapi_instance_token: i.uazapi_instance_token || "",
+        uazapi_base_url: i.uazapi_base_url || null,
+        embed_visible_options: i.embed_visible_options as any || null,
+      })));
+    } catch {
+      console.error("Error loading instances after password");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === storedPassword) {
+      setPasswordRequired(false);
+      setPasswordError(false);
+      loadInstancesAfterPassword();
+    } else {
+      setPasswordError(true);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [embedToken]);
@@ -122,6 +180,30 @@ export default function EmbedInstances() {
     return (
       <div className={`min-h-screen flex items-center justify-center ${isIframe ? "bg-transparent" : "bg-background"}`}>
         <p className="text-destructive">{error}</p>
+      </div>
+    );
+  }
+
+  if (passwordRequired) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${isIframe ? "bg-transparent" : "bg-background"}`}>
+        <div className="w-full max-w-sm p-6 space-y-4 text-center">
+          <Lock className="h-10 w-10 mx-auto text-muted-foreground" />
+          <h2 className="text-lg font-semibold text-foreground">Acesso protegido</h2>
+          <p className="text-sm text-muted-foreground">Digite a senha para acessar as instâncias.</p>
+          <form onSubmit={(e) => { e.preventDefault(); handlePasswordSubmit(); }} className="space-y-3">
+            <Input
+              type="password"
+              placeholder="Senha"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+              className={passwordError ? "border-destructive" : ""}
+              autoFocus
+            />
+            {passwordError && <p className="text-sm text-destructive">Senha incorreta</p>}
+            <Button type="submit" className="w-full">Entrar</Button>
+          </form>
+        </div>
       </div>
     );
   }

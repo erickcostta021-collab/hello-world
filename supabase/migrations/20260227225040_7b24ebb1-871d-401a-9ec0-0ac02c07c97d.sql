@@ -1,0 +1,1 @@
+ALTER TABLE public.ghl_subaccounts ADD COLUMN embed_password text DEFAULT NULL;
