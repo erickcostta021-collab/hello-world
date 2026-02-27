@@ -558,11 +558,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     setClearingAll(true);
     try {
       const res = await fetch(`${getBaseUrl()}/sender/clearall`, {
-        method: "DELETE", headers: { Accept: "application/json", token: instance.uazapi_instance_token },
+        method: "POST", headers: getHeaders(),
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       toast.success("Toda a fila de mensagens foi limpa!");
       setFolders([]); setCampaignMessages([]);
+      // Reload folders to confirm clearing
+      setTimeout(() => handleListFolders(), 1000);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setClearingAll(false); }
