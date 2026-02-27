@@ -493,7 +493,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           const s = String(val);
           return s.split("@")[0].replace(/\D/g, "");
         };
-        const phone = extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chatId) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
+        const phone = extractPhone(item.chatid) || extractPhone(item.chatId) || extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
         return {
           ...item,
           number: phone,
