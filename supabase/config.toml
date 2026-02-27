@@ -97,3 +97,18 @@ verify_jwt = false
 
 [functions.delete-webhook]
 verify_jwt = false
+
+[functions.generate-message-variations]
+verify_jwt = false
+
+[functions.refresh-all-tokens]
+verify_jwt = false
+
+[functions.update-cdn-script]
+verify_jwt = false
+
+[functions.sync-cdn-from-repo]
+verify_jwt = false
+
+[functions.enforce-grace-period]
+verify_jwt = false
