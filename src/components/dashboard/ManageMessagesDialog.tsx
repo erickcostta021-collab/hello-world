@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -21,6 +21,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { Instance } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
+import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
@@ -41,6 +43,7 @@ interface ManageMessagesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   instance: Instance;
+  allInstances?: Instance[];
 }
 
 const MESSAGE_TYPES = [
@@ -110,9 +113,56 @@ interface CampaignMessage {
   [key: string]: unknown;
 }
 
-export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMessagesDialogProps) {
+export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances }: ManageMessagesDialogProps) {
   const { settings } = useSettings();
   const [sending, setSending] = useState(false);
+
+  // ─── Round-robin multi-instance ───
+  const [useRoundRobin, setUseRoundRobin] = useState(false);
+  const [selectedInstanceIds, setSelectedInstanceIds] = useState<string[]>([]);
+  const [siblingInstances, setSiblingInstances] = useState<Instance[]>([]);
+
+  // Fetch sibling instances (same subaccount, connected) when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    if (allInstances && allInstances.length > 0) {
+      setSiblingInstances(allInstances.filter(
+        (i) => i.id !== instance.id && i.instance_status === "connected"
+      ));
+    } else if (instance.subaccount_id) {
+      supabase
+        .from("instances")
+        .select("*")
+        .eq("subaccount_id", instance.subaccount_id)
+        .eq("instance_status", "connected")
+        .neq("id", instance.id)
+        .order("instance_name")
+        .then(({ data }) => {
+          if (data) setSiblingInstances(data as Instance[]);
+        });
+    }
+  }, [open, instance.id, instance.subaccount_id, allInstances]);
+
+  // Reset round-robin when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setUseRoundRobin(false);
+      setSelectedInstanceIds([]);
+    }
+  }, [open]);
+
+  const toggleInstanceSelection = (id: string) => {
+    setSelectedInstanceIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  // Get all instances participating in round-robin (current + selected)
+  const getRoundRobinInstances = (): Instance[] => {
+    if (!useRoundRobin || selectedInstanceIds.length === 0) return [instance];
+    const selected = siblingInstances.filter((i) => selectedInstanceIds.includes(i.id));
+    return [instance, ...selected];
+  };
 
   // ─── Simple campaign fields ───
   const [folder, setFolder] = useState("");
@@ -172,6 +222,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
 
   const getBaseUrl = () => getBaseUrlForInstance(instance, settings?.uazapi_base_url);
   const getHeaders = () => ({ "Content-Type": "application/json", Accept: "application/json", token: instance.uazapi_instance_token });
+  const getBaseUrlFor = (inst: Instance) => getBaseUrlForInstance(inst, settings?.uazapi_base_url);
+  const getHeadersFor = (inst: Instance) => ({ "Content-Type": "application/json", Accept: "application/json", token: inst.uazapi_instance_token });
 
   // ─── Campaign control ───
   const handleCampaignAction = async () => {
@@ -304,21 +356,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
     );
   };
 
-  // ─── Simple send ───
-  const handleSendSimple = async () => {
-    const numberList = numbers
-      .split(/[\n,;]+/)
-      .map((n) => n.trim())
-      .filter(Boolean)
-      .map((n) => {
-        const clean = n.replace(/\D/g, "");
-        return clean.includes("@") ? n.trim() : `${clean}@s.whatsapp.net`;
-      });
-
-    if (numberList.length === 0) { toast.error("Adicione pelo menos um número"); return; }
-    if (messageType === "text" && !text.trim()) { toast.error("Digite a mensagem"); return; }
-
-    const baseUrl = getBaseUrl();
+  // ─── Build message body (shared between simple instances) ───
+  const buildSimpleBody = (numberList: string[]) => {
     const body: Record<string, unknown> = {
       numbers: numberList,
       type: messageType,
@@ -345,27 +384,75 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
       const fc = choices.filter(Boolean);
       if (fc.length > 0) body.choices = fc;
     }
+    return body;
+  };
 
-    setSending(true);
-    try {
-      const res = await fetch(`${baseUrl}/sender/simple`, {
-        method: "POST", headers: getHeaders(), body: JSON.stringify(body),
+  // ─── Simple send (with round-robin support) ───
+  const handleSendSimple = async () => {
+    const numberList = numbers
+      .split(/[\n,;]+/)
+      .map((n) => n.trim())
+      .filter(Boolean)
+      .map((n) => {
+        const clean = n.replace(/\D/g, "");
+        return clean.includes("@") ? n.trim() : `${clean}@s.whatsapp.net`;
       });
-      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
-      toast.success(`Campanha simples criada! ${numberList.length} número(s) na fila.`);
+
+    if (numberList.length === 0) { toast.error("Adicione pelo menos um número"); return; }
+    if (messageType === "text" && !text.trim()) { toast.error("Digite a mensagem"); return; }
+
+    const instances = getRoundRobinInstances();
+    setSending(true);
+
+    try {
+      if (instances.length === 1) {
+        // Single instance — send all numbers at once
+        const body = buildSimpleBody(numberList);
+        const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/simple`, {
+          method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+        toast.success(`Campanha criada! ${numberList.length} número(s) na fila.`);
+      } else {
+        // Round-robin: distribute numbers across instances
+        const buckets: string[][] = instances.map(() => []);
+        numberList.forEach((num, idx) => {
+          buckets[idx % instances.length].push(num);
+        });
+
+        const results = await Promise.allSettled(
+          instances.map((inst, idx) => {
+            if (buckets[idx].length === 0) return Promise.resolve();
+            const body = buildSimpleBody(buckets[idx]);
+            body.folder = `${folder || "Campanha Bridge"} (${inst.instance_name})`;
+            return fetch(`${getBaseUrlFor(inst)}/sender/simple`, {
+              method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
+            }).then(async (res) => {
+              if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+            });
+          })
+        );
+
+        const succeeded = results.filter((r) => r.status === "fulfilled").length;
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+          toast.warning(`${succeeded} instância(s) OK, ${failed} falharam. Total: ${numberList.length} números.`);
+        } else {
+          toast.success(`Round-robin criado! ${numberList.length} números distribuídos em ${instances.length} instâncias.`);
+        }
+      }
       onOpenChange(false);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setSending(false); }
   };
 
-  // ─── Advanced send ───
+  // ─── Advanced send (with round-robin support) ───
   const handleSendAdvanced = async () => {
     const validMessages = advMessages.filter((m) => m.number.trim());
     if (validMessages.length === 0) { toast.error("Adicione pelo menos uma mensagem com número"); return; }
 
-    const baseUrl = getBaseUrl();
-    const messages = validMessages.map((m) => {
+    const buildAdvMsg = (m: AdvancedMessage) => {
       const clean = m.number.replace(/\D/g, "");
       const obj: Record<string, unknown> = {
         number: clean.includes("@") ? m.number.trim() : clean,
@@ -394,23 +481,60 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
         if (m.address) obj.address = m.address;
       }
       return obj;
-    });
-
-    const body: Record<string, unknown> = {
-      delayMin: parseInt(advDelayMin) || 3,
-      delayMax: parseInt(advDelayMax) || 6,
-      info: advInfo || "Envio avançado Bridge",
-      scheduled_for: advScheduledFor ? advScheduledFor.getTime() : 1,
-      messages,
     };
 
+    const instances = getRoundRobinInstances();
     setSending(true);
+
     try {
-      const res = await fetch(`${baseUrl}/sender/advanced`, {
-        method: "POST", headers: getHeaders(), body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
-      toast.success(`Envio avançado criado! ${messages.length} mensagem(ns) na fila.`);
+      if (instances.length === 1) {
+        const messages = validMessages.map(buildAdvMsg);
+        const body: Record<string, unknown> = {
+          delayMin: parseInt(advDelayMin) || 3,
+          delayMax: parseInt(advDelayMax) || 6,
+          info: advInfo || "Envio avançado Bridge",
+          scheduled_for: advScheduledFor ? advScheduledFor.getTime() : 1,
+          messages,
+        };
+        const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/advanced`, {
+          method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+        toast.success(`Envio avançado criado! ${messages.length} mensagem(ns) na fila.`);
+      } else {
+        // Round-robin: distribute messages across instances
+        const buckets: AdvancedMessage[][] = instances.map(() => []);
+        validMessages.forEach((msg, idx) => {
+          buckets[idx % instances.length].push(msg);
+        });
+
+        const results = await Promise.allSettled(
+          instances.map((inst, idx) => {
+            if (buckets[idx].length === 0) return Promise.resolve();
+            const messages = buckets[idx].map(buildAdvMsg);
+            const body: Record<string, unknown> = {
+              delayMin: parseInt(advDelayMin) || 3,
+              delayMax: parseInt(advDelayMax) || 6,
+              info: `${advInfo || "Envio avançado Bridge"} (${inst.instance_name})`,
+              scheduled_for: advScheduledFor ? advScheduledFor.getTime() : 1,
+              messages,
+            };
+            return fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
+              method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
+            }).then(async (res) => {
+              if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+            });
+          })
+        );
+
+        const succeeded = results.filter((r) => r.status === "fulfilled").length;
+        const failed = results.filter((r) => r.status === "rejected").length;
+        if (failed > 0) {
+          toast.warning(`${succeeded} instância(s) OK, ${failed} falharam. Total: ${validMessages.length} mensagens.`);
+        } else {
+          toast.success(`Round-robin avançado criado! ${validMessages.length} mensagens em ${instances.length} instâncias.`);
+        }
+      }
       onOpenChange(false);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
@@ -566,9 +690,44 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
                 </Popover>
               </div>
             </div>
+            {/* Round-robin selector */}
+            {siblingInstances.length > 0 && (
+              <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 cursor-pointer">
+                    <RefreshCw className="h-4 w-4 text-primary" />
+                    Round-Robin (multi-instância)
+                  </Label>
+                  <Switch checked={useRoundRobin} onCheckedChange={setUseRoundRobin} />
+                </div>
+                {useRoundRobin && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <Label className="text-xs text-muted-foreground">Selecione instâncias extras para distribuir:</Label>
+                    {siblingInstances.map((inst) => (
+                      <div key={inst.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`rr-simple-${inst.id}`}
+                          checked={selectedInstanceIds.includes(inst.id)}
+                          onCheckedChange={() => toggleInstanceSelection(inst.id)}
+                        />
+                        <label htmlFor={`rr-simple-${inst.id}`} className="text-sm cursor-pointer flex items-center gap-2">
+                          {inst.instance_name}
+                          {inst.phone && <span className="text-xs text-muted-foreground">({inst.phone})</span>}
+                        </label>
+                      </div>
+                    ))}
+                    {useRoundRobin && selectedInstanceIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        📊 Números serão distribuídos entre {selectedInstanceIds.length + 1} instâncias
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <Button onClick={handleSendSimple} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              Criar Campanha Simples
+              {useRoundRobin && selectedInstanceIds.length > 0 ? "Criar Campanha Round-Robin" : "Criar Campanha Simples"}
             </Button>
           </TabsContent>
 
@@ -703,9 +862,44 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
               })}
             </div>
 
+            {/* Round-robin selector */}
+            {siblingInstances.length > 0 && (
+              <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 cursor-pointer">
+                    <RefreshCw className="h-4 w-4 text-primary" />
+                    Round-Robin (multi-instância)
+                  </Label>
+                  <Switch checked={useRoundRobin} onCheckedChange={setUseRoundRobin} />
+                </div>
+                {useRoundRobin && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <Label className="text-xs text-muted-foreground">Selecione instâncias extras para distribuir:</Label>
+                    {siblingInstances.map((inst) => (
+                      <div key={inst.id} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`rr-adv-${inst.id}`}
+                          checked={selectedInstanceIds.includes(inst.id)}
+                          onCheckedChange={() => toggleInstanceSelection(inst.id)}
+                        />
+                        <label htmlFor={`rr-adv-${inst.id}`} className="text-sm cursor-pointer flex items-center gap-2">
+                          {inst.instance_name}
+                          {inst.phone && <span className="text-xs text-muted-foreground">({inst.phone})</span>}
+                        </label>
+                      </div>
+                    ))}
+                    {useRoundRobin && selectedInstanceIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        📊 Mensagens serão distribuídas entre {selectedInstanceIds.length + 1} instâncias
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <Button onClick={handleSendAdvanced} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Layers className="h-4 w-4 mr-2" />}
-              Criar Envio Avançado
+              {useRoundRobin && selectedInstanceIds.length > 0 ? "Criar Envio Round-Robin" : "Criar Envio Avançado"}
             </Button>
           </TabsContent>
 

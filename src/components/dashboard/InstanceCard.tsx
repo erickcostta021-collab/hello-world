@@ -61,9 +61,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface InstanceCardProps {
   instance: Instance;
+  allInstances?: Instance[];
 }
 
-export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCardProps) {
+export const InstanceCard = memo(function InstanceCard({ instance, allInstances }: InstanceCardProps) {
   const { 
     deleteInstance, 
     getQRCode, 
@@ -670,6 +671,7 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
         open={messagesDialogOpen}
         onOpenChange={setMessagesDialogOpen}
         instance={instance}
+        allInstances={allInstances}
       />
     </>
   );

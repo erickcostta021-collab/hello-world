@@ -182,8 +182,8 @@ export default function Dashboard() {
           {/* Instances Grid */}
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {/* Instance Cards */}
-            {instances.map((instance) => (
-              <InstanceCard key={instance.id} instance={instance} />
+            {instances.map((inst) => (
+              <InstanceCard key={inst.id} instance={inst} allInstances={instances} />
             ))}
           </div>
 
