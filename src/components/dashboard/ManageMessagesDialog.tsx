@@ -558,7 +558,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     setClearingAll(true);
     try {
       const res = await fetch(`${getBaseUrl()}/sender/clearall`, {
-        method: "POST", headers: getHeaders(),
+        method: "DELETE", headers: getHeaders(),
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       toast.success("Toda a fila de mensagens foi limpa!");
