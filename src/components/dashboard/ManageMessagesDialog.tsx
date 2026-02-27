@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import {
   Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
   Pause, Play, Trash, RefreshCw, Search, FolderOpen, AlertTriangle, ChevronDown, ChevronUp,
-  Upload, Sparkles, ShieldCheck, Info, Scissors,
+  Upload, Sparkles, ShieldCheck, Info, Scissors, Shield, Eye, MessageSquare,
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
@@ -295,6 +295,12 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [splitMessages, setSplitMessages] = useState(false);
   const [splitMaxChars, setSplitMaxChars] = useState("300");
   const [splitDelay, setSplitDelay] = useState("2");
+  const [antiBanButton, setAntiBanButton] = useState(false);
+  const [antiBanBtnTitle, setAntiBanBtnTitle] = useState("Comunicação Oficial");
+  const [antiBanBtnFooter, setAntiBanBtnFooter] = useState("Responda para confirmar");
+  const [antiBanBtnMessage, setAntiBanBtnMessage] = useState("Deseja continuar recebendo nossas mensagens?");
+  const [antiBanBtnOption1, setAntiBanBtnOption1] = useState("Sim, quero receber");
+  const [antiBanBtnOption2, setAntiBanBtnOption2] = useState("Não, obrigado");
   const [batchSize, setBatchSize] = useState("50");
   const [batchPauseMin, setBatchPauseMin] = useState("60");
   const [batchPauseMax, setBatchPauseMax] = useState("120");
@@ -804,6 +810,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     if (antiBanEnabled && splitMessages) {
       body.split_max_chars = parseInt(splitMaxChars) || 300;
       body.split_delay = parseInt(splitDelay) || 2;
+    }
+    if (antiBanEnabled && antiBanButton) {
+      body.anti_ban_button = true;
+      body.anti_ban_btn_title = antiBanBtnTitle;
+      body.anti_ban_btn_footer = antiBanBtnFooter;
+      body.anti_ban_btn_message = antiBanBtnMessage;
+      body.anti_ban_btn_options = [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean);
     }
     if (text) body.text = text;
     if (linkPreview) body.linkPreview = true;
@@ -1395,6 +1408,98 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               <li>Evite links encurtados (bit.ly, etc.) — use links completos</li>
               <li>Aqueça números novos: comece com poucos envios e aumente gradualmente</li>
             </ul>
+          </div>
+
+          {/* Botão Anti-Ban */}
+          <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <Shield className="h-4 w-4 text-primary" />
+                  Botão Anti-Ban
+                </Label>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Envia botões de resposta para reduzir risco de banimento</p>
+              </div>
+              <Switch checked={antiBanButton} onCheckedChange={setAntiBanButton} />
+            </div>
+            {antiBanButton && (
+              <div className="space-y-3 pt-2 border-t border-border">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Título (destaque)</Label>
+                    <Input
+                      value={antiBanBtnTitle}
+                      onChange={(e) => setAntiBanBtnTitle(e.target.value)}
+                      className="bg-secondary border-border h-8 text-xs"
+                      placeholder="Comunicação Oficial"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Rodapé</Label>
+                    <Input
+                      value={antiBanBtnFooter}
+                      onChange={(e) => setAntiBanBtnFooter(e.target.value)}
+                      className="bg-secondary border-border h-8 text-xs"
+                      placeholder="Responda para confirmar"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <MessageSquare className="h-3 w-3" /> Mensagem Principal
+                  </Label>
+                  <Input
+                    value={antiBanBtnMessage}
+                    onChange={(e) => setAntiBanBtnMessage(e.target.value)}
+                    className="bg-secondary border-border h-8 text-xs"
+                    placeholder="Deseja continuar recebendo nossas mensagens?"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Botões de Resposta</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Opção 1 (positiva)</Label>
+                      <Input
+                        value={antiBanBtnOption1}
+                        onChange={(e) => setAntiBanBtnOption1(e.target.value)}
+                        className="bg-secondary border-border h-8 text-xs"
+                        placeholder="Sim, quero receber"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Opção 2 (negativa)</Label>
+                      <Input
+                        value={antiBanBtnOption2}
+                        onChange={(e) => setAntiBanBtnOption2(e.target.value)}
+                        className="bg-secondary border-border h-8 text-xs"
+                        placeholder="Não, obrigado"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                <div className="space-y-1">
+                  <Label className="flex items-center gap-1.5 text-xs text-primary">
+                    <Eye className="h-3 w-3" /> Preview da mensagem:
+                  </Label>
+                  <div className="p-3 rounded-lg border border-primary/30 bg-background space-y-2">
+                    <p className="text-sm font-bold">{antiBanBtnTitle || "Título"}</p>
+                    <p className="text-xs text-muted-foreground">{antiBanBtnMessage || "Mensagem..."}</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {antiBanBtnOption1 && (
+                        <span className="text-[10px] px-3 py-1 rounded-full border border-primary/50 text-primary">{antiBanBtnOption1}</span>
+                      )}
+                      {antiBanBtnOption2 && (
+                        <span className="text-[10px] px-3 py-1 rounded-full border border-primary/50 text-primary">{antiBanBtnOption2}</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic">{antiBanBtnFooter || "Rodapé"}</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
