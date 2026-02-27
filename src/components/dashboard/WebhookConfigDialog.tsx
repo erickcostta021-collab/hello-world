@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogBody,
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,66 +161,84 @@ export function WebhookConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-lg">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-card-foreground">Configurar Webhooks</DialogTitle>
+          <DialogTitle>Configurar Webhooks</DialogTitle>
           <DialogDescription>
             Gerencie os webhooks configurados na UAZAPI
           </DialogDescription>
         </DialogHeader>
 
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-secondary/50 p-1">
-              {webhooks.map((wh, idx) => (
+        <DialogBody>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+              <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-secondary/50 p-1">
+                {webhooks.map((wh, idx) => (
+                  <TabsTrigger
+                    key={wh.id}
+                    value={wh.id}
+                    className="text-xs px-3 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  >
+                    Webhook {idx + 1}
+                  </TabsTrigger>
+                ))}
                 <TabsTrigger
-                  key={wh.id}
-                  value={wh.id}
+                  value="new"
                   className="text-xs px-3 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
-                  Webhook {idx + 1}
+                  <Plus className="h-3 w-3 mr-1" />
+                  Novo
                 </TabsTrigger>
+              </TabsList>
+
+              {/* Existing webhook tabs */}
+              {webhooks.map((wh) => (
+                <TabsContent key={wh.id} value={wh.id} className="space-y-4 mt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground font-mono">
+                      ID: {wh.id}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${wh.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
+                        {wh.enabled ? "Ativo" : "Inativo"}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7"
+                        onClick={() => handleDelete(wh.id)}
+                        disabled={deletingId === wh.id}
+                      >
+                        {deletingId === wh.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <WebhookForm
+                    webhookUrl={webhookUrl}
+                    onWebhookUrlChange={setWebhookUrl}
+                    webhookEvents={webhookEvents}
+                    onToggleEvent={toggleEvent}
+                    ignoreGroups={ignoreGroups}
+                    onIgnoreGroupsChange={onIgnoreGroupsChange}
+                    enabled={webhookEnabled}
+                    onEnabledChange={setWebhookEnabled}
+                    excludeMessages={excludeMessages}
+                    onExcludeMessagesChange={setExcludeMessages}
+                  />
+                </TabsContent>
               ))}
-              <TabsTrigger
-                value="new"
-                className="text-xs px-3 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Novo
-              </TabsTrigger>
-            </TabsList>
 
-            {/* Existing webhook tabs */}
-            {webhooks.map((wh) => (
-              <TabsContent key={wh.id} value={wh.id} className="space-y-4 mt-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-muted-foreground font-mono">
-                    ID: {wh.id}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${wh.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-muted text-muted-foreground"}`}>
-                      {wh.enabled ? "Ativo" : "Inativo"}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 h-7"
-                      onClick={() => handleDelete(wh.id)}
-                      disabled={deletingId === wh.id}
-                    >
-                      {deletingId === wh.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
+              {/* New webhook tab */}
+              <TabsContent value="new" className="space-y-4 mt-4">
                 <WebhookForm
                   webhookUrl={webhookUrl}
                   onWebhookUrlChange={setWebhookUrl}
@@ -231,47 +251,27 @@ export function WebhookConfigDialog({
                   excludeMessages={excludeMessages}
                   onExcludeMessagesChange={setExcludeMessages}
                 />
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border">
-                    Cancelar
-                  </Button>
-                  <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Salvar
-                  </Button>
-                </div>
               </TabsContent>
-            ))}
+            </Tabs>
+          )}
+        </DialogBody>
 
-            {/* New webhook tab */}
-            <TabsContent value="new" className="space-y-4 mt-4">
-              <WebhookForm
-                webhookUrl={webhookUrl}
-                onWebhookUrlChange={setWebhookUrl}
-                webhookEvents={webhookEvents}
-                onToggleEvent={toggleEvent}
-                ignoreGroups={ignoreGroups}
-                onIgnoreGroupsChange={onIgnoreGroupsChange}
-                enabled={webhookEnabled}
-                onEnabledChange={setWebhookEnabled}
-                excludeMessages={excludeMessages}
-                onExcludeMessagesChange={setExcludeMessages}
-              />
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)} className="border-border">
-                  Cancelar
-                </Button>
-                <Button onClick={handleSave} disabled={isSaving}>
-                  {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  <Plus className="h-4 w-4 mr-1" />
-                  Criar Webhook
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSave} disabled={isSaving || loading}>
+            {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {activeTab === "new" ? (
+              <>
+                <Plus className="h-4 w-4 mr-1" />
+                Criar Webhook
+              </>
+            ) : (
+              "Salvar"
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
