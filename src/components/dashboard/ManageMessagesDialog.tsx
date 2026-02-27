@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import {
   Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
   Pause, Play, Trash, RefreshCw, Search, FolderOpen, AlertTriangle, ChevronDown, ChevronUp,
-  Upload, Sparkles, ShieldCheck, Info,
+  Upload, Sparkles, ShieldCheck, Info, Scissors,
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
@@ -238,6 +238,39 @@ function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: 
   return result;
 }
 
+// ─── Split large messages ───
+function splitLargeMessage(text: string, maxChars: number): string[] {
+  if (!text || text.length <= maxChars) return [text];
+  const parts: string[] = [];
+  const paragraphs = text.split(/\n/);
+  let current = "";
+  for (const para of paragraphs) {
+    if (current && (current + "\n" + para).length > maxChars) {
+      parts.push(current.trim());
+      current = para;
+    } else {
+      current = current ? current + "\n" + para : para;
+    }
+  }
+  // If a single paragraph exceeds maxChars, split by words
+  if (current.length > maxChars) {
+    const words = current.split(" ");
+    let chunk = "";
+    for (const word of words) {
+      if (chunk && (chunk + " " + word).length > maxChars) {
+        parts.push(chunk.trim());
+        chunk = word;
+      } else {
+        chunk = chunk ? chunk + " " + word : word;
+      }
+    }
+    if (chunk) parts.push(chunk.trim());
+  } else if (current) {
+    parts.push(current.trim());
+  }
+  return parts.filter(Boolean);
+}
+
 export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances }: ManageMessagesDialogProps) {
   const { settings } = useSettings();
   const [sending, setSending] = useState(false);
@@ -259,6 +292,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [antiBanEnabled, setAntiBanEnabled] = useState(false);
   const [addInvisibleChars, setAddInvisibleChars] = useState(true);
   const [addRandomSpacing, setAddRandomSpacing] = useState(false);
+  const [splitMessages, setSplitMessages] = useState(false);
+  const [splitMaxChars, setSplitMaxChars] = useState("300");
+  const [splitDelay, setSplitDelay] = useState("2");
   const [batchSize, setBatchSize] = useState("50");
   const [batchPauseMin, setBatchPauseMin] = useState("60");
   const [batchPauseMax, setBatchPauseMax] = useState("120");
@@ -765,6 +801,10 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 0,
       ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
     };
+    if (antiBanEnabled && splitMessages) {
+      body.split_max_chars = parseInt(splitMaxChars) || 300;
+      body.split_delay = parseInt(splitDelay) || 2;
+    }
     if (text) body.text = text;
     if (linkPreview) body.linkPreview = true;
     if (fileUrl) body.file = fileUrl;
@@ -1307,6 +1347,39 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                     ⚠️ Selecione pelo menos uma variação para usar no envio
                   </p>
                 )}
+              </div>
+            )}
+          </div>
+
+          {/* Dividir mensagens grandes */}
+          <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 cursor-pointer text-sm">
+                <Scissors className="h-4 w-4 text-primary" />
+                Dividir mensagens grandes
+              </Label>
+              <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
+            </div>
+            {splitMessages && (
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Máx. caracteres</Label>
+                  <Input
+                    type="number" min={50} max={5000}
+                    value={splitMaxChars}
+                    onChange={(e) => setSplitMaxChars(e.target.value)}
+                    className="bg-secondary border-border h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Delay entre partes (s)</Label>
+                  <Input
+                    type="number" min={0} max={30}
+                    value={splitDelay}
+                    onChange={(e) => setSplitDelay(e.target.value)}
+                    className="bg-secondary border-border h-8 text-xs"
+                  />
+                </div>
               </div>
             )}
           </div>
