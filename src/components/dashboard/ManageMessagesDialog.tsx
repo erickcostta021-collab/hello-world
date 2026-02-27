@@ -47,6 +47,8 @@ const MESSAGE_TYPES = [
   { value: "image", label: "Imagem" },
   { value: "video", label: "Vídeo" },
   { value: "audio", label: "Áudio" },
+  { value: "ptt", label: "Áudio Gravado (PTT)" },
+  { value: "sticker", label: "Sticker" },
   { value: "document", label: "Documento" },
   { value: "contact", label: "Contato" },
   { value: "location", label: "Localização" },
@@ -414,7 +416,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
     } finally { setSending(false); }
   };
 
-  const showMediaField = ["image", "video", "audio", "document"].includes(messageType);
+  const showMediaField = ["image", "video", "audio", "ptt", "sticker", "document"].includes(messageType);
   const showContactFields = messageType === "contact";
   const showLocationFields = messageType === "location";
   const showChoiceFields = ["list", "button", "poll", "carousel"].includes(messageType);
@@ -597,7 +599,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
               </div>
 
               {advMessages.map((msg, idx) => {
-                const showMsgMedia = ["image", "video", "audio", "document"].includes(msg.type);
+                const showMsgMedia = ["image", "video", "audio", "ptt", "sticker", "document"].includes(msg.type);
                 const showMsgChoices = ["list", "button", "poll", "carousel"].includes(msg.type);
                 return (
                   <Card key={idx} className="bg-secondary/30 border-border/50">
