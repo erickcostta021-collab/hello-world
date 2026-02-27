@@ -1680,7 +1680,12 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                   />
                 </div>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {folders.filter((f) => !folderSearch || String(f.folder_name || f.name || "").toLowerCase().includes(folderSearch.toLowerCase())).map((f, idx) => {
+                  {folders.filter((f) => {
+                    if (!folderSearch) return true;
+                    const q = folderSearch.toLowerCase();
+                    const searchable = [f.folder_name, f.name, f.info, f.folder_id, f.id].filter(Boolean).join(" ").toLowerCase();
+                    return searchable.includes(q);
+                  }).map((f, idx) => {
                     const fId = f.folder_id || f.id || `folder-${idx}`;
                     const isExpanded = expandedFolder === fId;
                     return (
