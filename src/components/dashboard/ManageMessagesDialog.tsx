@@ -21,9 +21,10 @@ import { cn } from "@/lib/utils";
 import { Instance } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
-import { Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon } from "lucide-react";
+import { Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks, Pause, Play, Trash } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface ManageMessagesDialogProps {
   open: boolean;
@@ -105,6 +106,31 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
   const [advDelayMax, setAdvDelayMax] = useState("6");
   const [advScheduledFor, setAdvScheduledFor] = useState<Date | undefined>(undefined);
   const [advMessages, setAdvMessages] = useState<AdvancedMessage[]>([emptyAdvancedMsg()]);
+
+  // ─── Campaign control fields ───
+  const [campaignFolderId, setCampaignFolderId] = useState("");
+  const [campaignAction, setCampaignAction] = useState<"stop" | "continue" | "delete">("stop");
+  const [executingAction, setExecutingAction] = useState(false);
+
+  const handleCampaignAction = async () => {
+    if (!campaignFolderId.trim()) { toast.error("Informe o ID da campanha"); return; }
+    const baseUrl = getBaseUrlForInstance(instance, settings?.uazapi_base_url);
+    setExecutingAction(true);
+    try {
+      const res = await fetch(`${baseUrl}/sender/edit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json", token: instance.uazapi_instance_token },
+        body: JSON.stringify({ folder_id: campaignFolderId.trim(), action: campaignAction }),
+      });
+      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      const labels = { stop: "pausada", continue: "retomada", delete: "deletada" };
+      toast.success(`Campanha ${labels[campaignAction]} com sucesso!`);
+      setCampaignFolderId("");
+    } catch (err: any) {
+      console.error("Erro ao controlar campanha:", err);
+      toast.error(`Erro: ${err.message}`);
+    } finally { setExecutingAction(false); }
+  };
 
   const handleAddChoice = () => setChoices([...choices, ""]);
   const handleRemoveChoice = (index: number) => setChoices(choices.filter((_, i) => i !== index));
@@ -282,11 +308,15 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
           <TabsList className="w-full">
             <TabsTrigger value="simple" className="flex-1">
               <Send className="h-4 w-4 mr-2" />
-              Disparo Simples
+              Simples
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex-1">
               <Layers className="h-4 w-4 mr-2" />
-              Disparo Avançado
+              Avançado
+            </TabsTrigger>
+            <TabsTrigger value="campaigns" className="flex-1">
+              <ListChecks className="h-4 w-4 mr-2" />
+              Campanhas
             </TabsTrigger>
           </TabsList>
 
@@ -518,6 +548,68 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
             <Button onClick={handleSendAdvanced} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Layers className="h-4 w-4 mr-2" />}
               Criar Envio Avançado
+            </Button>
+          </TabsContent>
+          {/* ════════ CAMPAIGNS TAB ════════ */}
+          <TabsContent value="campaigns" className="space-y-4 mt-4">
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-card-foreground">Controlar Campanha</h3>
+              <p className="text-xs text-muted-foreground">Pause, retome ou delete campanhas de envio em massa.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>ID da Campanha (folder_id)</Label>
+              <Input placeholder="Ex: folder_123" value={campaignFolderId} onChange={(e) => setCampaignFolderId(e.target.value)} className="bg-secondary border-border" />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Ação</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant={campaignAction === "stop" ? "default" : "outline"}
+                  onClick={() => setCampaignAction("stop")}
+                  className={cn("border-border", campaignAction === "stop" && "bg-yellow-600 hover:bg-yellow-700 text-white")}
+                >
+                  <Pause className="h-4 w-4 mr-1" /> Pausar
+                </Button>
+                <Button
+                  variant={campaignAction === "continue" ? "default" : "outline"}
+                  onClick={() => setCampaignAction("continue")}
+                  className={cn("border-border", campaignAction === "continue" && "bg-green-600 hover:bg-green-700 text-white")}
+                >
+                  <Play className="h-4 w-4 mr-1" /> Continuar
+                </Button>
+                <Button
+                  variant={campaignAction === "delete" ? "default" : "outline"}
+                  onClick={() => setCampaignAction("delete")}
+                  className={cn("border-border", campaignAction === "delete" && "bg-destructive hover:bg-destructive/90 text-white")}
+                >
+                  <Trash className="h-4 w-4 mr-1" /> Deletar
+                </Button>
+              </div>
+            </div>
+
+            <Card className="bg-secondary/30 border-border/50">
+              <CardContent className="p-4 space-y-2">
+                <h4 className="text-xs font-semibold text-muted-foreground">Status das Campanhas</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="text-xs border-yellow-500/50 text-yellow-500">scheduled</Badge>
+                  <Badge variant="outline" className="text-xs border-blue-500/50 text-blue-500">sending</Badge>
+                  <Badge variant="outline" className="text-xs border-orange-500/50 text-orange-500">paused</Badge>
+                  <Badge variant="outline" className="text-xs border-green-500/50 text-green-500">done</Badge>
+                  <Badge variant="outline" className="text-xs border-destructive/50 text-destructive">deleting</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <strong>Pausar:</strong> Interrompe temporariamente o envio.<br />
+                  <strong>Continuar:</strong> Retoma uma campanha pausada.<br />
+                  <strong>Deletar:</strong> Remove a campanha e mensagens não enviadas.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Button onClick={handleCampaignAction} disabled={executingAction || !campaignFolderId.trim()} className="w-full bg-primary hover:bg-primary/90">
+              {executingAction ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ListChecks className="h-4 w-4 mr-2" />}
+              Executar Ação
             </Button>
           </TabsContent>
         </Tabs>
