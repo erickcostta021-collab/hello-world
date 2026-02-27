@@ -409,7 +409,10 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [campaignMessages, setCampaignMessages] = useState<CampaignMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fullscreenCampaign, setFullscreenCampaign] = useState<any | null>(null);
+  const [fullscreenMessages, setFullscreenMessages] = useState<CampaignMessage[]>([]);
+  const [loadingFullscreen, setLoadingFullscreen] = useState(false);
+  const [fsPage, setFsPage] = useState(1);
   const [clearHours, setClearHours] = useState("168");
   const [clearingDone, setClearingDone] = useState(false);
   const [clearingAll, setClearingAll] = useState(false);
@@ -1653,8 +1656,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   );
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("bg-card border-border transition-all duration-300", isFullscreen ? "max-w-[95vw] max-h-[95vh]" : "max-w-2xl")}>
+      <DialogContent className="bg-card border-border max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-card-foreground flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
@@ -1987,8 +1991,34 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCampaignFolderId(fId)} title="Usar ID para controle">
                                 <Search className="h-3 w-3" />
                               </Button>
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsFullscreen(prev => !prev)} title={isFullscreen ? "Reduzir" : "Expandir tela"}>
-                                {isFullscreen ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={async () => {
+                                setFullscreenCampaign(f);
+                                setFsPage(1);
+                                setLoadingFullscreen(true);
+                                setFullscreenMessages([]);
+                                try {
+                                  const base = getBaseUrlForInstance(instance);
+                                  const resp = await fetch(`${base}/message/list/${instance.instance_name}`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json", apikey: instance.uazapi_instance_token },
+                                    body: JSON.stringify({ folder_id: fId, page: 1, pageSize: 100 }),
+                                  });
+                                  const data = await resp.json();
+                                  const list: CampaignMessage[] = Array.isArray(data) ? data : data?.messages || [];
+                                  const filtered = list.filter((msg) => {
+                                    const t = String(msg.type || "").toLowerCase();
+                                    if (t === "button") return false;
+                                    try {
+                                      const raw = (msg as any).send_payload || (msg as any).sendPayload;
+                                      if (raw) { const sp = typeof raw === "string" ? JSON.parse(raw) : raw; if (sp?.type === "button" || sp?.buttonText) return false; }
+                                    } catch {}
+                                    return true;
+                                  });
+                                  setFullscreenMessages(filtered);
+                                } catch { toast.error("Erro ao carregar mensagens"); }
+                                setLoadingFullscreen(false);
+                              }} title="Expandir campanha">
+                                <Maximize2 className="h-3 w-3" />
                               </Button>
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
                                 setMsgFolderId(fId);
@@ -2138,5 +2168,65 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         </DialogBody>
       </DialogContent>
     </Dialog>
+  {/* ── Fullscreen Campaign Dialog ── */}
+  <Dialog open={!!fullscreenCampaign} onOpenChange={(o) => { if (!o) setFullscreenCampaign(null); }}>
+    <DialogContent className="bg-card border-border max-w-[95vw] max-h-[95vh]">
+      <DialogHeader>
+        <DialogTitle className="text-card-foreground flex items-center gap-2">
+          <FolderOpen className="h-5 w-5 text-primary" />
+          Campanha: {fullscreenCampaign?.info || fullscreenCampaign?.folder_id || fullscreenCampaign?.id || ""}
+        </DialogTitle>
+        <DialogDescription>
+          <div className="flex gap-3 text-xs mt-1">
+            {fullscreenCampaign?.total != null && <span>Total: {fullscreenCampaign.total}</span>}
+            {fullscreenCampaign?.sent != null && <span>Enviadas: {fullscreenCampaign.sent}</span>}
+            {fullscreenCampaign?.failed != null && <span>Falhas: {fullscreenCampaign.failed}</span>}
+            {fullscreenCampaign?.scheduled != null && <span>Agendadas: {fullscreenCampaign.scheduled}</span>}
+            <Badge variant="outline" className={cn("text-[10px]", getStatusColor(fullscreenCampaign?.status))}>{getStatusLabel(fullscreenCampaign?.status)}</Badge>
+          </div>
+        </DialogDescription>
+      </DialogHeader>
+      <DialogBody>
+        {loadingFullscreen ? (
+          <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+        ) : fullscreenMessages.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-10">Nenhuma mensagem encontrada</p>
+        ) : (
+          <div className="rounded border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="h-8">
+                  <TableHead className="text-xs px-3 py-1">#</TableHead>
+                  <TableHead className="text-xs px-3 py-1">Número</TableHead>
+                  <TableHead className="text-xs px-3 py-1">Nome</TableHead>
+                  <TableHead className="text-xs px-3 py-1">Status</TableHead>
+                  <TableHead className="text-xs px-3 py-1">Mensagem</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fullscreenMessages.map((cm, mi) => (
+                  <TableRow key={mi} className="h-8">
+                    <TableCell className="text-xs px-3 py-1 text-muted-foreground">{mi + 1}</TableCell>
+                    <TableCell className="text-xs px-3 py-1 font-mono whitespace-nowrap">{cm.number || "—"}</TableCell>
+                    <TableCell className="text-xs px-3 py-1 max-w-[150px] truncate">{(cm as any).name || "—"}</TableCell>
+                    <TableCell className="text-xs px-3 py-1">
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0", getStatusColor(cm.status))}>
+                        {getStatusLabel(cm.status)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs px-3 py-1 max-w-[400px] truncate" title={cm.text || ""}>{cm.text || "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex items-center justify-between p-3 border-t border-border">
+              <span className="text-xs text-muted-foreground">{fullscreenMessages.length} mensagem(ns)</span>
+            </div>
+          </div>
+        )}
+      </DialogBody>
+    </DialogContent>
+  </Dialog>
+  </>
   );
 }
