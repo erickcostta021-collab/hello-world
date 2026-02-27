@@ -322,6 +322,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [delayMin, setDelayMin] = useState("10");
   const [delayMax, setDelayMax] = useState("30");
   const [scheduledFor, setScheduledFor] = useState<Date | undefined>(undefined);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [scheduleTimeRestrict, setScheduleTimeRestrict] = useState(false);
+  const [scheduleTimeStart, setScheduleTimeStart] = useState("08:00");
+  const [scheduleTimeEnd, setScheduleTimeEnd] = useState("18:00");
   const [linkPreview, setLinkPreview] = useState(false);
   const [footerText, setFooterText] = useState("");
   const [buttonText, setButtonText] = useState("");
@@ -340,6 +345,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [advDelayMin, setAdvDelayMin] = useState("3");
   const [advDelayMax, setAdvDelayMax] = useState("6");
   const [advScheduledFor, setAdvScheduledFor] = useState<Date | undefined>(undefined);
+  const [advScheduleEnabled, setAdvScheduleEnabled] = useState(false);
+  const [advScheduleDays, setAdvScheduleDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [advScheduleTimeRestrict, setAdvScheduleTimeRestrict] = useState(false);
+  const [advScheduleTimeStart, setAdvScheduleTimeStart] = useState("08:00");
+  const [advScheduleTimeEnd, setAdvScheduleTimeEnd] = useState("18:00");
   const [advMessages, setAdvMessages] = useState<AdvancedMessage[]>([emptyAdvancedMsg()]);
 
   // ─── Campaign control fields ───
@@ -602,7 +612,149 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     );
   };
 
-  // ─── Build body (shared) ───
+  // ─── Schedule Section Renderer ───
+  const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const renderScheduleSection = (
+    enabled: boolean, setEnabled: (v: boolean) => void,
+    date: Date | undefined, setDate: (v: Date | undefined) => void,
+    days: number[], setDays: (v: number[]) => void,
+    timeRestrict: boolean, setTimeRestrict: (v: boolean) => void,
+    timeStart: string, setTimeStart: (v: string) => void,
+    timeEnd: string, setTimeEnd: (v: string) => void,
+  ) => {
+    const toggleDay = (d: number) => setDays(days.includes(d) ? days.filter(x => x !== d) : [...days, d].sort());
+    const setPreset = (preset: "weekdays" | "all" | "weekend") => {
+      if (preset === "weekdays") setDays([1, 2, 3, 4, 5]);
+      else if (preset === "all") setDays([0, 1, 2, 3, 4, 5, 6]);
+      else setDays([0, 6]);
+    };
+    const buildSummary = () => {
+      const parts: string[] = [];
+      if (date) parts.push(format(date, "dd/MM/yyyy HH:mm"));
+      else parts.push("Início manual");
+      if (days.length === 7) parts.push("Todos os dias");
+      else if (days.length > 0) parts.push(days.map(d => DAY_LABELS[d]).join(", "));
+      if (timeRestrict) parts.push(`${timeStart} às ${timeEnd}`);
+      return parts.join(" • ");
+    };
+
+    return (
+      <Card className="bg-secondary/30 border-border/50">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <Label className="flex items-center gap-2 text-sm font-semibold">
+              <Clock className="h-4 w-4 text-primary" /> Agendamento
+            </Label>
+            <Switch checked={enabled} onCheckedChange={setEnabled} />
+          </div>
+
+          {enabled && (
+            <div className="space-y-4">
+              <p className="text-xs text-muted-foreground">Configure quando a campanha será executada</p>
+
+              {/* Date/Time */}
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" /> Data/Hora de Início (opcional)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="datetime-local"
+                    value={date ? format(date, "yyyy-MM-dd'T'HH:mm") : ""}
+                    onChange={(e) => setDate(e.target.value ? new Date(e.target.value) : undefined)}
+                    className="flex-1 bg-secondary border-border text-sm"
+                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="icon" className="shrink-0 bg-secondary border-border">
+                        <CalendarIcon className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar mode="single" selected={date} onSelect={setDate} initialFocus className={cn("p-3 pointer-events-auto")} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Deixe vazio para iniciar manualmente</p>
+              </div>
+
+              {/* Allowed Days */}
+              <div className="space-y-2">
+                <Label className="text-xs">Dias Permitidos</Label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {DAY_LABELS.map((label, idx) => (
+                    <Button
+                      key={idx}
+                      type="button"
+                      size="sm"
+                      variant={days.includes(idx) ? "default" : "outline"}
+                      className={cn("h-8 w-10 text-xs p-0", days.includes(idx) ? "bg-primary hover:bg-primary/90" : "border-border")}
+                      onClick={() => toggleDay(idx)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex gap-2 text-[10px]">
+                  <button type="button" className="text-muted-foreground hover:text-foreground underline" onClick={() => setPreset("weekdays")}>Dias úteis</button>
+                  <span className="text-muted-foreground">•</span>
+                  <button type="button" className="text-muted-foreground hover:text-foreground underline" onClick={() => setPreset("all")}>Todos os dias</button>
+                  <span className="text-muted-foreground">•</span>
+                  <button type="button" className="text-muted-foreground hover:text-foreground underline" onClick={() => setPreset("weekend")}>Só final de semana</button>
+                </div>
+              </div>
+
+              {/* Time Restriction */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-1.5 text-xs">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" /> Restringir Horário
+                  </Label>
+                  <Switch checked={timeRestrict} onCheckedChange={setTimeRestrict} />
+                </div>
+                {timeRestrict && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Início</Label>
+                      <Input type="time" value={timeStart} onChange={(e) => setTimeStart(e.target.value)} className="bg-secondary border-border text-sm" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Fim</Label>
+                      <Input type="time" value={timeEnd} onChange={(e) => setTimeEnd(e.target.value)} className="bg-secondary border-border text-sm" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Summary */}
+              <div className="flex items-center gap-2 p-2 rounded-md bg-primary/10 border border-primary/20">
+                <Info className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="text-[10px] text-primary">Resumo: {buildSummary()}</span>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // ─── Build schedule params helper ───
+  const buildScheduleParams = (
+    enabled: boolean, date: Date | undefined, days: number[],
+    timeRestrict: boolean, timeStart: string, timeEnd: string
+  ) => {
+    const params: Record<string, unknown> = {};
+    if (enabled) {
+      params.scheduled_for = date ? date.getTime() : 0;
+      if (days.length < 7) params.allowed_days = days;
+      if (timeRestrict) {
+        params.time_start = timeStart;
+        params.time_end = timeEnd;
+      }
+    }
+    return params;
+  };
+
   const buildSimpleBody = (numberList: string[]) => {
     const body: Record<string, unknown> = {
       numbers: numberList,
@@ -610,7 +762,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       folder: folder || "Campanha Bridge",
       delayMin: parseInt(delayMin) || 10,
       delayMax: parseInt(delayMax) || 30,
-      scheduled_for: scheduledFor ? scheduledFor.getTime() : 0,
+      scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 0,
+      ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
     };
     if (text) body.text = text;
     if (linkPreview) body.linkPreview = true;
@@ -714,7 +867,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             delayMin: parseInt(delayMin) || 10,
             delayMax: parseInt(delayMax) || 30,
             info: folder || "Campanha Bridge",
-            scheduled_for: scheduledFor ? scheduledFor.getTime() : 1,
+            scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
+            ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
             messages,
           };
           const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/advanced`, {
@@ -734,7 +888,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 delayMin: parseInt(delayMin) || 10,
                 delayMax: parseInt(delayMax) || 30,
                 info: `${folder || "Campanha Bridge"} (${inst.instance_name})`,
-                scheduled_for: scheduledFor ? scheduledFor.getTime() : 1,
+                scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
+                ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
                 messages: buckets[idx],
               };
               return fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
@@ -851,7 +1006,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           delayMin: parseInt(advDelayMin) || 3,
           delayMax: parseInt(advDelayMax) || 6,
           info: advInfo || "Envio avançado Bridge",
-          scheduled_for: advScheduledFor ? advScheduledFor.getTime() : 1,
+          scheduled_for: advScheduleEnabled && advScheduledFor ? advScheduledFor.getTime() : 1,
+          ...buildScheduleParams(advScheduleEnabled, advScheduledFor, advScheduleDays, advScheduleTimeRestrict, advScheduleTimeStart, advScheduleTimeEnd),
           messages,
         };
         const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/advanced`, {
@@ -871,7 +1027,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               delayMin: parseInt(advDelayMin) || 3,
               delayMax: parseInt(advDelayMax) || 6,
               info: `${advInfo || "Envio avançado Bridge"} (${inst.instance_name})`,
-              scheduled_for: advScheduledFor ? advScheduledFor.getTime() : 1,
+              scheduled_for: advScheduleEnabled && advScheduledFor ? advScheduledFor.getTime() : 1,
+              ...buildScheduleParams(advScheduleEnabled, advScheduledFor, advScheduleDays, advScheduleTimeRestrict, advScheduleTimeStart, advScheduleTimeEnd),
               messages,
             };
             return fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
@@ -1332,27 +1489,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               <div className="space-y-2"><Label>Delay Máximo (seg)</Label><Input type="number" value={delayMax} onChange={(e) => setDelayMax(e.target.value)} className="bg-secondary border-border" /></div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Agendar (opcional)</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="datetime-local"
-                  value={scheduledFor ? format(scheduledFor, "yyyy-MM-dd'T'HH:mm") : ""}
-                  onChange={(e) => setScheduledFor(e.target.value ? new Date(e.target.value) : undefined)}
-                  className="flex-1 bg-secondary border-border"
-                />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className="shrink-0 bg-secondary border-border">
-                      <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar mode="single" selected={scheduledFor} onSelect={setScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
+            {renderScheduleSection(
+              scheduleEnabled, setScheduleEnabled,
+              scheduledFor, setScheduledFor,
+              scheduleDays, setScheduleDays,
+              scheduleTimeRestrict, setScheduleTimeRestrict,
+              scheduleTimeStart, setScheduleTimeStart,
+              scheduleTimeEnd, setScheduleTimeEnd,
+            )}
 
 
             {/* Anti-Ban */}
@@ -1378,27 +1522,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               <div className="space-y-2"><Label>Delay Mínimo (seg)</Label><Input type="number" value={advDelayMin} onChange={(e) => setAdvDelayMin(e.target.value)} className="bg-secondary border-border" /></div>
               <div className="space-y-2"><Label>Delay Máximo (seg)</Label><Input type="number" value={advDelayMax} onChange={(e) => setAdvDelayMax(e.target.value)} className="bg-secondary border-border" /></div>
             </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Agendar (opcional)</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="datetime-local"
-                  value={advScheduledFor ? format(advScheduledFor, "yyyy-MM-dd'T'HH:mm") : ""}
-                  onChange={(e) => setAdvScheduledFor(e.target.value ? new Date(e.target.value) : undefined)}
-                  className="flex-1 bg-secondary border-border"
-                />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon" className="shrink-0 bg-secondary border-border">
-                      <CalendarIcon className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar mode="single" selected={advScheduledFor} onSelect={setAdvScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
+            {renderScheduleSection(
+              advScheduleEnabled, setAdvScheduleEnabled,
+              advScheduledFor, setAdvScheduledFor,
+              advScheduleDays, setAdvScheduleDays,
+              advScheduleTimeRestrict, setAdvScheduleTimeRestrict,
+              advScheduleTimeStart, setAdvScheduleTimeStart,
+              advScheduleTimeEnd, setAdvScheduleTimeEnd,
+            )}
 
             {/* Messages list */}
             <div className="space-y-3">
