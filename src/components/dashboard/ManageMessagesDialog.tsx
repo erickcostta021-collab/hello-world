@@ -1221,7 +1221,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setTimeout(() => { const el = document.querySelector('[data-dialog-body]'); el?.scrollTo({ top: 0, behavior: "smooth" }); }, 50); }} className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="simple" className="flex-1">
               <Send className="h-4 w-4 mr-2" />Simples
