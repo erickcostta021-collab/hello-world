@@ -57,7 +57,7 @@ export function CustomizeSmsDialog({ open, onOpenChange }: CustomizeSmsDialogPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl">Customizar SMS</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">

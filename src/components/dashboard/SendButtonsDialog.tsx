@@ -174,7 +174,7 @@ export function SendButtonsDialog({ open, onOpenChange }: SendButtonsDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="text-xl">Comandos de Enviar Botões</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">

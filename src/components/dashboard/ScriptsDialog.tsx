@@ -79,7 +79,7 @@ export function ScriptsDialog({ open, onOpenChange }: ScriptsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Scripts para GoHighLevel</DialogTitle>
           <p className="text-sm text-muted-foreground">

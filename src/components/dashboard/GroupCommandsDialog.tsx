@@ -201,7 +201,7 @@ export function GroupCommandsDialog({ open, onOpenChange }: GroupCommandsDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="text-xl">Comandos de Grupo do WhatsApp</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
