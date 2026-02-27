@@ -241,6 +241,7 @@ function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: 
 export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances }: ManageMessagesDialogProps) {
   const { settings } = useSettings();
   const [sending, setSending] = useState(false);
+  const [activeTab, setActiveTab] = useState("simple");
   const csvInputRef = useRef<HTMLInputElement>(null);
 
   // ─── CSV contacts ───
@@ -772,7 +773,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           else toast.success(`Round-robin! ${numberList.length} números em ${instances.length} instâncias.`);
         }
       }
-      onOpenChange(false);
+      // Redirect to campaigns tab and reload folders
+      setActiveTab("campaigns");
+      setTimeout(() => handleListFolders(), 500);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setSending(false); }
@@ -859,7 +862,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
         else toast.success(`Round-robin avançado! ${validMessages.length} msgs em ${instances.length} instâncias.`);
       }
-      onOpenChange(false);
+      // Redirect to campaigns tab and reload folders
+      setActiveTab("campaigns");
+      setTimeout(() => handleListFolders(), 500);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setSending(false); }
@@ -1185,7 +1190,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
-        <Tabs defaultValue="simple" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="simple" className="flex-1">
               <Send className="h-4 w-4 mr-2" />Simples
