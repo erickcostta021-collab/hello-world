@@ -24,10 +24,12 @@ import {
   Copy,
   Link,
   Webhook,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmbedAssignUserDialog } from "./EmbedAssignUserDialog";
 import { WebhookConfigDialog } from "@/components/dashboard/WebhookConfigDialog";
+import { ManageMessagesDialog } from "@/components/dashboard/ManageMessagesDialog";
 import { supabase } from "@/integrations/supabase/client";
 export interface EmbedVisibleOptions {
   assign_user?: boolean;
@@ -38,6 +40,7 @@ export interface EmbedVisibleOptions {
   connect?: boolean;
   disconnect?: boolean;
   status?: boolean;
+  messages?: boolean;
 }
 
 export interface EmbedInstance {
@@ -85,6 +88,7 @@ export function EmbedInstanceCard({
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [ignoreGroups, setIgnoreGroups] = useState(false);
+  const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -612,6 +616,12 @@ export function EmbedInstanceCard({
                       Copiar Track ID
                     </DropdownMenuItem>
                   )}
+                  {isVisible("messages") && (
+                  <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Gerenciar Mensagens
+                  </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -745,6 +755,27 @@ export function EmbedInstanceCard({
         isSaving={webhookSaving}
         ignoreGroups={ignoreGroups}
         onIgnoreGroupsChange={setIgnoreGroups}
+      />
+
+      {/* Manage Messages Dialog */}
+      <ManageMessagesDialog
+        open={messagesDialogOpen}
+        onOpenChange={setMessagesDialogOpen}
+        instance={{
+          id: instance.id,
+          user_id: "",
+          subaccount_id: null,
+          instance_name: instance.instance_name,
+          uazapi_instance_token: instance.uazapi_instance_token,
+          instance_status: currentStatus,
+          webhook_url: null,
+          ignore_groups: ignoreGroups,
+          ghl_user_id: instance.ghl_user_id || null,
+          phone: connectedPhone,
+          profile_pic_url: profilePicUrl,
+          uazapi_base_url: instance.uazapi_base_url || null,
+          is_official_api: false,
+        }}
       />
     </>
   );
