@@ -811,13 +811,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       body.split_max_chars = parseInt(splitMaxChars) || 300;
       body.split_delay = parseInt(splitDelay) || 2;
     }
-    if (antiBanEnabled && antiBanButton) {
-      body.anti_ban_button = true;
-      body.anti_ban_btn_title = antiBanBtnTitle;
-      body.anti_ban_btn_footer = antiBanBtnFooter;
-      body.anti_ban_btn_message = antiBanBtnMessage;
-      body.anti_ban_btn_options = [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean);
-    }
+    // Note: anti_ban_button is handled separately by converting to advanced mode
+    // with a second button-type message per contact (see handleSendSimple)
     if (text) body.text = text;
     if (linkPreview) body.linkPreview = true;
     if (fileUrl) body.file = fileUrl;
@@ -880,7 +875,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           contactMap.set(c.phone, c);
         });
 
-        const messages: Record<string, unknown>[] = numberList.map((num, idx) => {
+        let messages: Record<string, unknown>[] = numberList.map((num, idx) => {
           const contact = contactMap.get(num) || contactMap.get(num.replace("@s.whatsapp.net", "")) || { phone: num.replace("@s.whatsapp.net", "") };
           let msgText = text;
 
@@ -913,6 +908,23 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (cName) obj.contactName = cName;
           return obj;
         });
+
+        // If anti-ban button is enabled, add button messages after each main message
+        if (antiBanEnabled && antiBanButton) {
+          const withButtons: Record<string, unknown>[] = [];
+          for (const msg of messages) {
+            withButtons.push(msg);
+            withButtons.push({
+              number: msg.number,
+              type: "button",
+              text: antiBanBtnMessage,
+              footerText: antiBanBtnFooter,
+              buttonText: antiBanBtnTitle,
+              choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+            });
+          }
+          messages = withButtons;
+        }
 
         // Send as advanced
         if (instances.length === 1) {
@@ -955,8 +967,79 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
           else toast.success(`Round-robin personalizado! ${messages.length} msgs em ${instances.length} instâncias.`);
         }
+      } else if (antiBanEnabled && antiBanButton) {
+        // Anti-ban button active: use advanced mode to send 2 messages per contact
+        // (original message + button message)
+        let bodyText = text;
+        if (antiBanEnabled) {
+          bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
+        }
+
+        const advMessages: Record<string, unknown>[] = [];
+        for (const num of numberList) {
+          const cleanNum = num.replace("@s.whatsapp.net", "");
+          // Original message
+          const mainMsg: Record<string, unknown> = { number: cleanNum, type: messageType };
+          if (bodyText) mainMsg.text = bodyText;
+          if (fileUrl) mainMsg.file = fileUrl;
+          if (docName) mainMsg.docName = docName;
+          if (linkPreview) mainMsg.linkPreview = true;
+          advMessages.push(mainMsg);
+
+          // Anti-ban button message
+          const btnMsg: Record<string, unknown> = {
+            number: cleanNum,
+            type: "button",
+            text: antiBanBtnMessage,
+            footerText: antiBanBtnFooter,
+            buttonText: antiBanBtnTitle,
+            choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+          };
+          advMessages.push(btnMsg);
+        }
+
+        const sendAdvanced = async (inst: Instance, msgs: Record<string, unknown>[]) => {
+          const body: Record<string, unknown> = {
+            delayMin: parseInt(delayMin) || 10,
+            delayMax: parseInt(delayMax) || 30,
+            info: folder || "Campanha Bridge",
+            scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
+            ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
+            messages: msgs,
+          };
+          if (antiBanEnabled && splitMessages) {
+            body.split_max_chars = parseInt(splitMaxChars) || 300;
+            body.split_delay = parseInt(splitDelay) || 2;
+          }
+          const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
+            method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+        };
+
+        if (instances.length === 1) {
+          await sendAdvanced(instances[0], advMessages);
+          toast.success(`Campanha com botão anti-ban criada! ${numberList.length} contato(s).`);
+        } else {
+          // Round-robin: distribute pairs (main+button) together
+          const pairs: Record<string, unknown>[][] = instances.map(() => []);
+          for (let i = 0; i < numberList.length; i++) {
+            const bucket = i % instances.length;
+            pairs[bucket].push(advMessages[i * 2], advMessages[i * 2 + 1]);
+          }
+          const results = await Promise.allSettled(
+            instances.map((inst, idx) => {
+              if (pairs[idx].length === 0) return Promise.resolve();
+              return sendAdvanced(inst, pairs[idx]);
+            })
+          );
+          const succeeded = results.filter((r) => r.status === "fulfilled").length;
+          const failed = results.filter((r) => r.status === "rejected").length;
+          if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
+          else toast.success(`Round-robin com botão anti-ban! ${numberList.length} contatos em ${instances.length} instâncias.`);
+        }
       } else {
-        // Standard simple send (no dynamic fields)
+        // Standard simple send (no dynamic fields, no anti-ban button)
         let bodyText = text;
         if (antiBanEnabled) {
           bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
