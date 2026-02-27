@@ -184,7 +184,7 @@ export function CdnScriptsPanel() {
               <Plus className="h-4 w-4 mr-1" /> Novo Script
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editScript ? "Editar Script" : "Novo Script CDN"}</DialogTitle>
             </DialogHeader>
