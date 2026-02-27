@@ -349,6 +349,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [folders, setFolders] = useState<CampaignFolder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [folderStatusFilter, setFolderStatusFilter] = useState("");
+  const [folderSearch, setFolderSearch] = useState("");
   const [msgFolderId, setMsgFolderId] = useState("");
   const [msgStatusFilter, setMsgStatusFilter] = useState("");
   const [msgPage, setMsgPage] = useState(1);
@@ -1537,8 +1538,18 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               </div>
 
               {folders.length > 0 && (
+                <>
+                <div className="relative mb-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar campanha..."
+                    value={folderSearch}
+                    onChange={(e) => setFolderSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs bg-secondary border-border"
+                  />
+                </div>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {folders.map((f, idx) => {
+                  {folders.filter((f) => !folderSearch || String(f.folder_name || f.name || "").toLowerCase().includes(folderSearch.toLowerCase())).map((f, idx) => {
                     const fId = f.folder_id || f.id || `folder-${idx}`;
                     const isExpanded = expandedFolder === fId;
                     return (
@@ -1622,6 +1633,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                     );
                   })}
                 </div>
+                </>
               )}
             </div>
 
