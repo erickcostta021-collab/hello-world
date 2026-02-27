@@ -1,12 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { DialogBody } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,6 +23,7 @@ import { toast } from "sonner";
 import {
   Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
   Pause, Play, Trash, RefreshCw, Search, FolderOpen, AlertTriangle, ChevronDown, ChevronUp,
+  Upload, Sparkles, ShieldCheck, Info,
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +35,9 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ManageMessagesDialogProps {
   open: boolean;
@@ -62,7 +62,14 @@ const MESSAGE_TYPES = [
   { value: "carousel", label: "Carrossel" },
 ];
 
-// ─── Advanced message item ───
+// Dynamic field placeholders
+const DYNAMIC_FIELDS = [
+  { tag: "{{primeiro_nome}}", label: "Primeiro Nome" },
+  { tag: "{{nome}}", label: "Nome Completo" },
+  { tag: "{{sobrenome}}", label: "Sobrenome" },
+  { tag: "{{telefone}}", label: "Telefone" },
+];
+
 interface AdvancedMessage {
   number: string;
   type: string;
@@ -89,7 +96,14 @@ function emptyAdvancedMsg(): AdvancedMessage {
   return { number: "", type: "text", text: "" };
 }
 
-// ─── Campaign folder type ───
+// CSV contact data
+interface CsvContact {
+  phone: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+}
+
 interface CampaignFolder {
   folder_id?: string;
   id?: string;
@@ -113,16 +127,117 @@ interface CampaignMessage {
   [key: string]: unknown;
 }
 
+// ─── CSV Parser ───
+function parseCsv(content: string): CsvContact[] {
+  const lines = content.split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const headerLine = lines[0].toLowerCase();
+  const sep = headerLine.includes(";") ? ";" : ",";
+  const headers = headerLine.split(sep).map((h) => h.trim().replace(/^["']|["']$/g, ""));
+
+  // Find column indexes
+  const phoneIdx = headers.findIndex((h) =>
+    /^(phone|telefone|numero|número|celular|whatsapp|fone|tel)$/.test(h)
+  );
+  const firstNameIdx = headers.findIndex((h) =>
+    /^(first_?name|primeiro_?nome|nome|name|primeiro)$/.test(h)
+  );
+  const lastNameIdx = headers.findIndex((h) =>
+    /^(last_?name|sobrenome|surname|ultimo_?nome|último_?nome)$/.test(h)
+  );
+  const fullNameIdx = headers.findIndex((h) =>
+    /^(full_?name|nome_?completo|nome_?inteiro)$/.test(h)
+  );
+
+  if (phoneIdx === -1) return [];
+
+  const contacts: CsvContact[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map((c) => c.trim().replace(/^["']|["']$/g, ""));
+    const phone = cols[phoneIdx]?.replace(/\D/g, "");
+    if (!phone) continue;
+    contacts.push({
+      phone,
+      firstName: firstNameIdx >= 0 ? cols[firstNameIdx] : undefined,
+      lastName: lastNameIdx >= 0 ? cols[lastNameIdx] : undefined,
+      fullName: fullNameIdx >= 0 ? cols[fullNameIdx] : undefined,
+    });
+  }
+  return contacts;
+}
+
+// ─── Replace dynamic fields in text ───
+function replaceDynamicFields(text: string, contact: CsvContact): string {
+  let result = text;
+  const firstName = contact.firstName || contact.fullName?.split(" ")[0] || "";
+  const lastName = contact.lastName || (contact.fullName?.split(" ").slice(1).join(" ")) || "";
+  const fullName = contact.fullName || [contact.firstName, contact.lastName].filter(Boolean).join(" ") || "";
+  result = result.replace(/\{\{primeiro_nome\}\}/gi, firstName);
+  result = result.replace(/\{\{nome\}\}/gi, fullName);
+  result = result.replace(/\{\{sobrenome\}\}/gi, lastName);
+  result = result.replace(/\{\{telefone\}\}/gi, contact.phone);
+  return result;
+}
+
+// ─── Check if text has dynamic fields ───
+function hasDynamicFields(text: string): boolean {
+  return /\{\{(primeiro_nome|nome|sobrenome|telefone)\}\}/i.test(text);
+}
+
+// ─── Anti-ban: add random invisible chars ───
+function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: boolean): string {
+  let result = text;
+  if (addInvisibleChars) {
+    // Insert zero-width spaces at random positions to make each message unique
+    const chars = ["\u200B", "\u200C", "\u200D", "\uFEFF"];
+    const words = result.split(" ");
+    result = words
+      .map((w) => {
+        if (Math.random() > 0.6) {
+          const ch = chars[Math.floor(Math.random() * chars.length)];
+          return w + ch;
+        }
+        return w;
+      })
+      .join(" ");
+  }
+  if (addRandomEmoji) {
+    // Small random variations in spacing
+    if (Math.random() > 0.5) result = result + " ";
+    if (Math.random() > 0.7) result = "\n" + result;
+  }
+  return result;
+}
+
 export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances }: ManageMessagesDialogProps) {
   const { settings } = useSettings();
   const [sending, setSending] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  // ─── CSV contacts ───
+  const [csvContacts, setCsvContacts] = useState<CsvContact[]>([]);
+  const [csvFileName, setCsvFileName] = useState("");
+
+  // ─── AI Variations ───
+  const [generatingVariations, setGeneratingVariations] = useState(false);
+  const [aiVariations, setAiVariations] = useState<string[]>([]);
+  const [variationCount, setVariationCount] = useState(5);
+  const [useVariations, setUseVariations] = useState(false);
+
+  // ─── Anti-Ban ───
+  const [antiBanEnabled, setAntiBanEnabled] = useState(false);
+  const [addInvisibleChars, setAddInvisibleChars] = useState(true);
+  const [addRandomSpacing, setAddRandomSpacing] = useState(false);
+  const [batchSize, setBatchSize] = useState("50");
+  const [batchPauseMin, setBatchPauseMin] = useState("60");
+  const [batchPauseMax, setBatchPauseMax] = useState("120");
 
   // ─── Round-robin multi-instance ───
   const [useRoundRobin, setUseRoundRobin] = useState(false);
   const [selectedInstanceIds, setSelectedInstanceIds] = useState<string[]>([]);
   const [siblingInstances, setSiblingInstances] = useState<Instance[]>([]);
 
-  // Fetch sibling instances (same subaccount, connected) when dialog opens
   useEffect(() => {
     if (!open) return;
     if (allInstances && allInstances.length > 0) {
@@ -143,11 +258,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     }
   }, [open, instance.id, instance.subaccount_id, allInstances]);
 
-  // Reset round-robin when dialog closes
   useEffect(() => {
     if (!open) {
       setUseRoundRobin(false);
       setSelectedInstanceIds([]);
+      setCsvContacts([]);
+      setCsvFileName("");
+      setAiVariations([]);
+      setUseVariations(false);
     }
   }, [open]);
 
@@ -157,7 +275,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     );
   };
 
-  // Get all instances participating in round-robin (current + selected)
   const getRoundRobinInstances = (): Instance[] => {
     if (!useRoundRobin || selectedInstanceIds.length === 0) return [instance];
     const selected = siblingInstances.filter((i) => selectedInstanceIds.includes(i.id));
@@ -198,13 +315,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [campaignFolderId, setCampaignFolderId] = useState("");
   const [campaignAction, setCampaignAction] = useState<"stop" | "continue" | "delete">("stop");
   const [executingAction, setExecutingAction] = useState(false);
-
-  // ─── List folders ───
   const [folders, setFolders] = useState<CampaignFolder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [folderStatusFilter, setFolderStatusFilter] = useState("");
-
-  // ─── List messages ───
   const [msgFolderId, setMsgFolderId] = useState("");
   const [msgStatusFilter, setMsgStatusFilter] = useState("");
   const [msgPage, setMsgPage] = useState(1);
@@ -212,18 +325,79 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [campaignMessages, setCampaignMessages] = useState<CampaignMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
-
-  // ─── Clear done ───
   const [clearHours, setClearHours] = useState("168");
   const [clearingDone, setClearingDone] = useState(false);
-
-  // ─── Clear all ───
   const [clearingAll, setClearingAll] = useState(false);
 
   const getBaseUrl = () => getBaseUrlForInstance(instance, settings?.uazapi_base_url);
   const getHeaders = () => ({ "Content-Type": "application/json", Accept: "application/json", token: instance.uazapi_instance_token });
   const getBaseUrlFor = (inst: Instance) => getBaseUrlForInstance(inst, settings?.uazapi_base_url);
   const getHeadersFor = (inst: Instance) => ({ "Content-Type": "application/json", Accept: "application/json", token: inst.uazapi_instance_token });
+
+  // ─── CSV Upload Handler ───
+  const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      const contacts = parseCsv(content);
+      if (contacts.length === 0) {
+        toast.error("CSV inválido. Certifique-se de ter uma coluna 'phone' ou 'telefone'.");
+        return;
+      }
+      setCsvContacts(contacts);
+      // Populate numbers field
+      const phonesText = contacts.map((c) => c.phone).join("\n");
+      setNumbers(phonesText);
+      const hasNames = contacts.some((c) => c.firstName || c.fullName);
+      toast.success(`${contacts.length} contatos importados!${hasNames ? " Campos dinâmicos disponíveis." : ""}`);
+    };
+    reader.readAsText(file);
+    // Reset input
+    if (csvInputRef.current) csvInputRef.current.value = "";
+  };
+
+  // ─── Insert dynamic field into textarea ───
+  const insertDynamicField = (tag: string, textareaId: string) => {
+    const textarea = document.getElementById(textareaId) as HTMLTextAreaElement | null;
+    if (!textarea) {
+      setText((prev) => prev + tag);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const currentText = textarea.value;
+    const newText = currentText.substring(0, start) + tag + currentText.substring(end);
+    setText(newText);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+    }, 0);
+  };
+
+  // ─── AI Variation Generation ───
+  const handleGenerateVariations = async () => {
+    if (!text.trim()) { toast.error("Digite uma mensagem primeiro"); return; }
+    setGeneratingVariations(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-message-variations", {
+        body: { message: text, count: variationCount },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const variations = data?.variations || [];
+      if (variations.length === 0) throw new Error("Nenhuma variação gerada");
+      setAiVariations(variations);
+      setUseVariations(true);
+      toast.success(`${variations.length} variações geradas!`);
+    } catch (err: any) {
+      toast.error(`Erro ao gerar variações: ${err.message}`);
+    } finally {
+      setGeneratingVariations(false);
+    }
+  };
 
   // ─── Campaign control ───
   const handleCampaignAction = async () => {
@@ -238,22 +412,18 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       const labels = { stop: "pausada", continue: "retomada", delete: "deletada" };
       toast.success(`Campanha ${labels[campaignAction]} com sucesso!`);
       setCampaignFolderId("");
-      // Refresh folders list
       if (folders.length > 0) handleListFolders();
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setExecutingAction(false); }
   };
 
-  // ─── List folders ───
   const handleListFolders = async () => {
     setLoadingFolders(true);
     try {
       const url = new URL(`${getBaseUrl()}/sender/listfolders`);
       if (folderStatusFilter) url.searchParams.set("status", folderStatusFilter);
-      const res = await fetch(url.toString(), {
-        method: "GET", headers: getHeaders(),
-      });
+      const res = await fetch(url.toString(), { method: "GET", headers: getHeaders() });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const data = await res.json();
       const list = Array.isArray(data) ? data : (data.folders || data.data || []);
@@ -264,7 +434,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     } finally { setLoadingFolders(false); }
   };
 
-  // ─── List messages of a folder ───
   const handleListMessages = async (folderId?: string) => {
     const id = folderId || msgFolderId;
     if (!id.trim()) { toast.error("Informe o ID da campanha"); return; }
@@ -275,8 +444,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       body.page = msgPage;
       body.pageSize = msgPageSize;
       const res = await fetch(`${getBaseUrl()}/sender/listmessages`, {
-        method: "POST", headers: getHeaders(),
-        body: JSON.stringify(body),
+        method: "POST", headers: getHeaders(), body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const data = await res.json();
@@ -289,7 +457,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     } finally { setLoadingMessages(false); }
   };
 
-  // ─── Clear done ───
   const handleClearDone = async () => {
     setClearingDone(true);
     try {
@@ -305,7 +472,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     } finally { setClearingDone(false); }
   };
 
-  // ─── Clear all ───
   const handleClearAll = async () => {
     setClearingAll(true);
     try {
@@ -314,8 +480,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       toast.success("Toda a fila de mensagens foi limpa!");
-      setFolders([]);
-      setCampaignMessages([]);
+      setFolders([]); setCampaignMessages([]);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setClearingAll(false); }
@@ -324,12 +489,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const handleAddChoice = () => setChoices([...choices, ""]);
   const handleRemoveChoice = (index: number) => setChoices(choices.filter((_, i) => i !== index));
   const handleChoiceChange = (index: number, value: string) => {
-    const updated = [...choices];
-    updated[index] = value;
-    setChoices(updated);
+    const updated = [...choices]; updated[index] = value; setChoices(updated);
   };
 
-  // ─── Advanced message helpers ───
   const updateAdvMsg = (index: number, patch: Partial<AdvancedMessage>) => {
     setAdvMessages((prev) => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
   };
@@ -339,8 +501,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     setAdvMessages((prev) =>
       prev.map((m, i) => {
         if (i !== msgIdx) return m;
-        const c = [...(m.choices || [""])];
-        c[choiceIdx] = value;
+        const c = [...(m.choices || [""])]; c[choiceIdx] = value;
         return { ...m, choices: c };
       })
     );
@@ -356,7 +517,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     );
   };
 
-  // ─── Build message body (shared between simple instances) ───
+  // ─── Build body (shared) ───
   const buildSimpleBody = (numberList: string[]) => {
     const body: Record<string, unknown> = {
       numbers: numberList,
@@ -387,16 +548,15 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     return body;
   };
 
-  // ─── Simple send (with round-robin support) ───
+  // ─── Determine if we need per-contact messages (dynamic fields or AI variations) ───
+  const needsPerContactMessages = (): boolean => {
+    return (hasDynamicFields(text) && csvContacts.length > 0) || (useVariations && aiVariations.length > 0);
+  };
+
+  // ─── Simple send (with round-robin, dynamic fields, AI variations, anti-ban) ───
   const handleSendSimple = async () => {
-    const numberList = numbers
-      .split(/[\n,;]+/)
-      .map((n) => n.trim())
-      .filter(Boolean)
-      .map((n) => {
-        const clean = n.replace(/\D/g, "");
-        return clean.includes("@") ? n.trim() : `${clean}@s.whatsapp.net`;
-      });
+    const numberList = numbers.split(/[\n,;]+/).map((n) => n.trim()).filter(Boolean)
+      .map((n) => { const clean = n.replace(/\D/g, ""); return clean.includes("@") ? n.trim() : `${clean}@s.whatsapp.net`; });
 
     if (numberList.length === 0) { toast.error("Adicione pelo menos um número"); return; }
     if (messageType === "text" && !text.trim()) { toast.error("Digite a mensagem"); return; }
@@ -405,40 +565,119 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     setSending(true);
 
     try {
-      if (instances.length === 1) {
-        // Single instance — send all numbers at once
-        const body = buildSimpleBody(numberList);
-        const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/simple`, {
-          method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
-        toast.success(`Campanha criada! ${numberList.length} número(s) na fila.`);
-      } else {
-        // Round-robin: distribute numbers across instances
-        const buckets: string[][] = instances.map(() => []);
-        numberList.forEach((num, idx) => {
-          buckets[idx % instances.length].push(num);
+      const perContact = needsPerContactMessages();
+
+      if (perContact) {
+        // Convert to advanced mode: one message per contact with personalized text
+        const contactMap = new Map<string, CsvContact>();
+        csvContacts.forEach((c) => {
+          contactMap.set(`${c.phone}@s.whatsapp.net`, c);
+          contactMap.set(c.phone, c);
         });
 
-        const results = await Promise.allSettled(
-          instances.map((inst, idx) => {
-            if (buckets[idx].length === 0) return Promise.resolve();
-            const body = buildSimpleBody(buckets[idx]);
-            body.folder = `${folder || "Campanha Bridge"} (${inst.instance_name})`;
-            return fetch(`${getBaseUrlFor(inst)}/sender/simple`, {
-              method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-            }).then(async (res) => {
-              if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
-            });
-          })
-        );
+        const messages: Record<string, unknown>[] = numberList.map((num, idx) => {
+          const contact = contactMap.get(num) || contactMap.get(num.replace("@s.whatsapp.net", "")) || { phone: num.replace("@s.whatsapp.net", "") };
+          let msgText = text;
 
-        const succeeded = results.filter((r) => r.status === "fulfilled").length;
-        const failed = results.filter((r) => r.status === "rejected").length;
-        if (failed > 0) {
-          toast.warning(`${succeeded} instância(s) OK, ${failed} falharam. Total: ${numberList.length} números.`);
+          // Apply dynamic fields
+          if (hasDynamicFields(text) && csvContacts.length > 0) {
+            msgText = replaceDynamicFields(msgText, contact);
+          }
+
+          // Apply AI variations (rotate through variations)
+          if (useVariations && aiVariations.length > 0) {
+            msgText = replaceDynamicFields(aiVariations[idx % aiVariations.length], contact);
+          }
+
+          // Apply anti-ban
+          if (antiBanEnabled) {
+            msgText = applyAntiBan(msgText, addInvisibleChars, addRandomSpacing);
+          }
+
+          const obj: Record<string, unknown> = {
+            number: num.replace("@s.whatsapp.net", ""),
+            type: messageType,
+          };
+          if (msgText) obj.text = msgText;
+          if (fileUrl) obj.file = fileUrl;
+          if (docName) obj.docName = docName;
+          if (linkPreview) obj.linkPreview = true;
+          return obj;
+        });
+
+        // Send as advanced
+        if (instances.length === 1) {
+          const body: Record<string, unknown> = {
+            delayMin: parseInt(delayMin) || 10,
+            delayMax: parseInt(delayMax) || 30,
+            info: folder || "Campanha Bridge",
+            scheduled_for: scheduledFor ? scheduledFor.getTime() : 1,
+            messages,
+          };
+          const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/advanced`, {
+            method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+          toast.success(`Campanha personalizada criada! ${messages.length} mensagem(ns) na fila.`);
         } else {
-          toast.success(`Round-robin criado! ${numberList.length} números distribuídos em ${instances.length} instâncias.`);
+          // Round-robin distribution
+          const buckets: Record<string, unknown>[][] = instances.map(() => []);
+          messages.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
+
+          const results = await Promise.allSettled(
+            instances.map((inst, idx) => {
+              if (buckets[idx].length === 0) return Promise.resolve();
+              const body: Record<string, unknown> = {
+                delayMin: parseInt(delayMin) || 10,
+                delayMax: parseInt(delayMax) || 30,
+                info: `${folder || "Campanha Bridge"} (${inst.instance_name})`,
+                scheduled_for: scheduledFor ? scheduledFor.getTime() : 1,
+                messages: buckets[idx],
+              };
+              return fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
+                method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
+              }).then(async (res) => { if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`); });
+            })
+          );
+          const succeeded = results.filter((r) => r.status === "fulfilled").length;
+          const failed = results.filter((r) => r.status === "rejected").length;
+          if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
+          else toast.success(`Round-robin personalizado! ${messages.length} msgs em ${instances.length} instâncias.`);
+        }
+      } else {
+        // Standard simple send (no dynamic fields)
+        let bodyText = text;
+        if (antiBanEnabled) {
+          bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
+        }
+
+        if (instances.length === 1) {
+          const body = buildSimpleBody(numberList);
+          if (antiBanEnabled) body.text = bodyText;
+          const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/simple`, {
+            method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+          toast.success(`Campanha criada! ${numberList.length} número(s) na fila.`);
+        } else {
+          const buckets: string[][] = instances.map(() => []);
+          numberList.forEach((num, idx) => { buckets[idx % instances.length].push(num); });
+
+          const results = await Promise.allSettled(
+            instances.map((inst, idx) => {
+              if (buckets[idx].length === 0) return Promise.resolve();
+              const body = buildSimpleBody(buckets[idx]);
+              body.folder = `${folder || "Campanha Bridge"} (${inst.instance_name})`;
+              if (antiBanEnabled) body.text = bodyText;
+              return fetch(`${getBaseUrlFor(inst)}/sender/simple`, {
+                method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
+              }).then(async (res) => { if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`); });
+            })
+          );
+          const succeeded = results.filter((r) => r.status === "fulfilled").length;
+          const failed = results.filter((r) => r.status === "rejected").length;
+          if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
+          else toast.success(`Round-robin! ${numberList.length} números em ${instances.length} instâncias.`);
         }
       }
       onOpenChange(false);
@@ -458,7 +697,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         number: clean.includes("@") ? m.number.trim() : clean,
         type: m.type,
       };
-      if (m.text) obj.text = m.text;
+      let msgText = m.text || "";
+      if (antiBanEnabled) msgText = applyAntiBan(msgText, addInvisibleChars, addRandomSpacing);
+      if (msgText) obj.text = msgText;
       if (m.file) obj.file = m.file;
       if (m.docName) obj.docName = m.docName;
       if (m.footerText) obj.footerText = m.footerText;
@@ -502,11 +743,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
         toast.success(`Envio avançado criado! ${messages.length} mensagem(ns) na fila.`);
       } else {
-        // Round-robin: distribute messages across instances
         const buckets: AdvancedMessage[][] = instances.map(() => []);
-        validMessages.forEach((msg, idx) => {
-          buckets[idx % instances.length].push(msg);
-        });
+        validMessages.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
 
         const results = await Promise.allSettled(
           instances.map((inst, idx) => {
@@ -521,19 +759,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             };
             return fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
               method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-            }).then(async (res) => {
-              if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
-            });
+            }).then(async (res) => { if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`); });
           })
         );
-
         const succeeded = results.filter((r) => r.status === "fulfilled").length;
         const failed = results.filter((r) => r.status === "rejected").length;
-        if (failed > 0) {
-          toast.warning(`${succeeded} instância(s) OK, ${failed} falharam. Total: ${validMessages.length} mensagens.`);
-        } else {
-          toast.success(`Round-robin avançado criado! ${validMessages.length} mensagens em ${instances.length} instâncias.`);
-        }
+        if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
+        else toast.success(`Round-robin avançado! ${validMessages.length} msgs em ${instances.length} instâncias.`);
       }
       onOpenChange(false);
     } catch (err: any) {
@@ -559,6 +791,218 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     }
   };
 
+  // ─── Shared UI Components ───
+  const renderCsvUpload = () => (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2">
+          Números (um por linha, vírgula, ou CSV)
+        </Label>
+        <div className="flex items-center gap-2">
+          <input ref={csvInputRef} type="file" accept=".csv,.txt" onChange={handleCsvUpload} className="hidden" />
+          <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="border-border h-7 text-xs">
+            <Upload className="h-3 w-3 mr-1" /> Importar CSV
+          </Button>
+        </div>
+      </div>
+      <Textarea
+        placeholder={"5511999999999\n5511888888888\n\nOu importe um CSV com colunas: phone, nome, sobrenome"}
+        value={numbers}
+        onChange={(e) => setNumbers(e.target.value)}
+        className="bg-secondary border-border min-h-[80px]"
+      />
+      {csvContacts.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="outline" className="text-[10px] border-primary/50 text-primary">
+            📄 {csvFileName} — {csvContacts.length} contatos
+          </Badge>
+          {csvContacts.some((c) => c.firstName || c.fullName) && (
+            <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-500">
+              ✓ Campos dinâmicos disponíveis
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" className="h-5 text-xs text-destructive" onClick={() => { setCsvContacts([]); setCsvFileName(""); }}>
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderDynamicFields = (textareaId: string) => (
+    <div className="flex items-center gap-1 flex-wrap">
+      <span className="text-[10px] text-muted-foreground mr-1">Campos dinâmicos:</span>
+      {DYNAMIC_FIELDS.map((f) => (
+        <Button
+          key={f.tag}
+          variant="outline"
+          size="sm"
+          className="h-5 text-[10px] px-1.5 border-primary/30 text-primary hover:bg-primary/10"
+          onClick={() => insertDynamicField(f.tag, textareaId)}
+        >
+          {f.label}
+        </Button>
+      ))}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[250px] text-xs">
+          Importe um CSV com colunas "nome" e "sobrenome" para usar campos dinâmicos. Cada mensagem será personalizada.
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
+
+  const renderAiVariations = () => (
+    <div className="space-y-2 p-3 rounded-lg border border-border bg-secondary/30">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2 cursor-pointer text-sm">
+          <Sparkles className="h-4 w-4 text-primary" />
+          Variações com IA
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number" min={2} max={20} value={variationCount}
+            onChange={(e) => setVariationCount(parseInt(e.target.value) || 5)}
+            className="bg-secondary border-border w-14 h-7 text-xs text-center"
+          />
+          <Button
+            variant="outline" size="sm"
+            onClick={handleGenerateVariations}
+            disabled={generatingVariations || !text.trim()}
+            className="border-primary/30 text-primary hover:bg-primary/10 h-7 text-xs"
+          >
+            {generatingVariations ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+            Gerar
+          </Button>
+        </div>
+      </div>
+      {aiVariations.length > 0 && (
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">{aiVariations.length} variações geradas</Label>
+            <div className="flex items-center gap-2">
+              <Label className="text-xs cursor-pointer">Usar no envio</Label>
+              <Switch checked={useVariations} onCheckedChange={setUseVariations} />
+            </div>
+          </div>
+          <div className="max-h-[150px] overflow-y-auto space-y-1.5">
+            {aiVariations.map((v, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <Badge variant="outline" className="shrink-0 text-[9px] mt-0.5">{i + 1}</Badge>
+                <p className="text-xs text-muted-foreground leading-relaxed">{v}</p>
+                <Button
+                  variant="ghost" size="sm" className="h-5 text-[10px] shrink-0"
+                  onClick={() => setText(v)}
+                >
+                  Usar
+                </Button>
+              </div>
+            ))}
+          </div>
+          {useVariations && (
+            <p className="text-[10px] text-primary">
+              ✨ Cada contato receberá uma variação diferente (rotação automática)
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderAntiBan = () => (
+    <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2 cursor-pointer text-sm">
+          <ShieldCheck className="h-4 w-4 text-green-500" />
+          Proteção Anti-Ban
+        </Label>
+        <Switch checked={antiBanEnabled} onCheckedChange={setAntiBanEnabled} />
+      </div>
+      {antiBanEnabled && (
+        <div className="space-y-3 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="invisible-chars"
+                checked={addInvisibleChars}
+                onCheckedChange={(v) => setAddInvisibleChars(!!v)}
+              />
+              <label htmlFor="invisible-chars" className="text-xs cursor-pointer">
+                Caracteres invisíveis (torna cada mensagem única)
+              </label>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="random-spacing"
+                checked={addRandomSpacing}
+                onCheckedChange={(v) => setAddRandomSpacing(!!v)}
+              />
+              <label htmlFor="random-spacing" className="text-xs cursor-pointer">
+                Espaçamento aleatório
+              </label>
+            </div>
+          </div>
+
+          <div className="p-2 rounded bg-muted/50 space-y-1">
+            <p className="text-[10px] font-semibold text-muted-foreground">💡 Dicas Anti-Ban:</p>
+            <ul className="text-[10px] text-muted-foreground space-y-0.5 list-disc pl-3">
+              <li>Use delays de pelo menos <strong>15-30 segundos</strong> entre mensagens</li>
+              <li>Ative <strong>variações com IA</strong> para cada mensagem ser única</li>
+              <li>Use <strong>campos dinâmicos</strong> (nome do contato) para personalizar</li>
+              <li>Evite enviar mais de <strong>200-300 mensagens/dia</strong> por número</li>
+              <li>Distribua entre <strong>múltiplas instâncias</strong> com Round-Robin</li>
+              <li>Evite links encurtados (bit.ly, etc.) — use links completos</li>
+              <li>Aqueça números novos: comece com poucos envios e aumente gradualmente</li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderRoundRobin = (prefix: string) => (
+    <>
+      {siblingInstances.length > 0 && (
+        <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
+          <div className="flex items-center justify-between">
+            <Label className="flex items-center gap-2 cursor-pointer">
+              <RefreshCw className="h-4 w-4 text-primary" />
+              Round-Robin (multi-instância)
+            </Label>
+            <Switch checked={useRoundRobin} onCheckedChange={setUseRoundRobin} />
+          </div>
+          {useRoundRobin && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <Label className="text-xs text-muted-foreground">Selecione instâncias extras:</Label>
+              {siblingInstances.map((inst) => (
+                <div key={inst.id} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`rr-${prefix}-${inst.id}`}
+                    checked={selectedInstanceIds.includes(inst.id)}
+                    onCheckedChange={() => toggleInstanceSelection(inst.id)}
+                  />
+                  <label htmlFor={`rr-${prefix}-${inst.id}`} className="text-sm cursor-pointer flex items-center gap-2">
+                    {inst.instance_name}
+                    {inst.phone && <span className="text-xs text-muted-foreground">({inst.phone})</span>}
+                  </label>
+                </div>
+              ))}
+              {selectedInstanceIds.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  📊 Distribuição entre {selectedInstanceIds.length + 1} instâncias
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border max-w-2xl">
@@ -575,16 +1019,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         <Tabs defaultValue="simple" className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="simple" className="flex-1">
-              <Send className="h-4 w-4 mr-2" />
-              Simples
+              <Send className="h-4 w-4 mr-2" />Simples
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex-1">
-              <Layers className="h-4 w-4 mr-2" />
-              Avançado
+              <Layers className="h-4 w-4 mr-2" />Avançado
             </TabsTrigger>
             <TabsTrigger value="campaigns" className="flex-1">
-              <ListChecks className="h-4 w-4 mr-2" />
-              Campanhas
+              <ListChecks className="h-4 w-4 mr-2" />Campanhas
             </TabsTrigger>
           </TabsList>
 
@@ -594,10 +1035,10 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               <Label>Nome da Campanha</Label>
               <Input placeholder="Ex: Campanha Janeiro" value={folder} onChange={(e) => setFolder(e.target.value)} className="bg-secondary border-border" />
             </div>
-            <div className="space-y-2">
-              <Label>Números (um por linha ou separados por vírgula)</Label>
-              <Textarea placeholder={"5511999999999\n5511888888888"} value={numbers} onChange={(e) => setNumbers(e.target.value)} className="bg-secondary border-border min-h-[80px]" />
-            </div>
+
+            {/* CSV Upload + Numbers */}
+            {renderCsvUpload()}
+
             <div className="space-y-2">
               <Label>Tipo de Mensagem</Label>
               <Select value={messageType} onValueChange={setMessageType}>
@@ -607,18 +1048,28 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 </SelectContent>
               </Select>
             </div>
+
             {(messageType === "text" || showMediaField || showChoiceFields) && (
               <div className="space-y-2">
                 <Label>Texto da Mensagem</Label>
-                <Textarea placeholder="Digite sua mensagem..." value={text} onChange={(e) => setText(e.target.value)} className="bg-secondary border-border min-h-[100px]" />
+                {renderDynamicFields("simple-text")}
+                <Textarea
+                  id="simple-text"
+                  placeholder="Digite sua mensagem... Use {{primeiro_nome}} para personalizar"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  className="bg-secondary border-border min-h-[100px]"
+                />
               </div>
             )}
+
             {messageType === "text" && (
               <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-border">
                 <Label className="cursor-pointer">Preview de Link</Label>
                 <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
               </div>
             )}
+
             {showMediaField && (
               <div className="space-y-2">
                 <Label>URL do Arquivo</Label>
@@ -631,6 +1082,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 )}
               </div>
             )}
+
             {showContactFields && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2"><Label>Nome Completo</Label><Input value={contactName} onChange={(e) => setContactName(e.target.value)} className="bg-secondary border-border" /></div>
@@ -639,6 +1091,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 <div className="space-y-2"><Label>Email</Label><Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="bg-secondary border-border" /></div>
               </div>
             )}
+
             {showLocationFields && (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2"><Label>Latitude</Label><Input value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-secondary border-border" /></div>
@@ -647,6 +1100,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 <div className="space-y-2"><Label>Endereço</Label><Input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} className="bg-secondary border-border" /></div>
               </div>
             )}
+
             {showChoiceFields && (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -665,10 +1119,12 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 <Button variant="outline" size="sm" onClick={handleAddChoice} className="border-border"><Plus className="h-4 w-4 mr-1" /> Adicionar Opção</Button>
               </div>
             )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2"><Label>Delay Mínimo (seg)</Label><Input type="number" value={delayMin} onChange={(e) => setDelayMin(e.target.value)} className="bg-secondary border-border" /></div>
               <div className="space-y-2"><Label>Delay Máximo (seg)</Label><Input type="number" value={delayMax} onChange={(e) => setDelayMax(e.target.value)} className="bg-secondary border-border" /></div>
             </div>
+
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Agendar (opcional)</Label>
               <div className="flex gap-2">
@@ -690,44 +1146,20 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 </Popover>
               </div>
             </div>
-            {/* Round-robin selector */}
-            {siblingInstances.length > 0 && (
-              <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2 cursor-pointer">
-                    <RefreshCw className="h-4 w-4 text-primary" />
-                    Round-Robin (multi-instância)
-                  </Label>
-                  <Switch checked={useRoundRobin} onCheckedChange={setUseRoundRobin} />
-                </div>
-                {useRoundRobin && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <Label className="text-xs text-muted-foreground">Selecione instâncias extras para distribuir:</Label>
-                    {siblingInstances.map((inst) => (
-                      <div key={inst.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`rr-simple-${inst.id}`}
-                          checked={selectedInstanceIds.includes(inst.id)}
-                          onCheckedChange={() => toggleInstanceSelection(inst.id)}
-                        />
-                        <label htmlFor={`rr-simple-${inst.id}`} className="text-sm cursor-pointer flex items-center gap-2">
-                          {inst.instance_name}
-                          {inst.phone && <span className="text-xs text-muted-foreground">({inst.phone})</span>}
-                        </label>
-                      </div>
-                    ))}
-                    {useRoundRobin && selectedInstanceIds.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        📊 Números serão distribuídos entre {selectedInstanceIds.length + 1} instâncias
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+
+            {/* AI Variations */}
+            {renderAiVariations()}
+
+            {/* Anti-Ban */}
+            {renderAntiBan()}
+
+            {/* Round-Robin */}
+            {renderRoundRobin("simple")}
+
             <Button onClick={handleSendSimple} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-              {useRoundRobin && selectedInstanceIds.length > 0 ? "Criar Campanha Round-Robin" : "Criar Campanha Simples"}
+              {needsPerContactMessages() ? "Criar Campanha Personalizada" :
+                useRoundRobin && selectedInstanceIds.length > 0 ? "Criar Campanha Round-Robin" : "Criar Campanha Simples"}
             </Button>
           </TabsContent>
 
@@ -862,41 +1294,12 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               })}
             </div>
 
-            {/* Round-robin selector */}
-            {siblingInstances.length > 0 && (
-              <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2 cursor-pointer">
-                    <RefreshCw className="h-4 w-4 text-primary" />
-                    Round-Robin (multi-instância)
-                  </Label>
-                  <Switch checked={useRoundRobin} onCheckedChange={setUseRoundRobin} />
-                </div>
-                {useRoundRobin && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <Label className="text-xs text-muted-foreground">Selecione instâncias extras para distribuir:</Label>
-                    {siblingInstances.map((inst) => (
-                      <div key={inst.id} className="flex items-center gap-2">
-                        <Checkbox
-                          id={`rr-adv-${inst.id}`}
-                          checked={selectedInstanceIds.includes(inst.id)}
-                          onCheckedChange={() => toggleInstanceSelection(inst.id)}
-                        />
-                        <label htmlFor={`rr-adv-${inst.id}`} className="text-sm cursor-pointer flex items-center gap-2">
-                          {inst.instance_name}
-                          {inst.phone && <span className="text-xs text-muted-foreground">({inst.phone})</span>}
-                        </label>
-                      </div>
-                    ))}
-                    {useRoundRobin && selectedInstanceIds.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        📊 Mensagens serão distribuídas entre {selectedInstanceIds.length + 1} instâncias
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Anti-Ban */}
+            {renderAntiBan()}
+
+            {/* Round-Robin */}
+            {renderRoundRobin("adv")}
+
             <Button onClick={handleSendAdvanced} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Layers className="h-4 w-4 mr-2" />}
               {useRoundRobin && selectedInstanceIds.length > 0 ? "Criar Envio Round-Robin" : "Criar Envio Avançado"}
@@ -905,7 +1308,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
           {/* ════════ CAMPAIGNS TAB ════════ */}
           <TabsContent value="campaigns" className="space-y-4 mt-4">
-
             {/* ── List Folders ── */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -914,9 +1316,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 </h3>
                 <div className="flex items-center gap-2">
                   <Select value={folderStatusFilter} onValueChange={setFolderStatusFilter}>
-                    <SelectTrigger className="bg-secondary border-border h-8 w-[130px] text-xs">
-                      <SelectValue placeholder="Todos status" />
-                    </SelectTrigger>
+                    <SelectTrigger className="bg-secondary border-border h-8 w-[130px] text-xs"><SelectValue placeholder="Todos status" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="scheduled">Agendada</SelectItem>
@@ -948,21 +1348,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                               <span className="text-xs font-medium truncate">{f.info || fId}</span>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <Button
-                                variant="ghost" size="icon" className="h-6 w-6"
-                                onClick={() => { setCampaignFolderId(fId); }}
-                                title="Usar ID para controle"
-                              >
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCampaignFolderId(fId)} title="Usar ID para controle">
                                 <Search className="h-3 w-3" />
                               </Button>
-                              <Button
-                                variant="ghost" size="icon" className="h-6 w-6"
-                                onClick={() => {
-                                  setMsgFolderId(fId);
-                                  if (isExpanded) { setExpandedFolder(null); setCampaignMessages([]); }
-                                  else handleListMessages(fId);
-                                }}
-                              >
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                                setMsgFolderId(fId);
+                                if (isExpanded) { setExpandedFolder(null); setCampaignMessages([]); }
+                                else handleListMessages(fId);
+                              }}>
                                 {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                               </Button>
                             </div>
@@ -973,7 +1366,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                             {f.failed != null && <span>Falhas: {f.failed}</span>}
                             {f.scheduled != null && <span>Agendadas: {f.scheduled}</span>}
                           </div>
-                          {/* Inline messages */}
                           {isExpanded && campaignMessages.length > 0 && (
                             <div className="mt-2 rounded border border-border overflow-hidden">
                               <Table>
@@ -1020,28 +1412,16 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 <Input placeholder="Ex: folder_123" value={campaignFolderId} onChange={(e) => setCampaignFolderId(e.target.value)} className="bg-secondary border-border" />
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <Button
-                  variant={campaignAction === "stop" ? "default" : "outline"}
-                  onClick={() => setCampaignAction("stop")}
-                  className={cn("border-border text-xs", campaignAction === "stop" && "bg-yellow-600 hover:bg-yellow-700 text-white")}
-                  size="sm"
-                >
+                <Button variant={campaignAction === "stop" ? "default" : "outline"} onClick={() => setCampaignAction("stop")}
+                  className={cn("border-border text-xs", campaignAction === "stop" && "bg-yellow-600 hover:bg-yellow-700 text-white")} size="sm">
                   <Pause className="h-3.5 w-3.5 mr-1" /> Pausar
                 </Button>
-                <Button
-                  variant={campaignAction === "continue" ? "default" : "outline"}
-                  onClick={() => setCampaignAction("continue")}
-                  className={cn("border-border text-xs", campaignAction === "continue" && "bg-green-600 hover:bg-green-700 text-white")}
-                  size="sm"
-                >
+                <Button variant={campaignAction === "continue" ? "default" : "outline"} onClick={() => setCampaignAction("continue")}
+                  className={cn("border-border text-xs", campaignAction === "continue" && "bg-green-600 hover:bg-green-700 text-white")} size="sm">
                   <Play className="h-3.5 w-3.5 mr-1" /> Continuar
                 </Button>
-                <Button
-                  variant={campaignAction === "delete" ? "default" : "outline"}
-                  onClick={() => setCampaignAction("delete")}
-                  className={cn("border-border text-xs", campaignAction === "delete" && "bg-destructive hover:bg-destructive/90 text-white")}
-                  size="sm"
-                >
+                <Button variant={campaignAction === "delete" ? "default" : "outline"} onClick={() => setCampaignAction("delete")}
+                  className={cn("border-border text-xs", campaignAction === "delete" && "bg-destructive hover:bg-destructive/90 text-white")} size="sm">
                   <Trash className="h-3.5 w-3.5 mr-1" /> Deletar
                 </Button>
               </div>
@@ -1054,8 +1434,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             {/* ── Cleanup ── */}
             <div className="space-y-3 pt-2 border-t border-border">
               <h3 className="text-sm font-semibold text-card-foreground">Limpeza</h3>
-
-              {/* Clear done */}
               <Card className="bg-secondary/30 border-border/50">
                 <CardContent className="p-3 space-y-2">
                   <div className="flex items-center justify-between">
@@ -1065,11 +1443,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Input
-                      type="number" placeholder="168" value={clearHours}
-                      onChange={(e) => setClearHours(e.target.value)}
-                      className="bg-secondary border-border w-24 h-8 text-xs"
-                    />
+                    <Input type="number" placeholder="168" value={clearHours} onChange={(e) => setClearHours(e.target.value)} className="bg-secondary border-border w-24 h-8 text-xs" />
                     <span className="text-[10px] text-muted-foreground">horas</span>
                     <Button variant="outline" size="sm" onClick={handleClearDone} disabled={clearingDone} className="border-border ml-auto h-8 text-xs">
                       {clearingDone ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
@@ -1078,8 +1452,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                   </div>
                 </CardContent>
               </Card>
-
-              {/* Clear all */}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm" className="w-full border-destructive/50 text-destructive hover:bg-destructive/10 h-8 text-xs">
@@ -1091,7 +1463,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                   <AlertDialogHeader>
                     <AlertDialogTitle>Limpar toda a fila?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Esta ação é <strong>irreversível</strong>. Todas as mensagens da fila de envio em massa serão removidas, incluindo pendentes e já enviadas.
+                      Esta ação é <strong>irreversível</strong>. Todas as mensagens da fila serão removidas.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
