@@ -790,14 +790,37 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
   const getStatusColor = (status?: string) => {
     switch (status?.toLowerCase()) {
-      case "scheduled": return "border-yellow-500/50 text-yellow-500";
-      case "sending": return "border-blue-500/50 text-blue-500";
-      case "paused": return "border-orange-500/50 text-orange-500";
-      case "done": return "border-green-500/50 text-green-500";
-      case "deleting": return "border-destructive/50 text-destructive";
-      case "sent": return "border-green-500/50 text-green-500";
-      case "failed": return "border-destructive/50 text-destructive";
+      case "scheduled": return "border-yellow-500/50 text-yellow-500 bg-yellow-500/10";
+      case "sending": return "border-blue-500/50 text-blue-500 bg-blue-500/10";
+      case "paused": return "border-orange-500/50 text-orange-500 bg-orange-500/10";
+      case "done": return "border-green-500/50 text-green-500 bg-green-500/10";
+      case "deleting": return "border-destructive/50 text-destructive bg-destructive/10";
+      case "sent": return "border-green-500/50 text-green-500 bg-green-500/10";
+      case "delivered": return "border-emerald-500/50 text-emerald-400 bg-emerald-500/10";
+      case "read": return "border-sky-500/50 text-sky-400 bg-sky-500/10";
+      case "failed": return "border-destructive/50 text-destructive bg-destructive/10";
+      case "error": return "border-destructive/50 text-destructive bg-destructive/10";
+      case "pending": return "border-amber-500/50 text-amber-500 bg-amber-500/10";
+      case "queued": return "border-indigo-500/50 text-indigo-400 bg-indigo-500/10";
       default: return "border-muted-foreground/50 text-muted-foreground";
+    }
+  };
+
+  const getStatusLabel = (status?: string) => {
+    switch (status?.toLowerCase()) {
+      case "scheduled": return "Agendada";
+      case "sending": return "Enviando";
+      case "paused": return "Pausada";
+      case "done": return "Concluída";
+      case "deleting": return "Deletando";
+      case "sent": return "Enviada";
+      case "delivered": return "Entregue";
+      case "read": return "Lida";
+      case "failed": return "Falhou";
+      case "error": return "Erro";
+      case "pending": return "Pendente";
+      case "queued": return "Na Fila";
+      default: return status || "—";
     }
   };
 
@@ -1395,7 +1418,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
                               <Badge variant="outline" className={cn("text-[10px] shrink-0", getStatusColor(f.status))}>
-                                {f.status || "—"}
+                                {getStatusLabel(f.status)}
                               </Badge>
                               <span className="text-xs font-medium truncate">{f.info || fId}</span>
                             </div>
@@ -1431,17 +1454,34 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                                 </TableHeader>
                                 <TableBody>
                                   {campaignMessages.map((cm, mi) => (
-                                    <TableRow key={mi} className="h-7">
-                                      <TableCell className="text-[10px] px-2 py-1 font-mono">{cm.number || "—"}</TableCell>
+                              <TableRow key={mi} className="h-7">
+                                      <TableCell className="text-[10px] px-2 py-1 font-mono whitespace-nowrap">{cm.number || "—"}</TableCell>
                                       <TableCell className="text-[10px] px-2 py-1">{cm.type || "—"}</TableCell>
                                       <TableCell className="text-[10px] px-2 py-1">
-                                        <Badge variant="outline" className={cn("text-[9px]", getStatusColor(cm.status))}>{cm.status || "—"}</Badge>
+                                        <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", getStatusColor(cm.status))}>
+                                          {getStatusLabel(cm.status)}
+                                        </Badge>
                                       </TableCell>
-                                      <TableCell className="text-[10px] px-2 py-1 max-w-[120px] truncate">{cm.text || "—"}</TableCell>
+                                      <TableCell className="text-[10px] px-2 py-1 max-w-[150px] truncate" title={cm.text || ""}>{cm.text || "—"}</TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>
                               </Table>
+                              {/* Pagination */}
+                              <div className="flex items-center justify-between p-2 border-t border-border">
+                                <span className="text-[10px] text-muted-foreground">{campaignMessages.length} mensagem(ns)</span>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" disabled={msgPage <= 1}
+                                    onClick={() => { setMsgPage((p) => Math.max(1, p - 1)); handleListMessages(); }}>
+                                    Anterior
+                                  </Button>
+                                  <span className="text-[10px] text-muted-foreground px-1">Pág {msgPage}</span>
+                                  <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" disabled={campaignMessages.length < msgPageSize}
+                                    onClick={() => { setMsgPage((p) => p + 1); handleListMessages(); }}>
+                                    Próxima
+                                  </Button>
+                                </div>
+                              </div>
                               {loadingMessages && <div className="p-2 text-center"><Loader2 className="h-3 w-3 animate-spin mx-auto" /></div>}
                             </div>
                           )}
