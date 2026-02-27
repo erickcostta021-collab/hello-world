@@ -491,7 +491,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
                     <MessageSquare className="h-4 w-4 mr-2" />
-                    Gerenciar Mensagens
+                    Mensagem em massa
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
