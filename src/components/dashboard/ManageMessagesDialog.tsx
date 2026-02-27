@@ -483,13 +483,22 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       const rawList = Array.isArray(data) ? data : (data.messages || data.data || data.items || data.results || []);
       if (rawList.length > 0) console.log("[listmessages] first item keys:", Object.keys(rawList[0]));
       // Normalize fields: map common alternative keys to our expected shape
-      const list: CampaignMessage[] = rawList.map((item: Record<string, unknown>) => ({
-        ...item,
-        number: String(item.number || item.phone || item.to || item.recipient || (typeof item.jid === "string" ? (item.jid as string).split("@")[0] : "") || ""),
-        type: item.type || item.messageType || item.message_type || item.kind || "",
-        status: item.status || item.messageStatus || item.message_status || item.state || "",
-        text: item.text || item.message || item.body || item.content || "",
-      }));
+      const list: CampaignMessage[] = rawList.map((item: Record<string, unknown>) => {
+        // Extract phone from multiple possible fields, including jid and chatId
+        const extractPhone = (val: unknown): string => {
+          if (!val) return "";
+          const s = String(val);
+          return s.split("@")[0].replace(/\D/g, "");
+        };
+        const phone = extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chatId) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
+        return {
+          ...item,
+          number: phone,
+          type: item.type || item.messageType || item.message_type || item.kind || "",
+          status: item.status || item.messageStatus || item.message_status || item.state || "",
+          text: item.text || item.message || item.body || item.content || "",
+        };
+      });
       setCampaignMessages(list);
       setExpandedFolder(id.trim());
       if (list.length === 0) toast.info("Nenhuma mensagem encontrada");
