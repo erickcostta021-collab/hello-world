@@ -479,22 +479,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const data = await res.json();
-      console.log("[listmessages] raw response keys:", Object.keys(data));
       const rawList = Array.isArray(data) ? data : (data.messages || data.data || data.items || data.results || []);
-      if (rawList.length > 0) {
-        console.log("[listmessages] first item FULL:", JSON.stringify(rawList[0]));
-        console.log("[listmessages] first item keys:", Object.keys(rawList[0]));
-        console.log("[listmessages] first item send_payload:", rawList[0].send_payload);
-        console.log("[listmessages] first item name fields:", { name: rawList[0].name, contactName: rawList[0].contactName, contact_name: rawList[0].contact_name, recipientName: rawList[0].recipientName });
-        // Log send_payload parsed to find name
-        if (rawList[0].send_payload) {
-          try {
-            const sp0 = typeof rawList[0].send_payload === "string" ? JSON.parse(rawList[0].send_payload) : rawList[0].send_payload;
-            console.log("[listmessages] send_payload parsed keys:", Object.keys(sp0));
-            console.log("[listmessages] send_payload parsed:", JSON.stringify(sp0));
-          } catch {}
-        }
-      }
       // Normalize fields: map common alternative keys to our expected shape
       const list: CampaignMessage[] = rawList.map((item: Record<string, unknown>) => {
         // Extract phone from multiple possible fields, including jid and chatId
@@ -706,6 +691,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (fileUrl) obj.file = fileUrl;
           if (docName) obj.docName = docName;
           if (linkPreview) obj.linkPreview = true;
+          // Include contact name so it's stored in send_payload for history
+          const cName = (contact as CsvContact).firstName || (contact as CsvContact).fullName || "";
+          if (cName) obj.contactName = cName;
           return obj;
         });
 
