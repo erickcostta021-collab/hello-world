@@ -401,6 +401,38 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     </div>
                   )}
                   
+                  {/* Base URL */}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Copy className="h-3 w-3 text-muted-foreground" />
+                    <span
+                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      title={instance.uazapi_base_url || settings?.uazapi_base_url || "Não configurada"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const url = instance.uazapi_base_url || settings?.uazapi_base_url;
+                        if (url) { navigator.clipboard.writeText(url); toast.success("Base URL copiada!"); }
+                      }}
+                    >
+                      {instance.uazapi_base_url || settings?.uazapi_base_url || "URL não configurada"}
+                    </span>
+                  </div>
+
+                  {/* Token */}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <Copy className="h-3 w-3 text-muted-foreground" />
+                    <span
+                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      title="Clique para copiar o token"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(instance.uazapi_instance_token);
+                        toast.success("Token copiado!");
+                      }}
+                    >
+                      {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
+                    </span>
+                  </div>
+
                   {/* Official API badge */}
                   {instance.is_official_api && (
                     <Badge variant="outline" className="mt-1 bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px]">
