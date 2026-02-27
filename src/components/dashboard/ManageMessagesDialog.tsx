@@ -494,12 +494,29 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           return s.split("@")[0].replace(/\D/g, "");
         };
         const phone = extractPhone(item.chatid) || extractPhone(item.chatId) || extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
+        // Extract name from multiple possible fields
+        const name = String(item.name || item.contactName || item.contact_name || item.recipientName || item.recipient_name || item.senderName || "");
+        // Extract text: try direct fields, then parse from send_payload
+        let msgText = String(item.text || item.message || item.body || "");
+        if (!msgText && item.send_payload) {
+          try {
+            const payload = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
+            msgText = String(payload?.text || payload?.message || payload?.body || "");
+          } catch { /* ignore parse errors */ }
+        }
+        if (!msgText && item.content) {
+          try {
+            const cont = typeof item.content === "string" ? JSON.parse(item.content as string) : item.content;
+            msgText = String(cont?.text || cont?.message || "");
+          } catch { msgText = String(item.content || ""); }
+        }
         return {
           ...item,
           number: phone,
-          type: item.type || item.messageType || item.message_type || item.kind || "",
+          name,
+          type: item.type || item.messageType || item.message_type || item.kind || item.send_function || "",
           status: item.status || item.messageStatus || item.message_status || item.state || "",
-          text: item.text || item.message || item.body || item.content || "",
+          text: msgText,
         };
       });
       setCampaignMessages(list);
@@ -1515,24 +1532,24 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                             <div className="mt-2 rounded border border-border overflow-hidden">
                               <Table>
                                 <TableHeader>
-                                  <TableRow className="h-7">
+                                    <TableRow className="h-7">
                                     <TableHead className="text-[10px] px-2 py-1">Número</TableHead>
-                                    <TableHead className="text-[10px] px-2 py-1">Tipo</TableHead>
+                                    <TableHead className="text-[10px] px-2 py-1">Nome</TableHead>
                                     <TableHead className="text-[10px] px-2 py-1">Status</TableHead>
-                                    <TableHead className="text-[10px] px-2 py-1">Texto</TableHead>
+                                    <TableHead className="text-[10px] px-2 py-1">Mensagem</TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {campaignMessages.map((cm, mi) => (
                               <TableRow key={mi} className="h-7">
                                       <TableCell className="text-[10px] px-2 py-1 font-mono whitespace-nowrap">{cm.number || "—"}</TableCell>
-                                      <TableCell className="text-[10px] px-2 py-1">{cm.type || "—"}</TableCell>
+                                      <TableCell className="text-[10px] px-2 py-1 max-w-[100px] truncate">{(cm as any).name || "—"}</TableCell>
                                       <TableCell className="text-[10px] px-2 py-1">
                                         <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", getStatusColor(cm.status))}>
                                           {getStatusLabel(cm.status)}
                                         </Badge>
                                       </TableCell>
-                                      <TableCell className="text-[10px] px-2 py-1 max-w-[150px] truncate" title={cm.text || ""}>{cm.text || "—"}</TableCell>
+                                      <TableCell className="text-[10px] px-2 py-1 max-w-[200px] truncate" title={cm.text || ""}>{cm.text || "—"}</TableCell>
                                     </TableRow>
                                   ))}
                                 </TableBody>
