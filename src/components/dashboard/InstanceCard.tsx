@@ -57,6 +57,7 @@ import { toast } from "sonner";
 import { AssignGHLUserDialog } from "./AssignGHLUserDialog";
 import { WebhookConfigDialog } from "./WebhookConfigDialog";
 import { ManageMessagesDialog } from "./ManageMessagesDialog";
+import { ConfigureEmbedTabsDialog, EmbedVisibleOptions } from "./ConfigureEmbedTabsDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface InstanceCardProps {
@@ -94,6 +95,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [ghlUserName, setGhlUserName] = useState<string | null>(null);
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
+  const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
+  const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
+    (instance as any).embed_visible_options || null
+  );
   const [subaccount, setSubaccount] = useState<{
     id: string;
     location_id: string;
@@ -442,12 +447,22 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 </div>
               </div>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 opacity-60 hover:opacity-100">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
+              <div className="flex items-center gap-1 shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 opacity-60 hover:opacity-100"
+                  title="Configurar abas do embed"
+                  onClick={() => setEmbedTabsDialogOpen(true)}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-60 hover:opacity-100">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
                   {settings?.track_id && (
                     <DropdownMenuItem onClick={async () => {
@@ -514,6 +529,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
             </div>
           </div>
 
@@ -677,6 +693,16 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
         onOpenChange={setMessagesDialogOpen}
         instance={instance}
         allInstances={allInstances}
+      />
+
+      {/* Configure Embed Tabs Dialog */}
+      <ConfigureEmbedTabsDialog
+        open={embedTabsDialogOpen}
+        onOpenChange={setEmbedTabsDialogOpen}
+        instanceId={instance.id}
+        instanceName={instance.instance_name}
+        currentOptions={embedVisibleOptions}
+        onSaved={setEmbedVisibleOptions}
       />
     </>
   );

@@ -29,6 +29,17 @@ import { toast } from "sonner";
 import { EmbedAssignUserDialog } from "./EmbedAssignUserDialog";
 import { WebhookConfigDialog } from "@/components/dashboard/WebhookConfigDialog";
 import { supabase } from "@/integrations/supabase/client";
+export interface EmbedVisibleOptions {
+  assign_user?: boolean;
+  webhook?: boolean;
+  track_id?: boolean;
+  base_url?: boolean;
+  token?: boolean;
+  connect?: boolean;
+  disconnect?: boolean;
+  status?: boolean;
+}
+
 export interface EmbedInstance {
   id: string;
   instance_name: string;
@@ -38,6 +49,7 @@ export interface EmbedInstance {
   phone?: string | null;
   profile_pic_url?: string | null;
   ghl_user_id?: string | null;
+  embed_visible_options?: EmbedVisibleOptions | null;
 }
 
 interface EmbedInstanceCardProps {
@@ -57,6 +69,8 @@ export function EmbedInstanceCard({
   trackId,
   onStatusChange 
 }: EmbedInstanceCardProps) {
+  const opts = instance.embed_visible_options;
+  const isVisible = (key: keyof EmbedVisibleOptions) => opts?.[key] !== false;
   const [syncing, setSyncing] = useState(false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(instance.phone || null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(instance.profile_pic_url || null);
@@ -519,6 +533,7 @@ export function EmbedInstanceCard({
                     </div>
                   )}
                   {/* Base URL */}
+                  {isVisible("base_url") && (
                   <div className="flex items-center gap-1.5 mt-1">
                     <Copy className="h-3 w-3 text-muted-foreground" />
                     <span
@@ -538,8 +553,10 @@ export function EmbedInstanceCard({
                       {instance.uazapi_base_url || "Base URL"}
                     </span>
                   </div>
+                  )}
 
                   {/* Token */}
+                  {isVisible("token") && (
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <Copy className="h-3 w-3 text-muted-foreground" />
                     <span
@@ -559,6 +576,7 @@ export function EmbedInstanceCard({
                       {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
                     </span>
                   </div>
+                  )}
                 </div>
               </div>
               
@@ -569,15 +587,19 @@ export function EmbedInstanceCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
+                  {isVisible("assign_user") && (
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
                   </DropdownMenuItem>
+                  )}
+                  {isVisible("webhook") && (
                   <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
                     <Webhook className="h-4 w-4 mr-2" />
                     Configurar Webhooks
                   </DropdownMenuItem>
-                  {trackId && (
+                  )}
+                  {isVisible("track_id") && trackId && (
                     <DropdownMenuItem onClick={async () => {
                       try {
                         await copyToClipboard(trackId);
@@ -601,7 +623,7 @@ export function EmbedInstanceCard({
               <Wifi className="h-4 w-4 text-emerald-400" />
               <span className="text-emerald-400 font-medium text-sm">WhatsApp Conectado</span>
             </div>
-          ) : (
+          ) : isVisible("connect") ? (
             <div 
               className="mx-4 mb-3 flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
               onClick={handleConnect}
@@ -617,10 +639,16 @@ export function EmbedInstanceCard({
                 </>
               )}
             </div>
+          ) : (
+            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-3 bg-muted/30 border border-border/30 rounded-lg">
+              <WifiOff className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground font-medium text-sm">Desconectado</span>
+            </div>
           )}
 
           {/* Actions */}
           <div className="px-4 pb-4 grid grid-cols-2 gap-2">
+            {isVisible("status") && (
             <Button
               variant="outline"
               size="sm"
@@ -631,8 +659,9 @@ export function EmbedInstanceCard({
               <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
               Status
             </Button>
+            )}
 
-            {isConnected ? (
+            {isConnected && isVisible("disconnect") ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -643,7 +672,7 @@ export function EmbedInstanceCard({
                 <Power className="h-3.5 w-3.5 mr-1.5" />
                 Desconectar
               </Button>
-            ) : (
+            ) : !isConnected && isVisible("connect") ? (
               <Button
                 size="sm"
                 onClick={handleConnect}
@@ -653,7 +682,7 @@ export function EmbedInstanceCard({
                 <QrCode className="h-3.5 w-3.5 mr-1.5" />
                 Conectar
               </Button>
-            )}
+            ) : null}
           </div>
         </CardContent>
       </Card>

@@ -199,6 +199,7 @@ export type Database = {
       instances: {
         Row: {
           created_at: string
+          embed_visible_options: Json | null
           ghl_user_id: string | null
           id: string
           ignore_groups: boolean | null
@@ -216,6 +217,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          embed_visible_options?: Json | null
           ghl_user_id?: string | null
           id?: string
           ignore_groups?: boolean | null
@@ -233,6 +235,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          embed_visible_options?: Json | null
           ghl_user_id?: string | null
           id?: string
           ignore_groups?: boolean | null
