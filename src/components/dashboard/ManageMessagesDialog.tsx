@@ -502,20 +502,23 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             name = String(sp?.name || sp?.contactName || sp?.firstName || sp?.first_name || "");
           } catch { /* ignore */ }
         }
-        // Extract text: try direct fields, then parse from send_payload
-        let msgText = String(item.text || item.message || item.body || "");
-        if (!msgText && item.send_payload) {
+        // Extract text: try send_payload first (contains the actual sent text), then direct fields
+        let msgText = "";
+        if (item.send_payload) {
           try {
             const payload = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
             msgText = String(payload?.text || payload?.message || payload?.body || "");
           } catch { /* ignore parse errors */ }
         }
+        if (!msgText) msgText = String(item.text || item.message || item.body || "");
         if (!msgText && item.content) {
           try {
             const cont = typeof item.content === "string" ? JSON.parse(item.content as string) : item.content;
             msgText = String(cont?.text || cont?.message || "");
           } catch { msgText = String(item.content || ""); }
         }
+        // Strip zero-width characters that mask empty placeholders
+        msgText = msgText.replace(/[\u200B\u200C\u200D\uFEFF]/g, "").replace(/\s{2,}/g, " ").trim();
         return {
           ...item,
           number: phone,
