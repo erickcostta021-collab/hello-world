@@ -490,12 +490,33 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           return s.split("@")[0].replace(/\D/g, "");
         };
         const phone = extractPhone(item.chatid) || extractPhone(item.chatId) || extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
-        // Extract name from multiple possible fields, fallback to send_payload params
+        // Extract name from multiple possible fields, fallback to send_payload, then localStorage map
         let name = String(item.name || item.contactName || item.contact_name || item.recipientName || item.recipient_name || "");
         if (!name && item.send_payload) {
           try {
             const sp = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
             name = String(sp?.name || sp?.contactName || sp?.firstName || sp?.first_name || "");
+          } catch { /* ignore */ }
+        }
+        // Fallback: look up name from localStorage campaign maps
+        if (!name && phone) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("campaign_name_maps") || "{}");
+            const folderName = id.trim();
+            // Try exact folder match first, then search all folders
+            for (const key of Object.keys(stored)) {
+              if (folderName.includes(key) || key.includes(folderName)) {
+                const mapEntry = stored[key]?.[phone];
+                if (mapEntry) { name = mapEntry; break; }
+              }
+            }
+            // If still no match, search all maps
+            if (!name) {
+              for (const key of Object.keys(stored)) {
+                const mapEntry = stored[key]?.[phone];
+                if (mapEntry) { name = mapEntry; break; }
+              }
+            }
           } catch { /* ignore */ }
         }
         // Extract text: try send_payload first (contains the actual sent text), then direct fields
@@ -773,6 +794,23 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           else toast.success(`Round-robin! ${numberList.length} números em ${instances.length} instâncias.`);
         }
       }
+      // Save phone→name mapping for history display
+      if (csvContacts.length > 0) {
+        const folderKey = folder || "Campanha Bridge";
+        const nameMap: Record<string, string> = {};
+        csvContacts.forEach((c) => {
+          const phone = c.phone.replace(/\D/g, "");
+          const cName = c.firstName || c.fullName || "";
+          if (phone && cName) nameMap[phone] = cName;
+        });
+        if (Object.keys(nameMap).length > 0) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("campaign_name_maps") || "{}");
+            stored[folderKey] = nameMap;
+            localStorage.setItem("campaign_name_maps", JSON.stringify(stored));
+          } catch { /* ignore */ }
+        }
+      }
       // Redirect to campaigns tab and reload folders
       setActiveTab("campaigns");
       setTimeout(() => handleListFolders(), 500);
@@ -861,6 +899,23 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         const failed = results.filter((r) => r.status === "rejected").length;
         if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
         else toast.success(`Round-robin avançado! ${validMessages.length} msgs em ${instances.length} instâncias.`);
+      }
+      // Save phone→name mapping for history display (advanced mode)
+      if (csvContacts.length > 0) {
+        const folderKey = folder || "Campanha Bridge";
+        const nameMap: Record<string, string> = {};
+        csvContacts.forEach((c) => {
+          const phone = c.phone.replace(/\D/g, "");
+          const cName = c.firstName || c.fullName || "";
+          if (phone && cName) nameMap[phone] = cName;
+        });
+        if (Object.keys(nameMap).length > 0) {
+          try {
+            const stored = JSON.parse(localStorage.getItem("campaign_name_maps") || "{}");
+            stored[folderKey] = nameMap;
+            localStorage.setItem("campaign_name_maps", JSON.stringify(stored));
+          } catch { /* ignore */ }
+        }
       }
       // Redirect to campaigns tab and reload folders
       setActiveTab("campaigns");
