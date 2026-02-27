@@ -87,8 +87,8 @@ serve(async (req) => {
     // If webhook_id is provided, update that specific webhook directly
     if (webhook_id && !create_new) {
       console.log(`Updating existing webhook ${webhook_id} with enabled=${enabledFlag}`);
-      const updatePayload = { id: webhook_id, url: webhookUrl, enabled: enabledFlag, events, ...(excludeMessagesValue ? { excludeMessages: excludeMessagesValue } : {}) };
-      // POST /webhook with id in body is the known working pattern for this UAZAPI version
+      const updatePayload = { id: webhook_id, url: webhookUrl, enabled: enabledFlag, events, action: "update", ...(excludeMessagesValue ? { excludeMessages: excludeMessagesValue } : {}) };
+      // POST /webhook with id + action:"update" is the documented pattern for UAZAPI
       try {
         const res = await fetch(`${baseUrl}/webhook`, {
           method: "POST",
