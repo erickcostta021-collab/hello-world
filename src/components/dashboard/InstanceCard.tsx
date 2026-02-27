@@ -449,33 +449,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
-                  <DropdownMenuItem onClick={copyToken}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copiar Token
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    const baseUrl = instance.uazapi_base_url || settings?.uazapi_base_url;
-                    if (baseUrl) {
-                      try {
-                        await navigator.clipboard.writeText(baseUrl);
-                      } catch {
-                        const ta = document.createElement("textarea");
-                        ta.value = baseUrl;
-                        ta.style.position = "fixed";
-                        ta.style.opacity = "0";
-                        document.body.appendChild(ta);
-                        ta.select();
-                        document.execCommand("copy");
-                        document.body.removeChild(ta);
-                      }
-                      toast.success("Base URL copiada!");
-                    } else {
-                      toast.error("Base URL não configurada");
-                    }
-                  }}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copiar Base URL
-                  </DropdownMenuItem>
                   {settings?.track_id && (
                     <DropdownMenuItem onClick={async () => {
                       const trackId = settings.track_id!;
