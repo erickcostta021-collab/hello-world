@@ -127,6 +127,34 @@ interface CampaignMessage {
   [key: string]: unknown;
 }
 
+// ─── Parse inline "phone: name" format ───
+function parseInlineContacts(raw: string): CsvContact[] | null {
+  // Detect "phone: name" pattern — support comma-separated or one per line
+  // First expand comma-separated entries: "5511...: João, 5511...: Maria" → separate entries
+  const expanded: string[] = [];
+  for (const line of raw.split(/\r?\n/).filter(Boolean)) {
+    // Split by comma, but only when followed by a digit (to avoid splitting names with commas)
+    const parts = line.split(/,\s*(?=\d)/);
+    expanded.push(...parts);
+  }
+
+  const colonEntries = expanded.filter((e) => /^\s*[\d+]+\s*:\s*.+/.test(e));
+  if (colonEntries.length === 0) return null;
+
+  return colonEntries.map((entry) => {
+    const colonIdx = entry.indexOf(":");
+    const phone = entry.slice(0, colonIdx).trim().replace(/\D/g, "");
+    const fullName = entry.slice(colonIdx + 1).trim();
+    const parts = fullName.split(/\s+/);
+    return {
+      phone,
+      firstName: parts[0] || undefined,
+      lastName: parts.slice(1).join(" ") || undefined,
+      fullName: fullName || undefined,
+    };
+  });
+}
+
 // ─── CSV Parser ───
 function parseCsv(content: string): CsvContact[] {
   const lines = content.split(/\r?\n/).filter(Boolean);
@@ -574,8 +602,16 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
   // ─── Simple send (with round-robin, dynamic fields, AI variations, anti-ban) ───
   const handleSendSimple = async () => {
-    const numberList = numbers.split(/[\n,;]+/).map((n) => n.trim()).filter(Boolean)
-      .map((n) => { const clean = n.replace(/\D/g, ""); return clean.includes("@") ? n.trim() : `${clean}@s.whatsapp.net`; });
+    // Parse numbers — support "phone: name" inline format and plain numbers
+    const rawEntries = numbers.split(/[\n]+/).flatMap((line) => line.split(/,\s*(?=\d)/)).map((n) => n.trim()).filter(Boolean);
+    const numberList = rawEntries
+      .map((entry) => {
+        const colonIdx = entry.indexOf(":");
+        const raw = colonIdx >= 0 ? entry.slice(0, colonIdx).trim() : entry.trim();
+        const clean = raw.replace(/\D/g, "");
+        return clean ? `${clean}@s.whatsapp.net` : "";
+      })
+      .filter(Boolean);
 
     if (numberList.length === 0) { toast.error("Adicione pelo menos um número"); return; }
     if (messageType === "text" && !text.trim()) { toast.error("Digite a mensagem"); return; }
@@ -849,9 +885,21 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         </div>
       </div>
       <Textarea
-        placeholder={"5511999999999\n5511888888888\n\nOu importe um CSV com colunas: phone, nome, sobrenome"}
-        value={numbers}
-        onChange={(e) => setNumbers(e.target.value)}
+        placeholder={"5511999999999: João Silva\n5521888888888: Maria\n\nOu só números, vírgula, ou CSV (phone,nome,sobrenome)"}
+      value={numbers}
+      onChange={(e) => {
+        const val = e.target.value;
+        setNumbers(val);
+        // Auto-detect "phone: name" format
+        const inline = parseInlineContacts(val);
+        if (inline && inline.length > 0) {
+          setCsvContacts(inline);
+          setCsvFileName(`${inline.length} contato(s) inline`);
+        } else if (csvFileName.includes("inline")) {
+          setCsvContacts([]);
+          setCsvFileName("");
+        }
+      }}
         className="bg-secondary border-border min-h-[80px]"
       />
       {csvContacts.length > 0 && (
