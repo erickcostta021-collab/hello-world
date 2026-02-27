@@ -794,7 +794,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       }
       // Redirect to campaigns tab and reload folders
       setActiveTab("campaigns");
-      setTimeout(() => handleListFolders(), 500);
+      setTimeout(() => { const el = document.querySelector('[data-dialog-body]'); el?.scrollTo({ top: 0, behavior: "smooth" }); handleListFolders(); }, 500);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setSending(false); }
@@ -895,7 +895,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       }
       // Redirect to campaigns tab and reload folders
       setActiveTab("campaigns");
-      setTimeout(() => handleListFolders(), 500);
+      setTimeout(() => { const el = document.querySelector('[data-dialog-body]'); el?.scrollTo({ top: 0, behavior: "smooth" }); handleListFolders(); }, 500);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);
     } finally { setSending(false); }
