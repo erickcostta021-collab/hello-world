@@ -222,6 +222,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   // ─── AI Variations ───
   const [generatingVariations, setGeneratingVariations] = useState(false);
   const [aiVariations, setAiVariations] = useState<string[]>([]);
+  const [selectedVariationIndexes, setSelectedVariationIndexes] = useState<number[]>([]);
   const [variationCount, setVariationCount] = useState(5);
   const [useVariations, setUseVariations] = useState(false);
 
@@ -265,6 +266,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       setCsvContacts([]);
       setCsvFileName("");
       setAiVariations([]);
+      setSelectedVariationIndexes([]);
       setUseVariations(false);
     }
   }, [open]);
@@ -390,8 +392,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       const variations = data?.variations || [];
       if (variations.length === 0) throw new Error("Nenhuma variação gerada");
       setAiVariations(variations);
+      setSelectedVariationIndexes(variations.map((_: string, i: number) => i)); // select all by default
       setUseVariations(true);
-      toast.success(`${variations.length} variações geradas!`);
+      toast.success(`${variations.length} variações geradas! Todas selecionadas.`);
     } catch (err: any) {
       toast.error(`Erro ao gerar variações: ${err.message}`);
     } finally {
@@ -548,9 +551,15 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     return body;
   };
 
+  // ─── Get active variations (selected ones only) ───
+  const getActiveVariations = (): string[] => {
+    if (!useVariations || aiVariations.length === 0 || selectedVariationIndexes.length === 0) return [];
+    return selectedVariationIndexes.map((i) => aiVariations[i]).filter(Boolean);
+  };
+
   // ─── Determine if we need per-contact messages (dynamic fields or AI variations) ───
   const needsPerContactMessages = (): boolean => {
-    return (hasDynamicFields(text) && csvContacts.length > 0) || (useVariations && aiVariations.length > 0);
+    return (hasDynamicFields(text) && csvContacts.length > 0) || (useVariations && getActiveVariations().length > 0);
   };
 
   // ─── Simple send (with round-robin, dynamic fields, AI variations, anti-ban) ───
@@ -584,9 +593,10 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             msgText = replaceDynamicFields(msgText, contact);
           }
 
-          // Apply AI variations (rotate through variations)
-          if (useVariations && aiVariations.length > 0) {
-            msgText = replaceDynamicFields(aiVariations[idx % aiVariations.length], contact);
+          // Apply AI variations (rotate through selected variations)
+          const activeVars = getActiveVariations();
+          if (useVariations && activeVars.length > 0) {
+            msgText = replaceDynamicFields(activeVars[idx % activeVars.length], contact);
           }
 
           // Apply anti-ban
@@ -881,29 +891,71 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       {aiVariations.length > 0 && (
         <div className="space-y-2 pt-2 border-t border-border">
           <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">{aiVariations.length} variações geradas</Label>
+            <Label className="text-xs text-muted-foreground">
+              {selectedVariationIndexes.length} de {aiVariations.length} variações selecionadas
+            </Label>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost" size="sm" className="h-5 text-[10px]"
+                onClick={() => setSelectedVariationIndexes(aiVariations.map((_, i) => i))}
+              >
+                Todas
+              </Button>
+              <Button
+                variant="ghost" size="sm" className="h-5 text-[10px]"
+                onClick={() => setSelectedVariationIndexes([])}
+              >
+                Nenhuma
+              </Button>
               <Label className="text-xs cursor-pointer">Usar no envio</Label>
               <Switch checked={useVariations} onCheckedChange={setUseVariations} />
             </div>
           </div>
-          <div className="max-h-[150px] overflow-y-auto space-y-1.5">
-            {aiVariations.map((v, i) => (
-              <div key={i} className="flex items-start gap-2">
-                <Badge variant="outline" className="shrink-0 text-[9px] mt-0.5">{i + 1}</Badge>
-                <p className="text-xs text-muted-foreground leading-relaxed">{v}</p>
-                <Button
-                  variant="ghost" size="sm" className="h-5 text-[10px] shrink-0"
-                  onClick={() => setText(v)}
+          <div className="max-h-[200px] overflow-y-auto space-y-1.5">
+            {aiVariations.map((v, i) => {
+              const isSelected = selectedVariationIndexes.includes(i);
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    "flex items-start gap-2 p-2 rounded-md border cursor-pointer transition-colors",
+                    isSelected ? "border-primary/50 bg-primary/5" : "border-border bg-transparent hover:bg-muted/30"
+                  )}
+                  onClick={() => {
+                    setSelectedVariationIndexes((prev) =>
+                      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort((a, b) => a - b)
+                    );
+                  }}
                 >
-                  Usar
-                </Button>
-              </div>
-            ))}
+                  <Checkbox
+                    checked={isSelected}
+                    className="mt-0.5 shrink-0"
+                    onCheckedChange={() => {
+                      setSelectedVariationIndexes((prev) =>
+                        prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort((a, b) => a - b)
+                      );
+                    }}
+                  />
+                  <Badge variant="outline" className="shrink-0 text-[9px] mt-0.5">{i + 1}</Badge>
+                  <p className="text-xs text-muted-foreground leading-relaxed flex-1">{v}</p>
+                  <Button
+                    variant="ghost" size="sm" className="h-5 text-[10px] shrink-0"
+                    onClick={(e) => { e.stopPropagation(); setText(v); }}
+                  >
+                    Usar
+                  </Button>
+                </div>
+              );
+            })}
           </div>
-          {useVariations && (
+          {useVariations && selectedVariationIndexes.length > 0 && (
             <p className="text-[10px] text-primary">
-              ✨ Cada contato receberá uma variação diferente (rotação automática)
+              ✨ Cada contato receberá uma das {selectedVariationIndexes.length} variações selecionadas (rotação automática)
+            </p>
+          )}
+          {useVariations && selectedVariationIndexes.length === 0 && (
+            <p className="text-[10px] text-destructive">
+              ⚠️ Selecione pelo menos uma variação para usar no envio
             </p>
           )}
         </div>
