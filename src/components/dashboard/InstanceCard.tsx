@@ -46,7 +46,8 @@ import {
   Phone,
   UserPlus,
   User,
-  RotateCcw
+  RotateCcw,
+  MessageSquare
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -55,6 +56,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
 import { AssignGHLUserDialog } from "./AssignGHLUserDialog";
 import { WebhookConfigDialog } from "./WebhookConfigDialog";
+import { ManageMessagesDialog } from "./ManageMessagesDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 interface InstanceCardProps {
@@ -90,6 +92,7 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
   const [assignUserDialogOpen, setAssignUserDialogOpen] = useState(false);
   const [ghlUserName, setGhlUserName] = useState<string | null>(null);
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
+  const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [subaccount, setSubaccount] = useState<{
     id: string;
     location_id: string;
@@ -465,6 +468,10 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
                     <Settings2 className="h-4 w-4 mr-2" />
                     Configurar Webhook
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Gerenciar Mensagens
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
@@ -656,6 +663,13 @@ export const InstanceCard = memo(function InstanceCard({ instance }: InstanceCar
           setAssignUserDialogOpen(false);
         }}
         isAssigning={updateInstanceGHLUser.isPending}
+      />
+
+      {/* Manage Messages Dialog */}
+      <ManageMessagesDialog
+        open={messagesDialogOpen}
+        onOpenChange={setMessagesDialogOpen}
+        instance={instance}
       />
     </>
   );
