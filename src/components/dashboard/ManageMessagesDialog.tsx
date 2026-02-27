@@ -1017,105 +1017,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     </div>
   );
 
-  const renderAiVariations = () => (
-    <div className="space-y-2 p-3 rounded-lg border border-border bg-secondary/30">
-      <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-2 cursor-pointer text-sm">
-          <Sparkles className="h-4 w-4 text-primary" />
-          Variações com IA
-        </Label>
-        <div className="flex items-center gap-2">
-          <Input
-            type="number" min={2} max={20} value={variationCount}
-            onChange={(e) => setVariationCount(parseInt(e.target.value) || 5)}
-            className="bg-secondary border-border w-14 h-7 text-xs text-center"
-          />
-          <Button
-            variant="outline" size="sm"
-            onClick={handleGenerateVariations}
-            disabled={generatingVariations || !text.trim()}
-            className="border-primary/30 text-primary hover:bg-primary/10 h-7 text-xs"
-          >
-            {generatingVariations ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
-            Gerar
-          </Button>
-        </div>
-      </div>
-      {aiVariations.length > 0 && (
-        <div className="space-y-2 pt-2 border-t border-border">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground">
-              {selectedVariationIndexes.length} de {aiVariations.length} variações selecionadas
-            </Label>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost" size="sm" className="h-5 text-[10px]"
-                onClick={() => setSelectedVariationIndexes(aiVariations.map((_, i) => i))}
-              >
-                Todas
-              </Button>
-              <Button
-                variant="ghost" size="sm" className="h-5 text-[10px]"
-                onClick={() => setSelectedVariationIndexes([])}
-              >
-                Nenhuma
-              </Button>
-              <Label className="text-xs cursor-pointer">Usar no envio</Label>
-              <Switch checked={useVariations} onCheckedChange={setUseVariations} />
-            </div>
-          </div>
-          <div className="max-h-[200px] overflow-y-auto space-y-1.5">
-            {aiVariations.map((v, i) => {
-              const isSelected = selectedVariationIndexes.includes(i);
-              return (
-                <div
-                  key={i}
-                  className={cn(
-                    "flex items-start gap-2 p-2 rounded-md border cursor-pointer transition-colors",
-                    isSelected ? "border-primary/50 bg-primary/5" : "border-border bg-transparent hover:bg-muted/30"
-                  )}
-                  onClick={() => {
-                    setSelectedVariationIndexes((prev) =>
-                      prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort((a, b) => a - b)
-                    );
-                  }}
-                >
-                  <Checkbox
-                    checked={isSelected}
-                    className="mt-0.5 shrink-0"
-                    onCheckedChange={() => {
-                      setSelectedVariationIndexes((prev) =>
-                        prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort((a, b) => a - b)
-                      );
-                    }}
-                  />
-                  <Badge variant="outline" className="shrink-0 text-[9px] mt-0.5">{i + 1}</Badge>
-                  <p className="text-xs text-muted-foreground leading-relaxed flex-1">{v}</p>
-                  <Button
-                    variant="ghost" size="sm" className="h-5 text-[10px] shrink-0"
-                    onClick={(e) => { e.stopPropagation(); setText(v); }}
-                  >
-                    Usar
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-          {useVariations && selectedVariationIndexes.length > 0 && (
-            <p className="text-[10px] text-primary">
-              ✨ Cada contato receberá uma das {selectedVariationIndexes.length} variações selecionadas (rotação automática)
-            </p>
-          )}
-          {useVariations && selectedVariationIndexes.length === 0 && (
-            <p className="text-[10px] text-destructive">
-              ⚠️ Selecione pelo menos uma variação para usar no envio
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-
   const renderAntiBan = () => (
     <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
       <div className="flex items-center justify-between">
@@ -1150,6 +1051,104 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 Espaçamento aleatório
               </label>
             </div>
+          </div>
+
+          {/* Variações com IA */}
+          <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 cursor-pointer text-sm">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Variações com IA
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number" min={2} max={20} value={variationCount}
+                  onChange={(e) => setVariationCount(parseInt(e.target.value) || 5)}
+                  className="bg-secondary border-border w-14 h-7 text-xs text-center"
+                />
+                <Button
+                  variant="outline" size="sm"
+                  onClick={handleGenerateVariations}
+                  disabled={generatingVariations || !text.trim()}
+                  className="border-primary/30 text-primary hover:bg-primary/10 h-7 text-xs"
+                >
+                  {generatingVariations ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                  Gerar
+                </Button>
+              </div>
+            </div>
+            {aiVariations.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs text-muted-foreground">
+                    {selectedVariationIndexes.length} de {aiVariations.length} variações selecionadas
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost" size="sm" className="h-5 text-[10px]"
+                      onClick={() => setSelectedVariationIndexes(aiVariations.map((_, i) => i))}
+                    >
+                      Todas
+                    </Button>
+                    <Button
+                      variant="ghost" size="sm" className="h-5 text-[10px]"
+                      onClick={() => setSelectedVariationIndexes([])}
+                    >
+                      Nenhuma
+                    </Button>
+                    <Label className="text-xs cursor-pointer">Usar no envio</Label>
+                    <Switch checked={useVariations} onCheckedChange={setUseVariations} />
+                  </div>
+                </div>
+                <div className="max-h-[200px] overflow-y-auto space-y-1.5">
+                  {aiVariations.map((v, i) => {
+                    const isSelected = selectedVariationIndexes.includes(i);
+                    return (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex items-start gap-2 p-2 rounded-md border cursor-pointer transition-colors",
+                          isSelected ? "border-primary/50 bg-primary/5" : "border-border bg-transparent hover:bg-muted/30"
+                        )}
+                        onClick={() => {
+                          setSelectedVariationIndexes((prev) =>
+                            prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort((a, b) => a - b)
+                          );
+                        }}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          className="mt-0.5 shrink-0"
+                          onCheckedChange={() => {
+                            setSelectedVariationIndexes((prev) =>
+                              prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort((a, b) => a - b)
+                            );
+                          }}
+                        />
+                        <Badge variant="outline" className="shrink-0 text-[9px] mt-0.5">{i + 1}</Badge>
+                        <p className="text-xs text-muted-foreground leading-relaxed flex-1">{v}</p>
+                        <Button
+                          variant="ghost" size="sm" className="h-5 text-[10px] shrink-0"
+                          onClick={(e) => { e.stopPropagation(); setText(v); }}
+                        >
+                          Usar
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {useVariations && selectedVariationIndexes.length > 0 && (
+                  <p className="text-[10px] text-primary">
+                    ✨ Cada contato receberá uma das {selectedVariationIndexes.length} variações selecionadas (rotação automática)
+                  </p>
+                )}
+                {useVariations && selectedVariationIndexes.length === 0 && (
+                  <p className="text-[10px] text-destructive">
+                    ⚠️ Selecione pelo menos uma variação para usar no envio
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="p-2 rounded bg-muted/50 space-y-1">
@@ -1352,8 +1351,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               </div>
             </div>
 
-            {/* AI Variations */}
-            {renderAiVariations()}
 
             {/* Anti-Ban */}
             {renderAntiBan()}
