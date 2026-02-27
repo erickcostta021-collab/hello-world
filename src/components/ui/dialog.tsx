@@ -36,14 +36,13 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 flex flex-col w-full max-w-lg max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-4 border border-border/60 bg-card p-6 shadow-[0_0_40px_-10px_hsl(var(--primary)/0.15),0_25px_50px_-12px_rgba(0,0,0,0.5)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl overflow-y-auto",
+        "fixed left-[50%] top-[50%] z-50 flex flex-col w-full max-w-lg max-h-[85vh] translate-x-[-50%] translate-y-[-50%] border border-border/60 bg-card shadow-[0_0_40px_-10px_hsl(var(--primary)/0.15),0_25px_50px_-12px_rgba(0,0,0,0.5)] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-xl overflow-hidden",
         className,
       )}
       {...props}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent z-10 pointer-events-none" />
-      {/* Sticky close button */}
-      <DialogPrimitive.Close className="sticky top-0 z-20 self-end rounded-full p-1.5 bg-muted/80 opacity-70 ring-offset-background transition-all hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none shrink-0 -mb-8">
+      <DialogPrimitive.Close className="absolute right-4 top-4 z-20 rounded-full p-1.5 opacity-60 ring-offset-background transition-all hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -54,12 +53,12 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("sticky top-0 z-10 flex flex-col space-y-1.5 text-center sm:text-left -mx-6 -mt-6 px-6 pt-6 pb-4 bg-card shrink-0", className)} {...props} />
+  <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left px-6 pt-6 pb-4 shrink-0", className)} {...props} />
 );
 DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("sticky bottom-0 z-10 flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 -mx-6 -mb-6 px-6 py-4 bg-card border-t border-border/30 shrink-0", className)} {...props} />
+  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 px-6 py-4 border-t border-border/30 shrink-0", className)} {...props} />
 );
 DialogFooter.displayName = "DialogFooter";
 
@@ -84,11 +83,11 @@ const DialogDescription = React.forwardRef<
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 /**
- * Wrapper for the scrollable body area of a dialog.
- * Place between DialogHeader and DialogFooter for proper sticky behavior.
+ * Scrollable body area. Place between DialogHeader and DialogFooter.
+ * Only this section scrolls — header and footer stay fixed.
  */
 const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex-1 overflow-y-auto px-6 py-4", className)} {...props} />
+  <div className={cn("flex-1 overflow-y-auto px-6 pb-6", className)} {...props} />
 );
 DialogBody.displayName = "DialogBody";
 
