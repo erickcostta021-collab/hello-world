@@ -56,8 +56,8 @@ serve(async (req) => {
       });
     }
 
-    // When create_new is true, use the override URL (don't touch existing webhook)
-    const webhookUrl = create_new && webhook_url_override
+    // Use override URL when provided (for both create and update), fallback to instance or default
+    const webhookUrl = webhook_url_override
       ? webhook_url_override
       : (instance.webhook_url || `${Deno.env.get("SUPABASE_URL")}/functions/v1/webhook-inbound`);
     const ignoreGroups = instance.ignore_groups ?? false;
