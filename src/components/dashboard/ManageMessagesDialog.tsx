@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Dialog,
   DialogContent,
@@ -13,10 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { Instance } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
-import { Loader2, Send, Clock, Plus, Trash2, Layers } from "lucide-react";
+import { Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -80,7 +85,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
   const [docName, setDocName] = useState("");
   const [delayMin, setDelayMin] = useState("10");
   const [delayMax, setDelayMax] = useState("30");
-  const [scheduledFor, setScheduledFor] = useState("");
+  const [scheduledFor, setScheduledFor] = useState<Date | undefined>(undefined);
   const [linkPreview, setLinkPreview] = useState(false);
   const [footerText, setFooterText] = useState("");
   const [buttonText, setButtonText] = useState("");
@@ -98,7 +103,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
   const [advInfo, setAdvInfo] = useState("");
   const [advDelayMin, setAdvDelayMin] = useState("3");
   const [advDelayMax, setAdvDelayMax] = useState("6");
-  const [advScheduledFor, setAdvScheduledFor] = useState("");
+  const [advScheduledFor, setAdvScheduledFor] = useState<Date | undefined>(undefined);
   const [advMessages, setAdvMessages] = useState<AdvancedMessage[]>([emptyAdvancedMsg()]);
 
   const handleAddChoice = () => setChoices([...choices, ""]);
@@ -157,7 +162,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
       folder: folder || "Campanha Bridge",
       delayMin: parseInt(delayMin) || 10,
       delayMax: parseInt(delayMax) || 30,
-      scheduled_for: scheduledFor ? new Date(scheduledFor).getTime() : 0,
+      scheduled_for: scheduledFor ? scheduledFor.getTime() : 0,
     };
     if (text) body.text = text;
     if (linkPreview) body.linkPreview = true;
@@ -235,7 +240,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
       delayMin: parseInt(advDelayMin) || 3,
       delayMax: parseInt(advDelayMax) || 6,
       info: advInfo || "Envio avançado Bridge",
-      scheduled_for: advScheduledFor ? new Date(advScheduledFor).getTime() : 1,
+      scheduled_for: advScheduledFor ? advScheduledFor.getTime() : 1,
       messages,
     };
 
@@ -368,7 +373,17 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Agendar (opcional)</Label>
-              <Input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} className="bg-secondary border-border" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-secondary border-border", !scheduledFor && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {scheduledFor ? format(scheduledFor, "PPP", { locale: ptBR }) : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={scheduledFor} onSelect={setScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
             </div>
             <Button onClick={handleSendSimple} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
@@ -388,7 +403,17 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2"><Clock className="h-4 w-4 text-muted-foreground" />Agendar (opcional)</Label>
-              <Input type="datetime-local" value={advScheduledFor} onChange={(e) => setAdvScheduledFor(e.target.value)} className="bg-secondary border-border" />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-secondary border-border", !advScheduledFor && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {advScheduledFor ? format(advScheduledFor, "PPP", { locale: ptBR }) : "Selecionar data"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={advScheduledFor} onSelect={setAdvScheduledFor} initialFocus className={cn("p-3 pointer-events-auto")} />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* Messages list */}
