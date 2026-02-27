@@ -48,7 +48,7 @@ const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   connect: "Conectar / QR Code",
   disconnect: "Desconectar",
   status: "Atualizar Status",
-  messages: "Gerenciar Mensagens",
+  messages: "Disparos",
 };
 
 interface Props {
