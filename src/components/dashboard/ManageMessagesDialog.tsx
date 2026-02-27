@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { DialogBody } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -446,7 +447,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
             Crie campanhas de disparo para a instância <strong>{instance.instance_name}</strong>
           </DialogDescription>
         </DialogHeader>
-
+        <DialogBody>
         <Tabs defaultValue="simple" className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="simple" className="flex-1">
@@ -897,6 +898,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance }: ManageMes
             </div>
           </TabsContent>
         </Tabs>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
