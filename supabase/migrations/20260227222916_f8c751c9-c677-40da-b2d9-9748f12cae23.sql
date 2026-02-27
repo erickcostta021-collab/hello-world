@@ -1,0 +1,1 @@
+ALTER TABLE public.instances ADD COLUMN embed_visible_options jsonb DEFAULT '{"assign_user": true, "webhook": true, "track_id": true, "base_url": true, "token": true, "connect": true, "disconnect": true, "status": true}'::jsonb;
