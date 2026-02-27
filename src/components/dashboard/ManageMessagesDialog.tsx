@@ -451,7 +451,17 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.messages || data.data || []);
+      console.log("[listmessages] raw response:", JSON.stringify(data).slice(0, 2000));
+      const rawList = Array.isArray(data) ? data : (data.messages || data.data || data.items || data.results || []);
+      if (rawList.length > 0) console.log("[listmessages] first item keys:", Object.keys(rawList[0]));
+      // Normalize fields: map common alternative keys to our expected shape
+      const list: CampaignMessage[] = rawList.map((item: Record<string, unknown>) => ({
+        ...item,
+        number: String(item.number || item.phone || item.to || item.recipient || (typeof item.jid === "string" ? (item.jid as string).split("@")[0] : "") || ""),
+        type: item.type || item.messageType || item.message_type || item.kind || "",
+        status: item.status || item.messageStatus || item.message_status || item.state || "",
+        text: item.text || item.message || item.body || item.content || "",
+      }));
       setCampaignMessages(list);
       setExpandedFolder(id.trim());
       if (list.length === 0) toast.info("Nenhuma mensagem encontrada");
