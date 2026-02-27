@@ -584,9 +584,23 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           text: msgText,
         };
       });
-      setCampaignMessages(list);
+      // Filter out anti-ban button messages (type "button" paired with a main message to the same number)
+      const filtered = list.filter((msg, idx) => {
+        const msgType = String(msg.type || "").toLowerCase();
+        if (msgType === "button") {
+          // Check if previous message in list is to the same number (paired anti-ban button)
+          if (idx > 0 && list[idx - 1].number === msg.number) return false;
+          // Also check send_payload for button type
+          try {
+            const sp = typeof (msg as any).send_payload === "string" ? JSON.parse((msg as any).send_payload) : (msg as any).send_payload;
+            if (sp?.type === "button") return false;
+          } catch { /* ignore */ }
+        }
+        return true;
+      });
+      setCampaignMessages(filtered);
       setExpandedFolder(id.trim());
-      if (list.length === 0) toast.info("Nenhuma mensagem encontrada");
+      if (filtered.length === 0) toast.info("Nenhuma mensagem encontrada");
     } catch (err: any) {
       toast.error(`Erro ao listar mensagens: ${err.message}`);
     } finally { setLoadingMessages(false); }
