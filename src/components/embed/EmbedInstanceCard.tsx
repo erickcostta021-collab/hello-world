@@ -619,7 +619,7 @@ export function EmbedInstanceCard({
                   {isVisible("messages") && (
                   <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
                     <MessageSquare className="h-4 w-4 mr-2" />
-                    Gerenciar Mensagens
+                    Mensagem em massa
                   </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
