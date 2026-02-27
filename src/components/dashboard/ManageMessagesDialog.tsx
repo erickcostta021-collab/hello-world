@@ -484,6 +484,16 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       if (rawList.length > 0) {
         console.log("[listmessages] first item FULL:", JSON.stringify(rawList[0]));
         console.log("[listmessages] first item keys:", Object.keys(rawList[0]));
+        console.log("[listmessages] first item send_payload:", rawList[0].send_payload);
+        console.log("[listmessages] first item name fields:", { name: rawList[0].name, contactName: rawList[0].contactName, contact_name: rawList[0].contact_name, recipientName: rawList[0].recipientName });
+        // Log send_payload parsed to find name
+        if (rawList[0].send_payload) {
+          try {
+            const sp0 = typeof rawList[0].send_payload === "string" ? JSON.parse(rawList[0].send_payload) : rawList[0].send_payload;
+            console.log("[listmessages] send_payload parsed keys:", Object.keys(sp0));
+            console.log("[listmessages] send_payload parsed:", JSON.stringify(sp0));
+          } catch {}
+        }
       }
       // Normalize fields: map common alternative keys to our expected shape
       const list: CampaignMessage[] = rawList.map((item: Record<string, unknown>) => {
