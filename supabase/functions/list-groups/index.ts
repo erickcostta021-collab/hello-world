@@ -526,11 +526,12 @@ serve(async (req) => {
       
       // Try multiple endpoint patterns with full logging
       const picEndpoints = [
-        (jid: string) => ({ url: `${baseUrl}/user/avatar`, method: "GET", body: JSON.stringify({ Phone: jid, Preview: false }) }),
-        (jid: string) => ({ url: `${baseUrl}/user/avatar`, method: "GET", body: JSON.stringify({ Phone: jid.split("@")[0], Preview: false }) }),
-        (jid: string) => ({ url: `${baseUrl}/user/avatar`, method: "POST", body: JSON.stringify({ Phone: jid, Preview: false }) }),
-        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl`, method: "GET", body: JSON.stringify({ jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/group/photo/${encodeURIComponent(jid)}`, method: "GET", body: null }),
+        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic`, method: "POST", body: JSON.stringify({ phone: jid, number: jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/contact/profilepic`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl`, method: "POST", body: JSON.stringify({ jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/group/photo`, method: "POST", body: JSON.stringify({ groupjid: jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/group/info`, method: "POST", body: JSON.stringify({ groupjid: jid, getInviteLink: false, force: false }) }),
       ];
 
       const testJid = groupsWithoutPic[0].id;
@@ -538,20 +539,28 @@ serve(async (req) => {
       
       function extractPicUrl(data: any): string {
         if (!data || typeof data !== "object") return "";
-        // Check all possible field names
         const fields = ["profilePicUrl", "ProfilePicUrl", "profilePic", "ProfilePic", 
           "picture", "Picture", "url", "URL", "imgUrl", "ImgUrl", "PicURL", "picUrl",
           "photo", "Photo", "image", "Image", "profilePicture", "ProfilePicture",
-          "pictureUrl", "PictureUrl", "pic", "Pic", "avatar", "Avatar"];
+          "pictureUrl", "PictureUrl", "pic", "Pic", "avatar", "Avatar",
+          "GroupPicture", "groupPicture", "PictureID", "pictureID"];
+        // Scan top-level
         for (const f of fields) {
           if (data[f] && typeof data[f] === "string" && data[f].startsWith("http")) return data[f];
         }
-        // Check nested data
-        if (data.data && typeof data.data === "object") {
-          for (const f of fields) {
-            if (data.data[f] && typeof data.data[f] === "string" && data.data[f].startsWith("http")) return data.data[f];
+        // Scan nested: data, groupInfo, GroupInfo, info, Info
+        const nested = [data.data, data.groupInfo, data.GroupInfo, data.info, data.Info];
+        for (const obj of nested) {
+          if (obj && typeof obj === "object") {
+            for (const f of fields) {
+              if (obj[f] && typeof obj[f] === "string" && obj[f].startsWith("http")) return obj[f];
+            }
           }
         }
+        // Deep scan: look for any string value starting with "https://pps.whatsapp.net"
+        const jsonStr = JSON.stringify(data);
+        const ppsMatch = jsonStr.match(/"(https:\/\/pps\.whatsapp\.net[^"]+)"/);
+        if (ppsMatch) return ppsMatch[1];
         return "";
       }
 
