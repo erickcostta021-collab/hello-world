@@ -266,6 +266,8 @@ export function GroupDetailDialog({
       toast.error("Digite uma mensagem");
       return;
     }
+
+    let scheduledFor: string | undefined;
     if (scheduleEnabled) {
       if (!scheduleDate || !scheduleTime) {
         toast.error("Selecione data e hora para agendar");
@@ -278,33 +280,50 @@ export function GroupDetailDialog({
         toast.error("A data/hora deve ser no futuro");
         return;
       }
+      scheduledFor = scheduledAt.toISOString();
     }
+
     setSendingMessage(true);
     try {
       let finalMessage = messageText.trim();
-      if (mentionAll) {
-        finalMessage = `@todos\n${finalMessage}`;
+
+      if (scheduledFor) {
+        // Save to scheduled_group_messages table instead of sending immediately
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Usuário não autenticado");
+
+        const { error: insertError } = await supabase
+          .from("scheduled_group_messages")
+          .insert({
+            user_id: user.id,
+            instance_id: instance.id,
+            group_jid: groupId,
+            group_name: currentGroupName,
+            message_text: finalMessage,
+            mention_all: mentionAll,
+            scheduled_for: scheduledFor,
+            is_recurring: false,
+            status: "pending",
+          });
+
+        if (insertError) throw insertError;
+        toast.success(`Mensagem agendada para ${new Date(scheduledFor).toLocaleString("pt-BR")}!`);
+      } else {
+        // Send immediately
+        if (mentionAll) {
+          finalMessage = `@todos\n${finalMessage}`;
+        }
+        const { data, error } = await supabase.functions.invoke("group-commands", {
+          body: {
+            instanceId: instance.id,
+            messageText: `#enviargrupo ${groupId}|${finalMessage}`,
+          },
+        });
+        if (error) throw error;
+        if (data?.result && !data.result.success) throw new Error(data.result.message);
+        toast.success("Mensagem enviada ao grupo!");
       }
 
-      let scheduledFor: string | undefined;
-      if (scheduleEnabled && scheduleDate && scheduleTime) {
-        const [hours, minutes] = scheduleTime.split(":").map(Number);
-        const dt = new Date(scheduleDate);
-        dt.setHours(hours, minutes, 0, 0);
-        scheduledFor = dt.toISOString();
-      }
-
-      const { data, error } = await supabase.functions.invoke("group-commands", {
-        body: {
-          instanceId: instance.id,
-          messageText: `#enviargrupo ${groupId}|${finalMessage}`,
-          ...(scheduledFor ? { scheduledFor } : {}),
-        },
-      });
-
-      if (error) throw error;
-      if (data?.result && !data.result.success) throw new Error(data.result.message);
-      toast.success(scheduledFor ? "Mensagem agendada!" : "Mensagem enviada ao grupo!");
       setMessageText("");
       setMentionAll(false);
       setScheduleEnabled(false);

@@ -112,3 +112,6 @@ verify_jwt = false
 
 [functions.enforce-grace-period]
 verify_jwt = false
+
+[functions.process-scheduled-messages]
+verify_jwt = false
