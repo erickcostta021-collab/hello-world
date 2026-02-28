@@ -134,20 +134,35 @@ function MessageCard({
               </p>
             )}
           </div>
-          {onDelete && msg.status === "pending" && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive"
-              onClick={() => onDelete(msg.id)}
-              disabled={deletingId === msg.id}
-            >
-              {deletingId === msg.id ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </Button>
+          {onDelete && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive"
+                  disabled={deletingId === msg.id}
+                >
+                  {deletingId === msg.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir mensagem?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação não pode ser desfeita. A mensagem será removida permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDelete(msg.id)}>Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </CardContent>
@@ -354,7 +369,7 @@ export function ScheduledMessagesDialog({ open, onOpenChange }: ScheduledMessage
                 </AlertDialog>
               </div>
             )}
-            {renderList(filteredHistory, false)}
+            {renderList(filteredHistory, true)}
           </TabsContent>
         </Tabs>
       )}
