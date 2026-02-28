@@ -561,27 +561,20 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           text: msgText,
         };
       });
-      // Filter out anti-ban button messages so they don't appear as duplicate contacts
+      // Filter out anti-ban button messages and split continuation parts
       const filtered = list.filter((msg, idx) => {
-        // Check top-level type
+        try {
+          const raw = (msg as any).send_payload || (msg as any).sendPayload;
+          if (raw) {
+            const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
+            // Filter anti-ban buttons
+            if (sp?.type === "button" || sp?.messageType === "button" || sp?.buttonText || sp?.choices) return false;
+            // Filter split continuation parts (not the first part)
+            if (sp?.splitPart === true) return false;
+          }
+        } catch { /* ignore */ }
         const msgType = String(msg.type || "").toLowerCase();
         if (msgType === "button") return false;
-        // Check send_payload for button type (API may store type inside payload)
-        try {
-          const raw = (msg as any).send_payload || (msg as any).sendPayload;
-          if (raw) {
-            const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
-            if (sp?.type === "button" || sp?.messageType === "button") return false;
-          }
-        } catch { /* ignore */ }
-        // Check if this is a duplicate number right after another with same number and has buttonText/choices
-        try {
-          const raw = (msg as any).send_payload || (msg as any).sendPayload;
-          if (raw) {
-            const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
-            if (sp?.buttonText || sp?.choices) return false;
-          }
-        } catch { /* ignore */ }
         return true;
       });
       setCampaignMessages(filtered);
@@ -917,7 +910,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (parts.length > 1) {
               for (let i = 0; i < parts.length; i++) {
                 const part: Record<string, unknown> = { ...msg, text: parts[i], _isLastPart: i === parts.length - 1 };
-                if (i > 0) { delete part.file; delete part.docName; part.delayOverride = splitDelayMs; }
+                if (i > 0) { delete part.file; delete part.docName; part.delayOverride = splitDelayMs; part.splitPart = true; }
                 expanded.push(part);
               }
             } else {
@@ -1079,7 +1072,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (i === 0 && fileUrl) msg.file = fileUrl;
             if (i === 0 && docName) msg.docName = docName;
             if (linkPreview) msg.linkPreview = true;
-            if (i > 0) msg.delayOverride = splitDelayMs;
+            if (i > 0) { msg.delayOverride = splitDelayMs; msg.splitPart = true; }
             advMessages.push(msg);
           }
         }
