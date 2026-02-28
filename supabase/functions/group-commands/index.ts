@@ -150,6 +150,13 @@ async function findGroupByName(
   instanceToken: string,
   groupName: string
 ): Promise<{ id: string; name: string } | null> {
+  // If groupName is already a JID (contains @g.us), return it directly
+  if (groupName.includes("@g.us") || groupName.includes("@g.")) {
+    const jid = groupName.includes("@g.us") ? groupName : `${groupName}.us`;
+    console.log("Group name is already a JID, using directly:", jid);
+    return { id: jid, name: groupName };
+  }
+
   const url = `${baseUrl}/group/all`;
   console.log("Searching for group:", { groupName, url });
   
@@ -169,30 +176,38 @@ async function findGroupByName(
     
     const groups = await response.json();
     if (!Array.isArray(groups)) {
-      console.error("Unexpected groups response:", groups);
-      return null;
+      // Some APIs return { groups: [...] }
+      const groupsList = groups?.groups;
+      if (!Array.isArray(groupsList)) {
+        console.error("Unexpected groups response:", JSON.stringify(groups).substring(0, 500));
+        return null;
+      }
+      return findInGroupsList(groupsList, groupName);
     }
     
-    // Find group by exact name match (case-insensitive)
-    const targetName = groupName.toLowerCase();
-    const found = groups.find((g: any) => {
-      const name = (g.subject || g.name || g.groupName || "").toLowerCase();
-      return name === targetName;
-    });
-    
-    if (found) {
-      return {
-        id: found.id || found.jid || found.groupId,
-        name: found.subject || found.name || found.groupName,
-      };
-    }
-    
-    console.log("Group not found by name:", groupName);
-    return null;
+    return findInGroupsList(groups, groupName);
   } catch (e) {
     console.error("Error finding group:", e);
     return null;
   }
+}
+
+function findInGroupsList(groups: any[], groupName: string): { id: string; name: string } | null {
+  const targetName = groupName.toLowerCase();
+  const found = groups.find((g: any) => {
+    const name = (g.subject || g.Subject || g.name || g.Name || g.groupName || g.GroupName || "").toLowerCase();
+    return name === targetName;
+  });
+  
+  if (found) {
+    return {
+      id: found.id || found.jid || found.JID || found.groupId || found.GroupId,
+      name: found.subject || found.Subject || found.name || found.Name || found.groupName || found.GroupName,
+    };
+  }
+  
+  console.log("Group not found by name:", groupName);
+  return null;
 }
 
 // Create group
@@ -307,26 +322,35 @@ async function removeMember(
   const participantJid = `${cleanPhone}@s.whatsapp.net`;
   
   try {
-    const response = await fetch(`${baseUrl}/group/removeParticipant`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "token": instanceToken,
-      },
-      body: JSON.stringify({
-        groupId: group.id,
-        participants: [participantJid],
-      }),
-    });
+    // Try multiple payload shapes for compatibility
+    const payloads = [
+      { groupJid: group.id, participants: [participantJid] },
+      { groupId: group.id, participants: [participantJid] },
+      { id: group.id, participants: [participantJid] },
+    ];
     
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return { success: false, command: "removerdogrupo", message: `❌ Erro ao remover: ${data.message || response.status}` };
+    for (const payload of payloads) {
+      console.log(`Trying removeParticipant with payload:`, JSON.stringify(payload));
+      const response = await fetch(`${baseUrl}/group/removeParticipant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "token": instanceToken,
+        },
+        body: JSON.stringify(payload),
+      });
+      
+      const data = await response.text();
+      console.log(`removeParticipant response (${response.status}):`, data);
+      
+      if (response.ok) {
+        return { success: true, command: "removerdogrupo", message: `✅ Membro ${phone} removido do grupo "${groupName}"` };
+      }
     }
     
-    return { success: true, command: "removerdogrupo", message: `✅ Membro ${phone} removido do grupo "${groupName}"` };
+    return { success: false, command: "removerdogrupo", message: `❌ Erro ao remover membro do grupo` };
   } catch (e) {
+    console.error("Error removing member:", e);
     return { success: false, command: "removerdogrupo", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
   }
 }
