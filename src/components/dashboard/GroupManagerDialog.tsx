@@ -27,6 +27,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { GroupDetailDialog } from "./GroupDetailDialog";
+import { CreateGroupDialog } from "./CreateGroupDialog";
 
 interface GroupManagerDialogProps {
   open: boolean;
@@ -47,6 +48,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGroup, setSelectedGroup] = useState<GroupInfo | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const fetchGroups = async () => {
@@ -90,7 +92,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
   };
 
   const handleCreateGroup = () => {
-    toast.info("Use o comando #criar_grupo no WhatsApp para criar um grupo.");
+    setCreateOpen(true);
   };
 
   const handleScheduledMessages = () => {
@@ -230,6 +232,15 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     />
   );
 
+  const createDialog = (
+    <CreateGroupDialog
+      open={createOpen}
+      onOpenChange={setCreateOpen}
+      instance={instance}
+      onCreated={fetchGroups}
+    />
+  );
+
   if (isMobile) {
     return (
       <>
@@ -247,6 +258,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
           </DrawerContent>
         </Drawer>
         {detailDialog}
+        {createDialog}
       </>
     );
   }
@@ -268,6 +280,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
         </DialogContent>
       </Dialog>
       {detailDialog}
+      {createDialog}
     </>
   );
 }
