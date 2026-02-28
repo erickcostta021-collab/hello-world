@@ -129,12 +129,12 @@ interface CampaignMessage {
 
 // ─── Parse inline "phone: name" format ───
 function parseInlineContacts(raw: string): CsvContact[] | null {
-  // Detect "phone: name" pattern — support comma-separated or one per line
-  // First expand comma-separated entries: "5511...: João, 5511...: Maria" → separate entries
+  // Detect "phone: name" pattern — support newline, comma, or period as separators
+  // Example: "5521...: Érick silva da costa\n5511...: Maria" or "5521...: João.5511...: Maria"
   const expanded: string[] = [];
   for (const line of raw.split(/\r?\n/).filter(Boolean)) {
-    // Split by comma, but only when followed by a digit (to avoid splitting names with commas)
-    const parts = line.split(/,\s*(?=\d)/);
+    // Split by comma or period, only when followed by optional space then a digit
+    const parts = line.split(/[,.]\s*(?=\d)/);
     expanded.push(...parts);
   }
 
@@ -891,7 +891,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   // ─── Simple send (with round-robin, dynamic fields, AI variations, anti-ban) ───
   const handleSendSimple = async () => {
     // Parse numbers — support "phone: name" inline format and plain numbers
-    const rawEntries = numbers.split(/[\n]+/).flatMap((line) => line.split(/,\s*(?=\d)/)).map((n) => n.trim()).filter(Boolean);
+    const rawEntries = numbers.split(/[\n]+/).flatMap((line) => line.split(/[,.]\s*(?=\d)/)).map((n) => n.trim()).filter(Boolean);
     const numberList = rawEntries
       .map((entry) => {
         const colonIdx = entry.indexOf(":");
