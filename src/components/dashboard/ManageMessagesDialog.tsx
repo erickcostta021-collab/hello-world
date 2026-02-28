@@ -907,6 +907,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         });
 
         // If split messages is enabled, split each message by triple line breaks
+        // Mark each part so anti-ban button is only added after the last part per contact
         if (antiBanEnabled && splitMessages) {
           const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
           const expanded: Record<string, unknown>[] = [];
@@ -915,30 +916,35 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             const parts = splitMessageByTripleBreak(msgText);
             if (parts.length > 1) {
               for (let i = 0; i < parts.length; i++) {
-                const part: Record<string, unknown> = { ...msg, text: parts[i] };
+                const part: Record<string, unknown> = { ...msg, text: parts[i], _isLastPart: i === parts.length - 1 };
                 if (i > 0) { delete part.file; delete part.docName; part.delayOverride = splitDelayMs; }
                 expanded.push(part);
               }
             } else {
-              expanded.push(msg);
+              expanded.push({ ...msg, _isLastPart: true });
             }
           }
           messages = expanded;
         }
 
-        // If anti-ban button is enabled, add button messages after each main message
+        // If anti-ban button is enabled, add button messages only after last part per contact
         if (antiBanEnabled && antiBanButton) {
+          const wasSplit = antiBanEnabled && splitMessages;
           const withButtons: Record<string, unknown>[] = [];
           for (const msg of messages) {
-            withButtons.push(msg);
-            withButtons.push({
-              number: msg.number,
-              type: "button",
-              text: antiBanBtnMessage,
-              footerText: antiBanBtnFooter,
-              buttonText: antiBanBtnTitle,
-              choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
-            });
+            const { _isLastPart, ...cleanMsg } = msg as Record<string, unknown> & { _isLastPart?: boolean };
+            withButtons.push(cleanMsg);
+            // Only add button after last part (or every msg if not split)
+            if (!wasSplit || _isLastPart) {
+              withButtons.push({
+                number: msg.number,
+                type: "button",
+                text: antiBanBtnMessage,
+                footerText: antiBanBtnFooter,
+                buttonText: antiBanBtnTitle,
+                choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+              });
+            }
           }
           messages = withButtons;
         }
