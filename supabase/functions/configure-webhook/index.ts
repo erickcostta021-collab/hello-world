@@ -41,10 +41,10 @@ serve(async (req) => {
       });
     }
 
-    // Get user settings for global base URL fallback
+    // Get user settings for global base URL and global webhook URL fallback
     const { data: settings } = await supabase
       .from("user_settings")
-      .select("uazapi_base_url")
+      .select("uazapi_base_url, global_webhook_url")
       .eq("user_id", instance.user_id)
       .single();
 
@@ -56,10 +56,10 @@ serve(async (req) => {
       });
     }
 
-    // Use override URL when provided (for both create and update), fallback to instance or default
+    // Use override URL when provided, then instance-level, then global setting
     const webhookUrl = webhook_url_override
       ? webhook_url_override
-      : (instance.webhook_url || `${Deno.env.get("SUPABASE_URL")}/functions/v1/webhook-inbound`);
+      : (instance.webhook_url || settings?.global_webhook_url || `${Deno.env.get("SUPABASE_URL")}/functions/v1/webhook-inbound`);
     const ignoreGroups = instance.ignore_groups ?? false;
     const events = Array.isArray(webhook_events) && webhook_events.length > 0 ? webhook_events : ["messages"];
     const enabledFlag = webhookEnabled !== undefined ? webhookEnabled : true;
