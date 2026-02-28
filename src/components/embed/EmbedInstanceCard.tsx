@@ -53,6 +53,7 @@ export interface EmbedInstance {
   phone?: string | null;
   profile_pic_url?: string | null;
   ghl_user_id?: string | null;
+  is_official_api?: boolean;
   embed_visible_options?: EmbedVisibleOptions | null;
 }
 
@@ -514,6 +515,11 @@ export function EmbedInstanceCard({
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {status.label}
                     </Badge>
+                    {isVisible("api_oficial") && instance.is_official_api && (
+                      <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] shrink-0">
+                        API Oficial
+                      </Badge>
+                    )}
                   </div>
                   
                   {connectedPhone ? (
