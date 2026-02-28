@@ -559,25 +559,36 @@ async function updateGroupDescription(
   }
   
   try {
-    const response = await fetch(`${baseUrl}/group/updateDescription`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "token": instanceToken,
-      },
-      body: JSON.stringify({
-        groupId: group.id,
-        description,
-      }),
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return { success: false, command: "attdescricao", message: `❌ Erro ao atualizar descrição: ${data.message || response.status}` };
+    // Try multiple endpoint/payload combinations (matching working patterns from updateAnnounce/updateLocked)
+    const attempts = [
+      { url: `${baseUrl}/group/updateDescription`, body: { groupjid: group.id, description } },
+      { url: `${baseUrl}/group/updateDescription`, body: { groupjid: group.id, topic: description } },
+      { url: `${baseUrl}/group/updateDescription`, body: { groupJid: group.id, description } },
+      { url: `${baseUrl}/group/updateDescription`, body: { jid: group.id, description } },
+      { url: `${baseUrl}/group/${group.id}`, body: { description } },
+      { url: `${baseUrl}/group/${group.id}`, body: { topic: description } },
+    ];
+
+    for (const attempt of attempts) {
+      for (const method of ["POST", "PUT"] as const) {
+        try {
+          const response = await fetch(attempt.url, {
+            method,
+            headers: { "Content-Type": "application/json", "token": instanceToken },
+            body: JSON.stringify(attempt.body),
+          });
+          const text = await response.text();
+          console.log(`Description update attempt: ${method} ${attempt.url.replace(baseUrl, "")}`, JSON.stringify(attempt.body), `→ ${response.status}:`, text.substring(0, 200));
+          if (response.ok) {
+            return { success: true, command: "attdescricao", message: `✅ Descrição do grupo "${groupName}" atualizada` };
+          }
+        } catch (e) {
+          console.error("Description attempt error:", e);
+        }
+      }
     }
     
-    return { success: true, command: "attdescricao", message: `✅ Descrição do grupo "${groupName}" atualizada` };
+    return { success: false, command: "attdescricao", message: `❌ Erro ao atualizar descrição: nenhum endpoint funcionou` };
   } catch (e) {
     return { success: false, command: "attdescricao", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
   }
