@@ -564,24 +564,21 @@ export function GroupDetailDialog({
             <div className="space-y-2">
               <Label className="text-sm font-medium">Data e Hora do Envio</Label>
               <div className="flex gap-2 rounded-lg border border-border/50 p-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="flex-1 justify-start text-left font-normal h-10">
-                      <CalendarIcon className="h-4 w-4 mr-2" />
-                      {scheduleDate ? format(scheduleDate, "dd/MM/yyyy") : "dd/mm/aaaa"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={scheduleDate}
-                      onSelect={setScheduleDate}
-                      disabled={(date) => date < new Date()}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
+                <Input
+                  type="date"
+                  value={scheduleDate ? format(scheduleDate, "yyyy-MM-dd") : ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                      const [y, m, d] = val.split("-").map(Number);
+                      setScheduleDate(new Date(y, m - 1, d));
+                    } else {
+                      setScheduleDate(undefined);
+                    }
+                  }}
+                  min={format(new Date(), "yyyy-MM-dd")}
+                  className="flex-1 h-10"
+                />
                 <Input
                   type="time"
                   value={scheduleTime}
