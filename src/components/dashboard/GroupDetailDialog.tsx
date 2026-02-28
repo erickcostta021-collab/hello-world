@@ -815,8 +815,8 @@ export function GroupDetailDialog({
                   </div>
                 ) : (
                   <>
-                    <p
-                      className="text-sm text-muted-foreground line-clamp-2 cursor-pointer hover:text-foreground transition-colors"
+                    <div
+                      className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto rounded-md bg-muted/30 p-3 border border-border/40"
                       onClick={() => {
                         setNewGroupDesc(groupDescription);
                         setEditingDesc(true);
@@ -824,7 +824,7 @@ export function GroupDetailDialog({
                       title="Clique para editar descrição"
                     >
                       {groupDescription || "Sem descrição"}
-                    </p>
+                    </div>
                   </>
                 )}
               </div>
