@@ -405,25 +405,27 @@ async function promoteToAdmin(
   }
   
   const cleanPhone = phone.replace(/\D/g, "");
-  const participantJid = `${cleanPhone}@s.whatsapp.net`;
   
   try {
-    const response = await fetch(`${baseUrl}/group/promoteParticipant`, {
+    // Use same working pattern as add/remove: /group/updateParticipants with action
+    const response = await fetch(`${baseUrl}/group/updateParticipants`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "token": instanceToken,
       },
       body: JSON.stringify({
-        groupId: group.id,
-        participants: [participantJid],
+        groupjid: group.id,
+        action: "promote",
+        participants: [cleanPhone],
       }),
     });
     
-    const data = await response.json();
+    const data = await response.text();
+    console.log(`promoteParticipant response (${response.status}):`, data);
     
     if (!response.ok) {
-      return { success: false, command: "promoveradmin", message: `❌ Erro ao promover: ${data.message || response.status}` };
+      return { success: false, command: "promoveradmin", message: `❌ Erro ao promover: ${data.substring(0, 100)}` };
     }
     
     return { success: true, command: "promoveradmin", message: `✅ Membro ${phone} promovido a admin no grupo "${groupName}"` };
@@ -445,25 +447,27 @@ async function demoteAdmin(
   }
   
   const cleanPhone = phone.replace(/\D/g, "");
-  const participantJid = `${cleanPhone}@s.whatsapp.net`;
   
   try {
-    const response = await fetch(`${baseUrl}/group/demoteParticipant`, {
+    // Use same working pattern as add/remove: /group/updateParticipants with action
+    const response = await fetch(`${baseUrl}/group/updateParticipants`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "token": instanceToken,
       },
       body: JSON.stringify({
-        groupId: group.id,
-        participants: [participantJid],
+        groupjid: group.id,
+        action: "demote",
+        participants: [cleanPhone],
       }),
     });
     
-    const data = await response.json();
+    const data = await response.text();
+    console.log(`demoteParticipant response (${response.status}):`, data);
     
     if (!response.ok) {
-      return { success: false, command: "revogaradmin", message: `❌ Erro ao revogar: ${data.message || response.status}` };
+      return { success: false, command: "revogaradmin", message: `❌ Erro ao revogar: ${data.substring(0, 100)}` };
     }
     
     return { success: true, command: "revogaradmin", message: `✅ Admin ${phone} rebaixado a membro no grupo "${groupName}"` };
