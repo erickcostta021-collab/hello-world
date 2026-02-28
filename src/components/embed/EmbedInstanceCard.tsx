@@ -25,11 +25,13 @@ import {
   Link,
   Webhook,
   MessageSquare,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { EmbedAssignUserDialog } from "./EmbedAssignUserDialog";
 import { WebhookConfigDialog } from "@/components/dashboard/WebhookConfigDialog";
 import { ManageMessagesDialog } from "@/components/dashboard/ManageMessagesDialog";
+import { GroupManagerDialog } from "@/components/dashboard/GroupManagerDialog";
 import { supabase } from "@/integrations/supabase/client";
 export interface EmbedVisibleOptions {
   assign_user?: boolean;
@@ -42,6 +44,7 @@ export interface EmbedVisibleOptions {
   status?: boolean;
   messages?: boolean;
   api_oficial?: boolean;
+  group_manager?: boolean;
 }
 
 export interface EmbedInstance {
@@ -92,6 +95,7 @@ export function EmbedInstanceCard({
   const [webhookSaving, setWebhookSaving] = useState(false);
   const [ignoreGroups, setIgnoreGroups] = useState(false);
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
+  const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -630,6 +634,12 @@ export function EmbedInstanceCard({
                     Mensagem em massa (beta)
                   </DropdownMenuItem>
                   )}
+                  {isVisible("group_manager") && (
+                  <DropdownMenuItem onClick={() => setGroupManagerOpen(true)}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Gerenciador de Grupos
+                  </DropdownMenuItem>
+                  )}
                   {isVisible("api_oficial") && (
                   <DropdownMenuItem onClick={async () => {
                     const newValue = !isOfficialApi;
@@ -787,6 +797,27 @@ export function EmbedInstanceCard({
       <ManageMessagesDialog
         open={messagesDialogOpen}
         onOpenChange={setMessagesDialogOpen}
+        instance={{
+          id: instance.id,
+          user_id: "",
+          subaccount_id: null,
+          instance_name: instance.instance_name,
+          uazapi_instance_token: instance.uazapi_instance_token,
+          instance_status: currentStatus,
+          webhook_url: null,
+          ignore_groups: ignoreGroups,
+          ghl_user_id: instance.ghl_user_id || null,
+          phone: connectedPhone,
+          profile_pic_url: profilePicUrl,
+          uazapi_base_url: instance.uazapi_base_url || null,
+          is_official_api: false,
+        }}
+      />
+
+      {/* Group Manager Dialog */}
+      <GroupManagerDialog
+        open={groupManagerOpen}
+        onOpenChange={setGroupManagerOpen}
         instance={{
           id: instance.id,
           user_id: "",

@@ -26,6 +26,7 @@ export interface EmbedVisibleOptions {
   status: boolean;
   messages: boolean;
   api_oficial: boolean;
+  group_manager: boolean;
 }
 
 const DEFAULT_OPTIONS: EmbedVisibleOptions = {
@@ -39,6 +40,7 @@ const DEFAULT_OPTIONS: EmbedVisibleOptions = {
   status: true,
   messages: true,
   api_oficial: true,
+  group_manager: true,
 };
 
 const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
@@ -52,6 +54,7 @@ const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   status: "Atualizar Status",
   messages: "Mensagem em massa (beta)",
   api_oficial: "API Oficial",
+  group_manager: "Gerenciador de Grupos",
 };
 
 interface Props {
