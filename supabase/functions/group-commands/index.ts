@@ -483,34 +483,46 @@ async function updateGroupPhoto(
   groupName: string,
   photoUrl: string
 ): Promise<CommandResult> {
-  const group = await findGroupByName(baseUrl, instanceToken, groupName);
-  if (!group) {
-    return { success: false, command: "attfotogrupo", message: `❌ Grupo "${groupName}" não encontrado` };
+  let groupJid: string;
+  if (groupName.includes("@g.us")) {
+    groupJid = groupName;
+  } else {
+    const group = await findGroupByName(baseUrl, instanceToken, groupName);
+    if (!group) {
+      return { success: false, command: "attfotogrupo", message: `❌ Grupo "${groupName}" não encontrado` };
+    }
+    groupJid = group.id;
   }
   
-  try {
-    const response = await fetch(`${baseUrl}/group/updatePicture`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "token": instanceToken,
-      },
-      body: JSON.stringify({
-        groupId: group.id,
-        image: photoUrl,
-      }),
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return { success: false, command: "attfotogrupo", message: `❌ Erro ao atualizar foto: ${data.message || response.status}` };
+  const attempts = [
+    { url: `${baseUrl}/group/updateImage`, method: "POST", body: { groupjid: groupJid, image: photoUrl } },
+    { url: `${baseUrl}/group/updatePicture`, method: "POST", body: { groupjid: groupJid, image: photoUrl } },
+    { url: `${baseUrl}/group/updatePicture`, method: "POST", body: { groupId: groupJid, image: photoUrl } },
+    { url: `${baseUrl}/group/updateImage`, method: "PUT", body: { groupjid: groupJid, image: photoUrl } },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      console.log(`[attfotogrupo] Trying ${attempt.method} ${attempt.url}`);
+      const response = await fetch(attempt.url, {
+        method: attempt.method,
+        headers: { "Content-Type": "application/json", "token": instanceToken },
+        body: JSON.stringify(attempt.body),
+      });
+      const text = await response.text();
+      console.log(`[attfotogrupo] Response ${response.status}: ${text.substring(0, 300)}`);
+      if (response.ok) {
+        return { success: true, command: "attfotogrupo", message: `✅ Foto do grupo atualizada` };
+      }
+      if (response.status !== 405 && response.status !== 404) {
+        return { success: false, command: "attfotogrupo", message: `❌ Erro ao atualizar foto: ${text.substring(0, 100)}` };
+      }
+    } catch (e) {
+      console.log(`[attfotogrupo] Error: ${e}`);
     }
-    
-    return { success: true, command: "attfotogrupo", message: `✅ Foto do grupo "${groupName}" atualizada` };
-  } catch (e) {
-    return { success: false, command: "attfotogrupo", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
   }
+  
+  return { success: false, command: "attfotogrupo", message: `❌ Nenhum endpoint funcionou para atualizar a foto do grupo` };
 }
 
 // Update group name (subject)
