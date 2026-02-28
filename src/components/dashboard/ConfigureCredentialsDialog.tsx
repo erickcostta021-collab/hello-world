@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,13 +31,10 @@ export function ConfigureCredentialsDialog({ open, onOpenChange }: Props) {
   }, [settings, open]);
 
   const handleSave = () => {
-    // Compute webhook URL (same logic as Settings page)
     const webhookUrl = settings?.global_webhook_url || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-inbound`;
 
-    // Save credentials + webhook URL
     updateSettings.mutate({ ...formData, global_webhook_url: webhookUrl }, {
       onSuccess: () => {
-        // Apply global webhook on UAZAPI after saving credentials
         if (formData.uazapi_base_url && formData.uazapi_admin_token) {
           applyGlobalWebhook.mutate(webhookUrl);
         }
@@ -48,58 +45,58 @@ export function ConfigureCredentialsDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>Configurar Credenciais</DialogTitle>
           <DialogDescription>
             Preencha as credenciais de integração. Elas serão salvas automaticamente nas configurações.
           </DialogDescription>
         </DialogHeader>
+        <DialogBody>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cred-base-url">URL Base da UAZAPI</Label>
+              <Input
+                id="cred-base-url"
+                type="text"
+                value={formData.uazapi_base_url}
+                onChange={(e) => setFormData({ ...formData, uazapi_base_url: e.target.value })}
+                placeholder="https://seu-servidor.uazapi.com"
+                className="bg-secondary border-border"
+              />
+            </div>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="cred-base-url">URL Base da UAZAPI</Label>
-            <Input
-              id="cred-base-url"
-              type="text"
-              value={formData.uazapi_base_url}
-              onChange={(e) => setFormData({ ...formData, uazapi_base_url: e.target.value })}
-              placeholder="https://seu-servidor.uazapi.com"
-              className="bg-secondary border-border"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="cred-admin-token">Token Admin da UAZAPI</Label>
+              <Input
+                id="cred-admin-token"
+                type={showTokens ? "text" : "password"}
+                value={formData.uazapi_admin_token}
+                onChange={(e) => setFormData({ ...formData, uazapi_admin_token: e.target.value })}
+                placeholder="Seu token admin da UAZAPI"
+                className="bg-secondary border-border"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cred-agency-token">
+                Token de Agência GHL <span className="text-muted-foreground text-xs">(opcional)</span>
+              </Label>
+              <Input
+                id="cred-agency-token"
+                type={showTokens ? "text" : "password"}
+                value={formData.ghl_agency_token}
+                onChange={(e) => setFormData({ ...formData, ghl_agency_token: e.target.value })}
+                placeholder="pit-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                className="bg-secondary border-border"
+              />
+              <p className="text-xs text-muted-foreground">
+                Encontre em: GHL → Conta nível agência → Configurações → Integrações Privado
+              </p>
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cred-admin-token">Token Admin da UAZAPI</Label>
-            <Input
-              id="cred-admin-token"
-              type={showTokens ? "text" : "password"}
-              value={formData.uazapi_admin_token}
-              onChange={(e) => setFormData({ ...formData, uazapi_admin_token: e.target.value })}
-              placeholder="Seu token admin da UAZAPI"
-              className="bg-secondary border-border"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cred-agency-token">
-              Token de Agência GHL <span className="text-muted-foreground text-xs">(opcional)</span>
-            </Label>
-            <Input
-              id="cred-agency-token"
-              type={showTokens ? "text" : "password"}
-              value={formData.ghl_agency_token}
-              onChange={(e) => setFormData({ ...formData, ghl_agency_token: e.target.value })}
-              placeholder="pit-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-              className="bg-secondary border-border"
-            />
-            <p className="text-xs text-muted-foreground">
-              Encontre em: GHL → Conta nível agência → Configurações → Integrações Privado
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-2">
+        </DialogBody>
+        <DialogFooter>
           <Button
             variant="ghost"
             size="sm"
@@ -116,7 +113,7 @@ export function ConfigureCredentialsDialog({ open, onOpenChange }: Props) {
             )}
             Salvar
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

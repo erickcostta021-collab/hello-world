@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from "@/components/ui/dialog";
 import {
   Drawer,
@@ -123,14 +124,16 @@ export function InstanceOverrideDialog({ open, onOpenChange }: InstanceOverrideD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="text-xl">Trocar Instância</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Troque a instância de envio diretamente pelo chat do GoHighLevel.
           </p>
         </DialogHeader>
-        <OverrideCommandsList />
+        <DialogBody>
+          <OverrideCommandsList />
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
@@ -77,7 +78,7 @@ export function WhatsAppThemeDialog({ open, onOpenChange }: WhatsAppThemeDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="text-xl">Tema WhatsApp</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
@@ -85,37 +86,38 @@ export function WhatsAppThemeDialog({ open, onOpenChange }: WhatsAppThemeDialogP
             criando uma experiência visual mais familiar.
           </p>
         </DialogHeader>
+        <DialogBody>
+          <div className="relative">
+            <pre className="rounded-lg border border-border bg-muted/30 p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-words text-foreground/80">
+              {themeScript}
+            </pre>
 
-        <div className="mt-4 relative">
-          <pre className="rounded-lg border border-border bg-muted/30 p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-words text-foreground/80">
-            {themeScript}
-          </pre>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopy}
+              className="mt-3 w-full sm:w-auto gap-2"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 text-primary" />
+                  Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  Copiar Script
+                </>
+              )}
+            </Button>
+          </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopy}
-            className="mt-3 w-full sm:w-auto gap-2"
-          >
-            {copied ? (
-              <>
-                <Check className="h-4 w-4 text-primary" />
-                Copiado!
-              </>
-            ) : (
-              <>
-                <Copy className="h-4 w-4" />
-                Copiar Script
-              </>
-            )}
-          </Button>
-        </div>
-
-        <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border">
-          <p className="text-xs text-muted-foreground">
-            <strong className="text-foreground">Como usar:</strong> Acesse seu Go High Level → Settings → Company → Custom JavaScript e cole o código acima.
-          </p>
-        </div>
+          <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border">
+            <p className="text-xs text-muted-foreground">
+              <strong className="text-foreground">Como usar:</strong> Acesse seu Go High Level → Settings → Company → Custom JavaScript e cole o código acima.
+            </p>
+          </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
