@@ -79,10 +79,12 @@ serve(async (req: Request) => {
           if (msg.media_type === "audio") {
             endpoint = "/send/audio";
             sendBody.url = msg.media_url;
+            sendBody.file = msg.media_url;
             if (text) sendBody.text = text;
           } else {
             endpoint = "/send/media";
             sendBody.url = msg.media_url;
+            sendBody.file = msg.media_url;
             sendBody.type = msg.media_type === "document" ? "document" : msg.media_type;
             if (text) sendBody.caption = text;
           }
