@@ -507,7 +507,7 @@ serve(async (req) => {
     const groups: GroupInfo[] = [];
     for (const group of groupsList) {
       const id = group.id || group.jid || group.JID || group.groupId || group.GroupId || "";
-      const name = group.subject || group.Subject || group.name || group.Name || group.groupName || group.GroupName || "Unknown Group";
+      const name = group.subject || group.Subject || group.name || group.Name || group.groupName || group.GroupName || group.Topic || group.topic || `Grupo ${id.split("@")[0].slice(-6)}`;
       const memberCount = group.size || group.Size || group.ParticipantCount || group.participantCount || group.participants?.length || group.Participants?.length || group.MemberCount || group.memberCount;
       const isAdmin = group.isAdmin || group.IsAdmin || group.admin || group.Admin || group.OwnerIsAdmin || group.ownerIsAdmin;
       if (id) {
