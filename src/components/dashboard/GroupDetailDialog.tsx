@@ -61,8 +61,9 @@ import {
   Paperclip,
   X,
   Repeat,
+  CalendarDays,
+  CalendarRange,
 } from "lucide-react";
-import { CreateRecurringMessageDialog } from "./CreateRecurringMessageDialog";
 
 interface GroupDetailDialogProps {
   open: boolean;
@@ -112,6 +113,14 @@ export function GroupDetailDialog({
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const isMobile = useIsMobile();
   const [showRecurringDialog, setShowRecurringDialog] = useState(false);
+  // Recurring message states
+  const [recurringEnabled, setRecurringEnabled] = useState(false);
+  const [recurringInterval, setRecurringInterval] = useState<"daily" | "weekly" | "monthly">("daily");
+  const [recurringSendTime, setRecurringSendTime] = useState("09:00");
+  const [recurringWeekdays, setRecurringWeekdays] = useState<number[]>([1]);
+  const [recurringDayOfMonth, setRecurringDayOfMonth] = useState(15);
+  const [recurringEndDate, setRecurringEndDate] = useState("");
+  const [recurringMaxExec, setRecurringMaxExec] = useState("3");
 
   // New states for added features
   const [addPhoneInput, setAddPhoneInput] = useState("");
@@ -310,9 +319,90 @@ export function GroupDetailDialog({
     }
   };
 
+  const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+  const toggleWeekday = (day: number) => {
+    setRecurringWeekdays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
+
   const sendGroupMessage = async () => {
     if (!messageText.trim()) {
       toast.error("Digite uma mensagem");
+      return;
+    }
+
+    // Recurring message flow
+    if (scheduleEnabled && recurringEnabled) {
+      if (!recurringSendTime) {
+        toast.error("Selecione um horário para a recorrência");
+        return;
+      }
+      if (recurringInterval === "weekly" && recurringWeekdays.length === 0) {
+        toast.error("Selecione pelo menos um dia da semana");
+        return;
+      }
+      setSendingMessage(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Usuário não autenticado");
+
+        // Compute first scheduled_for
+        const now = new Date();
+        const [h, m] = recurringSendTime.split(":").map(Number);
+        let firstDate = new Date(now);
+        firstDate.setHours(h, m, 0, 0);
+
+        if (recurringInterval === "weekly") {
+          const today = now.getDay();
+          const sorted = [...recurringWeekdays].sort();
+          let nextDay = sorted.find((d) => d > today || (d === today && firstDate > now));
+          if (nextDay === undefined) {
+            nextDay = sorted[0];
+            firstDate.setDate(firstDate.getDate() + (7 - today + nextDay));
+          } else {
+            firstDate.setDate(firstDate.getDate() + (nextDay - today));
+          }
+          firstDate.setHours(h, m, 0, 0);
+        } else if (recurringInterval === "monthly") {
+          firstDate.setDate(recurringDayOfMonth);
+          if (firstDate <= now) firstDate.setMonth(firstDate.getMonth() + 1);
+          firstDate.setHours(h, m, 0, 0);
+        } else {
+          if (firstDate <= now) firstDate.setDate(firstDate.getDate() + 1);
+        }
+
+        const { error: insertError } = await supabase
+          .from("scheduled_group_messages")
+          .insert({
+            user_id: user.id,
+            instance_id: instance.id,
+            group_jid: groupId,
+            group_name: currentGroupName,
+            message_text: messageText.trim(),
+            mention_all: mentionAll,
+            scheduled_for: firstDate.toISOString(),
+            is_recurring: true,
+            recurring_interval: recurringInterval,
+            send_time: recurringSendTime,
+            weekdays: recurringInterval === "weekly" ? recurringWeekdays : null,
+            day_of_month: recurringInterval === "monthly" ? recurringDayOfMonth : null,
+            end_date: recurringEndDate || null,
+            max_executions: recurringMaxExec ? parseInt(recurringMaxExec) : null,
+            status: "pending",
+            media_url: mediaUrl || null,
+            media_type: mediaType || null,
+          });
+
+        if (insertError) throw insertError;
+        toast.success(`Mensagem recorrente criada! Primeiro envio: ${firstDate.toLocaleString("pt-BR")}`);
+        resetMessageForm();
+      } catch (err: any) {
+        toast.error(err.message || "Erro ao criar recorrência");
+      } finally {
+        setSendingMessage(false);
+      }
       return;
     }
 
@@ -337,7 +427,6 @@ export function GroupDetailDialog({
       let finalMessage = messageText.trim();
 
       if (scheduledFor) {
-        // Save to scheduled_group_messages table instead of sending immediately
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Usuário não autenticado");
 
@@ -360,7 +449,6 @@ export function GroupDetailDialog({
         if (insertError) throw insertError;
         toast.success(`Mensagem agendada para ${new Date(scheduledFor).toLocaleString("pt-BR")}!`);
       } else {
-        // Send immediately
         if (mentionAll) {
           finalMessage = `@todos\n${finalMessage}`;
         }
@@ -375,19 +463,30 @@ export function GroupDetailDialog({
         toast.success("Mensagem enviada ao grupo!");
       }
 
-      setMessageText("");
-      setMentionAll(false);
-      setScheduleEnabled(false);
-      setScheduleDate(undefined);
-      setScheduleTime("");
-      setMediaUrl("");
-      setMediaType(null);
-      setShowMessageDialog(false);
+      resetMessageForm();
     } catch (err: any) {
       toast.error(err.message || "Erro ao enviar mensagem");
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const resetMessageForm = () => {
+    setMessageText("");
+    setMentionAll(false);
+    setScheduleEnabled(false);
+    setScheduleDate(undefined);
+    setScheduleTime("");
+    setMediaUrl("");
+    setMediaType(null);
+    setRecurringEnabled(false);
+    setRecurringInterval("daily");
+    setRecurringSendTime("09:00");
+    setRecurringWeekdays([1]);
+    setRecurringDayOfMonth(15);
+    setRecurringEndDate("");
+    setRecurringMaxExec("3");
+    setShowMessageDialog(false);
   };
 
   // Add member
@@ -651,15 +750,6 @@ export function GroupDetailDialog({
         >
           <MessageSquare className="h-4 w-4 mr-1" />
           Enviar Mensagem
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          className="border-primary/50 text-primary hover:bg-primary/10"
-          onClick={() => setShowRecurringDialog(true)}
-        >
-          <Repeat className="h-4 w-4 mr-1" />
-          Recorrente
         </Button>
         <Button
           size="sm"
@@ -935,8 +1025,8 @@ export function GroupDetailDialog({
             </Label>
           </div>
 
-          {/* Date/time picker */}
-          {scheduleEnabled && (
+          {/* Date/time picker for one-time schedule */}
+          {scheduleEnabled && !recurringEnabled && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Data e Hora do Envio</Label>
               <div className="flex gap-2 rounded-lg border border-border/50 p-2">
@@ -962,6 +1052,125 @@ export function GroupDetailDialog({
                   className="w-[120px] h-10"
                   placeholder="--:--"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Recurring toggle */}
+          {scheduleEnabled && (
+            <div className="flex items-center gap-2 rounded-lg border border-border/50 p-3">
+              <Switch
+                id="recurring-toggle"
+                checked={recurringEnabled}
+                onCheckedChange={setRecurringEnabled}
+              />
+              <Label htmlFor="recurring-toggle" className="text-sm cursor-pointer flex items-center gap-1.5">
+                <Repeat className="h-4 w-4" />
+                Mensagem recorrente
+              </Label>
+            </div>
+          )}
+
+          {/* Recurring options */}
+          {scheduleEnabled && recurringEnabled && (
+            <div className="space-y-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+              {/* Interval type */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Frequência</Label>
+                <div className="flex gap-2">
+                  {([
+                    { val: "daily", icon: CalendarDays, label: "Diário" },
+                    { val: "weekly", icon: CalendarRange, label: "Semanal" },
+                    { val: "monthly", icon: CalendarIcon, label: "Mensal" },
+                  ] as const).map(({ val, icon: Icon, label }) => (
+                    <Button
+                      key={val}
+                      type="button"
+                      size="sm"
+                      variant={recurringInterval === val ? "default" : "outline"}
+                      className="flex-1 text-xs"
+                      onClick={() => setRecurringInterval(val)}
+                    >
+                      <Icon className="h-3.5 w-3.5 mr-1" />
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Send time */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-muted-foreground">Horário de Envio</Label>
+                <Input
+                  type="time"
+                  value={recurringSendTime}
+                  onChange={(e) => setRecurringSendTime(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+
+              {/* Weekday selector */}
+              {recurringInterval === "weekly" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Dias da Semana</Label>
+                  <div className="flex gap-1 flex-wrap">
+                    {WEEKDAY_LABELS.map((label, idx) => (
+                      <Button
+                        key={idx}
+                        type="button"
+                        size="sm"
+                        variant={recurringWeekdays.includes(idx) ? "default" : "outline"}
+                        className="h-8 w-10 text-xs p-0"
+                        onClick={() => toggleWeekday(idx)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Day of month */}
+              {recurringInterval === "monthly" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Dia do Mês</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={28}
+                    value={recurringDayOfMonth}
+                    onChange={(e) => setRecurringDayOfMonth(parseInt(e.target.value) || 1)}
+                    className="h-9 w-20"
+                  />
+                </div>
+              )}
+
+              {/* Advanced: end date and max executions */}
+              <div className="space-y-1.5 pt-1 border-t border-border/30">
+                <Label className="text-xs font-medium text-muted-foreground">Opções Avançadas</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Data Final</Label>
+                    <Input
+                      type="date"
+                      value={recurringEndDate}
+                      onChange={(e) => setRecurringEndDate(e.target.value)}
+                      min={format(new Date(), "yyyy-MM-dd")}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Máx. Execuções</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={recurringMaxExec}
+                      onChange={(e) => setRecurringMaxExec(e.target.value)}
+                      placeholder="∞"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1050,10 +1259,12 @@ export function GroupDetailDialog({
           >
             {sendingMessage ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : recurringEnabled ? (
+              <Repeat className="h-4 w-4 mr-1" />
             ) : (
               <Send className="h-4 w-4 mr-1" />
             )}
-            {scheduleEnabled ? "Agendar" : "Enviar"}
+            {recurringEnabled ? "Criar Recorrência" : scheduleEnabled ? "Agendar" : "Enviar"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1076,7 +1287,7 @@ export function GroupDetailDialog({
         </Drawer>
         {confirmDialog}
         {messageDialog}
-        <CreateRecurringMessageDialog open={showRecurringDialog} onOpenChange={setShowRecurringDialog} instance={instance} groupId={groupId} groupName={currentGroupName} />
+      
       </>
     );
   }
@@ -1099,7 +1310,7 @@ export function GroupDetailDialog({
       </Dialog>
       {confirmDialog}
       {messageDialog}
-      <CreateRecurringMessageDialog open={showRecurringDialog} onOpenChange={setShowRecurringDialog} instance={instance} groupId={groupId} groupName={currentGroupName} />
+      
     </>
   );
 }
