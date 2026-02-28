@@ -520,34 +520,51 @@ async function updateGroupName(
   currentName: string,
   newName: string
 ): Promise<CommandResult> {
-  const group = await findGroupByName(baseUrl, instanceToken, currentName);
-  if (!group) {
-    return { success: false, command: "attnomegrupo", message: `❌ Grupo "${currentName}" não encontrado` };
+  // Check if currentName is already a JID
+  let groupJid: string;
+  if (currentName.includes("@g.us")) {
+    groupJid = currentName;
+  } else {
+    const group = await findGroupByName(baseUrl, instanceToken, currentName);
+    if (!group) {
+      return { success: false, command: "attnomegrupo", message: `❌ Grupo "${currentName}" não encontrado` };
+    }
+    groupJid = group.id;
   }
   
-  try {
-    const response = await fetch(`${baseUrl}/group/updateSubject`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "token": instanceToken,
-      },
-      body: JSON.stringify({
-        groupId: group.id,
-        subject: newName,
-      }),
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return { success: false, command: "attnomegrupo", message: `❌ Erro ao atualizar nome: ${data.message || response.status}` };
+  // Try multiple endpoints and methods
+  const attempts = [
+    { url: `${baseUrl}/group/updateSubject`, method: "PUT", body: { groupjid: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/updateSubject`, method: "POST", body: { groupjid: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/updateSubject`, method: "PUT", body: { groupId: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/updateGroupSubject`, method: "PUT", body: { groupjid: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/updateGroupSubject`, method: "POST", body: { groupjid: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/update`, method: "PUT", body: { groupjid: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/update`, method: "POST", body: { groupjid: groupJid, subject: newName, name: newName } },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      console.log(`[attnomegrupo] Trying ${attempt.method} ${attempt.url}`);
+      const response = await fetch(attempt.url, {
+        method: attempt.method,
+        headers: { "Content-Type": "application/json", "token": instanceToken },
+        body: JSON.stringify(attempt.body),
+      });
+      const text = await response.text();
+      console.log(`[attnomegrupo] Response ${response.status}: ${text.substring(0, 300)}`);
+      if (response.ok) {
+        return { success: true, command: "attnomegrupo", message: `✅ Nome do grupo alterado para "${newName}"` };
+      }
+      if (response.status !== 405 && response.status !== 404) {
+        return { success: false, command: "attnomegrupo", message: `❌ Erro ao atualizar nome: ${text.substring(0, 100)}` };
+      }
+    } catch (e) {
+      console.log(`[attnomegrupo] Error: ${e}`);
     }
-    
-    return { success: true, command: "attnomegrupo", message: `✅ Nome do grupo alterado de "${currentName}" para "${newName}"` };
-  } catch (e) {
-    return { success: false, command: "attnomegrupo", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
   }
+  
+  return { success: false, command: "attnomegrupo", message: `❌ Nenhum endpoint funcionou para atualizar o nome do grupo` };
 }
 
 // Update group description

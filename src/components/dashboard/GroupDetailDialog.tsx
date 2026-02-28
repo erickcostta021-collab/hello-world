@@ -521,7 +521,7 @@ export function GroupDetailDialog({
     setSavingName(true);
     try {
       const { data, error } = await supabase.functions.invoke("group-commands", {
-        body: { instanceId: instance.id, messageText: `#attnomegrupo ${groupId}|${newGroupName.trim()}` },
+        body: { instanceId: instance.id, messageText: `#attnomegrupo ${groupId}|${newGroupName.trim()}`, groupJid: groupId },
       });
       if (error) throw error;
       if (data && !data.success && data.message) throw new Error(data.message);
