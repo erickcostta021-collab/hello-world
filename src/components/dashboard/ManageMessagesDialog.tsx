@@ -238,37 +238,11 @@ function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: 
   return result;
 }
 
-// ─── Split large messages ───
-function splitLargeMessage(text: string, maxChars: number): string[] {
-  if (!text || text.length <= maxChars) return [text];
-  const parts: string[] = [];
-  const paragraphs = text.split(/\n/);
-  let current = "";
-  for (const para of paragraphs) {
-    if (current && (current + "\n" + para).length > maxChars) {
-      parts.push(current.trim());
-      current = para;
-    } else {
-      current = current ? current + "\n" + para : para;
-    }
-  }
-  // If a single paragraph exceeds maxChars, split by words
-  if (current.length > maxChars) {
-    const words = current.split(" ");
-    let chunk = "";
-    for (const word of words) {
-      if (chunk && (chunk + " " + word).length > maxChars) {
-        parts.push(chunk.trim());
-        chunk = word;
-      } else {
-        chunk = chunk ? chunk + " " + word : word;
-      }
-    }
-    if (chunk) parts.push(chunk.trim());
-  } else if (current) {
-    parts.push(current.trim());
-  }
-  return parts.filter(Boolean);
+// ─── Split messages by triple line break ───
+function splitMessageByTripleBreak(text: string): string[] {
+  if (!text) return [text];
+  const parts = text.split(/\n\s*\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  return parts.length > 0 ? parts : [text];
 }
 
 export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances }: ManageMessagesDialogProps) {
@@ -293,7 +267,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [addInvisibleChars, setAddInvisibleChars] = useState(true);
   const [addRandomSpacing, setAddRandomSpacing] = useState(false);
   const [splitMessages, setSplitMessages] = useState(false);
-  const [splitMaxChars, setSplitMaxChars] = useState("300");
   const [splitDelay, setSplitDelay] = useState("2");
   const [antiBanButton, setAntiBanButton] = useState(false);
   const [antiBanBtnTitle, setAntiBanBtnTitle] = useState("Comunicação Oficial");
@@ -834,10 +807,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 0,
       ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
     };
-    if (antiBanEnabled && splitMessages) {
-      body.split_max_chars = parseInt(splitMaxChars) || 300;
-      body.split_delay = parseInt(splitDelay) || 2;
-    }
+    // split_messages is now handled client-side via triple line breaks
     // Note: anti_ban_button is handled separately by converting to advanced mode
     // with a second button-type message per contact (see handleSendSimple)
     if (text) body.text = text;
@@ -935,6 +905,26 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (cName) obj.contactName = cName;
           return obj;
         });
+
+        // If split messages is enabled, split each message by triple line breaks
+        if (antiBanEnabled && splitMessages) {
+          const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+          const expanded: Record<string, unknown>[] = [];
+          for (const msg of messages) {
+            const msgText = (msg.text as string) || "";
+            const parts = splitMessageByTripleBreak(msgText);
+            if (parts.length > 1) {
+              for (let i = 0; i < parts.length; i++) {
+                const part: Record<string, unknown> = { ...msg, text: parts[i] };
+                if (i > 0) { delete part.file; delete part.docName; part.delayOverride = splitDelayMs; }
+                expanded.push(part);
+              }
+            } else {
+              expanded.push(msg);
+            }
+          }
+          messages = expanded;
+        }
 
         // If anti-ban button is enabled, add button messages after each main message
         if (antiBanEnabled && antiBanButton) {
@@ -1034,10 +1024,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
             messages: msgs,
           };
-          if (antiBanEnabled && splitMessages) {
-            body.split_max_chars = parseInt(splitMaxChars) || 300;
-            body.split_delay = parseInt(splitDelay) || 2;
-          }
+          // split_messages is now handled client-side
           const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
             method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
           });
@@ -1065,8 +1052,73 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
           else toast.success(`Round-robin com botão anti-ban! ${numberList.length} contatos em ${instances.length} instâncias.`);
         }
+      } else if (antiBanEnabled && splitMessages) {
+        // Split messages by triple line break → convert to advanced mode
+        let bodyText = text;
+        if (antiBanEnabled) {
+          bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
+        }
+        const parts = splitMessageByTripleBreak(bodyText);
+        const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+
+        const advMessages: Record<string, unknown>[] = [];
+        for (const num of numberList) {
+          const cleanNum = num.replace("@s.whatsapp.net", "");
+          for (let i = 0; i < parts.length; i++) {
+            const msg: Record<string, unknown> = {
+              number: cleanNum,
+              type: messageType,
+            };
+            if (parts[i]) msg.text = parts[i];
+            if (i === 0 && fileUrl) msg.file = fileUrl;
+            if (i === 0 && docName) msg.docName = docName;
+            if (linkPreview) msg.linkPreview = true;
+            if (i > 0) msg.delayOverride = splitDelayMs;
+            advMessages.push(msg);
+          }
+        }
+
+        const sendAdv = async (inst: Instance, msgs: Record<string, unknown>[]) => {
+          const body: Record<string, unknown> = {
+            delayMin: parseInt(delayMin) || 10,
+            delayMax: parseInt(delayMax) || 30,
+            info: folder || "Campanha Bridge",
+            scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
+            ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
+            messages: msgs,
+          };
+          const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
+            method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+        };
+
+        if (instances.length === 1) {
+          await sendAdv(instances[0], advMessages);
+          toast.success(`Campanha dividida criada! ${numberList.length} contato(s), ${parts.length} parte(s) cada.`);
+        } else {
+          // Round-robin: distribute per-contact groups together
+          const msgsPerContact = parts.length;
+          const buckets: Record<string, unknown>[][] = instances.map(() => []);
+          for (let i = 0; i < numberList.length; i++) {
+            const bucket = i % instances.length;
+            for (let j = 0; j < msgsPerContact; j++) {
+              buckets[bucket].push(advMessages[i * msgsPerContact + j]);
+            }
+          }
+          const results = await Promise.allSettled(
+            instances.map((inst, idx) => {
+              if (buckets[idx].length === 0) return Promise.resolve();
+              return sendAdv(inst, buckets[idx]);
+            })
+          );
+          const succeeded = results.filter((r) => r.status === "fulfilled").length;
+          const failed = results.filter((r) => r.status === "rejected").length;
+          if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
+          else toast.success(`Round-robin dividido! ${numberList.length} contatos, ${parts.length} partes em ${instances.length} instâncias.`);
+        }
       } else {
-        // Standard simple send (no dynamic fields, no anti-ban button)
+        // Standard simple send (no dynamic fields, no anti-ban button, no split)
         let bodyText = text;
         if (antiBanEnabled) {
           bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
@@ -1474,27 +1526,21 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             )}
           </div>
 
-          {/* Dividir mensagens grandes */}
+          {/* Dividir mensagens por quebra tripla */}
           <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2 cursor-pointer text-sm">
                 <Scissors className="h-4 w-4 text-primary" />
-                Dividir mensagens grandes
+                Dividir mensagem
               </Label>
               <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
             </div>
+            <p className="text-[10px] text-muted-foreground">
+              Use 3 quebras de linha (Enter 3x) no texto para separar em mensagens diferentes. Cada parte será enviada individualmente com delay entre elas.
+            </p>
             {splitMessages && (
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">Máx. caracteres</Label>
-                  <Input
-                    type="number" min={50} max={5000}
-                    value={splitMaxChars}
-                    onChange={(e) => setSplitMaxChars(e.target.value)}
-                    className="bg-secondary border-border h-8 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
+              <div className="pt-2 border-t border-border">
+                <div className="space-y-1 max-w-[180px]">
                   <Label className="text-xs text-muted-foreground">Delay entre partes (s)</Label>
                   <Input
                     type="number" min={0} max={30}
