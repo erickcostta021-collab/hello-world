@@ -809,6 +809,30 @@ async function processCommand(
       return getGroupLink(baseUrl, instanceToken, params[0], params[1]);
     }
     
+    case "#enviargrupo": {
+      // #enviargrupo groupJid|mensagem
+      if (params.length < 2) {
+        return { success: false, command: "enviargrupo", message: "❌ Formato: #enviargrupo jid_grupo|mensagem" };
+      }
+      const [targetGroup, ...msgParts] = params;
+      const groupJid = targetGroup.includes("@g.us") ? targetGroup : `${targetGroup}@g.us`;
+      try {
+        const response = await fetch(`${baseUrl}/chat/send/text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "token": instanceToken },
+          body: JSON.stringify({ phone: groupJid, message: msgParts.join("|") }),
+        });
+        if (!response.ok) {
+          const errData = await response.text();
+          console.error("Send message error:", errData);
+          return { success: false, command: "enviargrupo", message: `❌ Erro ao enviar: ${response.status}` };
+        }
+        return { success: true, command: "enviargrupo", message: `✅ Mensagem enviada ao grupo!` };
+      } catch (e) {
+        return { success: false, command: "enviargrupo", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
+      }
+    }
+
     default:
       return null; // Not a recognized command
   }

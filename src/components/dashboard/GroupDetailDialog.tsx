@@ -187,8 +187,8 @@ export function GroupDetailDialog({
   const toggleAnnounce = async () => {
     setTogglingAnnounce(true);
     try {
-      const setting = isAnnounce ? "not_announcement" : "announcement";
-      const messageText = `#configurargrupo ${groupId}|${setting}`;
+      const cmd = isAnnounce ? "#msgliberada" : "#somenteadminmsg";
+      const messageText = `${cmd} ${groupId}`;
       const { data, error } = await supabase.functions.invoke("group-commands", {
         body: { instanceId: instance.id, messageText },
       });
@@ -206,8 +206,8 @@ export function GroupDetailDialog({
   const toggleLocked = async () => {
     setTogglingLocked(true);
     try {
-      const setting = isLocked ? "unlocked" : "locked";
-      const messageText = `#configurargrupo ${groupId}|${setting}`;
+      const cmd = isLocked ? "#editliberado" : "#somenteadminedit";
+      const messageText = `${cmd} ${groupId}`;
       const { data, error } = await supabase.functions.invoke("group-commands", {
         body: { instanceId: instance.id, messageText },
       });
@@ -229,27 +229,15 @@ export function GroupDetailDialog({
     }
     setSendingMessage(true);
     try {
-      const { data: instData } = await supabase
-        .from("instances")
-        .select("uazapi_base_url, uazapi_instance_token")
-        .eq("id", instance.id)
-        .single();
-
-      if (!instData?.uazapi_base_url) throw new Error("URL base não encontrada");
-
-      const response = await fetch(`${instData.uazapi_base_url}/chat/send/text`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "token": instData.uazapi_instance_token,
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: {
+          instanceId: instance.id,
+          messageText: `#enviargrupo ${groupId}|${messageText.trim()}`,
         },
-        body: JSON.stringify({
-          phone: groupId,
-          message: messageText.trim(),
-        }),
       });
 
-      if (!response.ok) throw new Error("Erro ao enviar mensagem");
+      if (error) throw error;
+      if (data?.result && !data.result.success) throw new Error(data.result.message);
       toast.success("Mensagem enviada ao grupo!");
       setMessageText("");
       setShowMessageInput(false);
