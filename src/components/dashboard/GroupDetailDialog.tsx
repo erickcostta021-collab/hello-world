@@ -1004,13 +1004,14 @@ export function GroupDetailDialog({
 
   const messageDialog = (
     <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-primary">
             Enviar Mensagem no Grupo
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">{currentGroupName}</DialogDescription>
         </DialogHeader>
+        <DialogBody>
         <div className="flex flex-col gap-4 py-1">
           {/* Schedule toggle */}
           <div className="flex items-center gap-2 rounded-lg border border-border/50 p-3">
@@ -1248,6 +1249,7 @@ export function GroupDetailDialog({
             </Label>
           </div>
         </div>
+        </DialogBody>
         <DialogFooter className="flex-row gap-2 sm:gap-2 justify-end">
           <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
             Cancelar
