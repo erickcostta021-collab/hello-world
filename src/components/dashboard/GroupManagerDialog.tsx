@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { GroupDetailDialog } from "./GroupDetailDialog";
 import { CreateGroupDialog } from "./CreateGroupDialog";
+import { ScheduledMessagesDialog } from "./ScheduledMessagesDialog";
 
 interface GroupManagerDialogProps {
   open: boolean;
@@ -51,6 +52,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
   const [selectedGroup, setSelectedGroup] = useState<GroupInfo | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [scheduledOpen, setScheduledOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const fetchGroups = async () => {
@@ -98,7 +100,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
   };
 
   const handleScheduledMessages = () => {
-    toast.info("Funcionalidade de mensagens programadas em breve!");
+    setScheduledOpen(true);
   };
 
   const content = (
@@ -250,6 +252,13 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     />
   );
 
+  const scheduledDialog = (
+    <ScheduledMessagesDialog
+      open={scheduledOpen}
+      onOpenChange={setScheduledOpen}
+    />
+  );
+
   if (isMobile) {
     return (
       <>
@@ -268,6 +277,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
         </Drawer>
         {detailDialog}
         {createDialog}
+        {scheduledDialog}
       </>
     );
   }
@@ -290,6 +300,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
       </Dialog>
       {detailDialog}
       {createDialog}
+      {scheduledDialog}
     </>
   );
 }
