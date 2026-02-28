@@ -1603,32 +1603,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             )}
           </div>
 
-          {/* Dividir mensagens por quebra tripla */}
-          <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-2 cursor-pointer text-sm">
-                <Scissors className="h-4 w-4 text-primary" />
-                Dividir mensagem
-              </Label>
-              <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Use 3 quebras de linha (Enter 3x) no texto para separar em mensagens diferentes. Cada parte será enviada individualmente com delay entre elas.
-            </p>
-            {splitMessages && (
-              <div className="pt-2 border-t border-border">
-                <div className="space-y-1 max-w-[180px]">
-                  <Label className="text-xs text-muted-foreground">Delay entre partes (s)</Label>
-                  <Input
-                    type="number" min={0} max={30}
-                    value={splitDelay}
-                    onChange={(e) => setSplitDelay(e.target.value)}
-                    className="bg-secondary border-border h-8 text-xs"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Dividir mensagem moved to main form area, above Preview de Link */}
 
           <div className="p-2 rounded bg-muted/50 space-y-1">
             <p className="text-[10px] font-semibold text-muted-foreground">💡 Dicas Anti-Ban:</p>
@@ -1854,6 +1829,33 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 )}
               </div>
             )}
+
+            {/* Dividir mensagem */}
+            <div className="space-y-2 p-3 rounded-lg border border-border bg-secondary/50">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <Scissors className="h-4 w-4 text-primary" />
+                  Dividir mensagem
+                </Label>
+                <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Use 3 quebras de linha (Enter 3x) no texto para separar em mensagens diferentes.
+              </p>
+              {splitMessages && (
+                <div className="pt-2 border-t border-border">
+                  <div className="space-y-1 max-w-[180px]">
+                    <Label className="text-xs text-muted-foreground">Delay entre partes (s)</Label>
+                    <Input
+                      type="number" min={0} max={30}
+                      value={splitDelay}
+                      onChange={(e) => setSplitDelay(e.target.value)}
+                      className="bg-secondary border-border h-8 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {messageType === "text" && (
               <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-border">
