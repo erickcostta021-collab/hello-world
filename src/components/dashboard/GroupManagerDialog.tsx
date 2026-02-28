@@ -264,6 +264,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     <ScheduledMessagesDialog
       open={scheduledOpen}
       onOpenChange={setScheduledOpen}
+      instanceId={instance.id}
     />
   );
 
