@@ -18,6 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,6 +133,7 @@ export function GroupDetailDialog({
   const [newGroupDesc, setNewGroupDesc] = useState("");
   const [savingDesc, setSavingDesc] = useState(false);
   const [copyingLink, setCopyingLink] = useState(false);
+  const [resettingLink, setResettingLink] = useState(false);
   const [promotingPhone, setPromotingPhone] = useState<string | null>(null);
   const [demotingPhone, setDemotingPhone] = useState<string | null>(null);
   const [currentGroupName, setCurrentGroupName] = useState(groupName);
@@ -579,6 +581,58 @@ export function GroupDetailDialog({
     }
   };
 
+  // Reset invite link
+  const resetInviteLink = async () => {
+    setResettingLink(true);
+    try {
+      const { data: instData } = await supabase
+        .from("instances")
+        .select("uazapi_instance_token, uazapi_base_url, user_id")
+        .eq("id", instance.id)
+        .maybeSingle();
+
+      if (!instData?.uazapi_instance_token) {
+        toast.error("Token da instância não encontrado");
+        return;
+      }
+
+      let baseUrl = instData.uazapi_base_url;
+      if (!baseUrl) {
+        const { data: settings } = await supabase
+          .from("user_settings")
+          .select("uazapi_base_url")
+          .eq("user_id", instData.user_id)
+          .maybeSingle();
+        baseUrl = settings?.uazapi_base_url || null;
+      }
+      if (!baseUrl) {
+        toast.error("URL base não configurada");
+        return;
+      }
+
+      const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/group/resetInviteCode`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          token: instData.uazapi_instance_token,
+        },
+        body: JSON.stringify({ groupjid: groupId }),
+      });
+
+      if (res.ok) {
+        toast.success("Código de convite resetado com sucesso!");
+      } else {
+        const text = await res.text().catch(() => "");
+        toast.error(`Falha ao resetar código (${res.status}): ${text.substring(0, 100)}`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao resetar link de convite");
+    } finally {
+      setResettingLink(false);
+    }
+  };
+
   // Promote to admin
   const promoteParticipant = async (phone: string) => {
     setPromotingPhone(phone);
@@ -736,6 +790,37 @@ export function GroupDetailDialog({
               )}
               Link Convite
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={resettingLink}
+                  className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
+                  {resettingLink ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Resetar Link
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Resetar código de convite?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    O link de convite atual será invalidado e um novo será gerado. Qualquer pessoa com o link antigo não poderá mais entrar no grupo.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={resetInviteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Resetar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
       </Card>
