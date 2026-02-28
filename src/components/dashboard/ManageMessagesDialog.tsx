@@ -583,26 +583,41 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         return mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
       });
 
-      // Tag messages from continuation folders so they always merge
-      const continuationMessages: CampaignMessage[] = [];
+      // Tag messages from continuation folders so they always merge (ordered by wave #)
+      const continuationMessagesByWave: { wave: number; msgs: CampaignMessage[] }[] = [];
       if (continuationFolders.length > 0) {
+        // Sort continuation folders by wave number to guarantee correct order
+        const sortedContFolders = [...continuationFolders].sort((a, b) => {
+          const infoA = String(a.info || a.folder_name || a.name || "");
+          const infoB = String(b.info || b.folder_name || b.name || "");
+          const waveA = parseInt(infoA.match(/#(\d+)/)?.[1] || "0");
+          const waveB = parseInt(infoB.match(/#(\d+)/)?.[1] || "0");
+          return waveA - waveB;
+        });
+
+        // Fetch sequentially to preserve order, or use indexed results
         const contResults = await Promise.allSettled(
-          continuationFolders.map(async (cf) => {
+          sortedContFolders.map(async (cf, idx) => {
             const cfId = cf.folder_id || cf.id;
+            const infoStr = String(cf.info || cf.folder_name || cf.name || "");
+            const wave = parseInt(infoStr.match(/#(\d+)/)?.[1] || String(idx + 1));
             const cfRes = await fetch(`${getBaseUrl()}/sender/listmessages`, {
               method: "POST", headers: getHeaders(),
               body: JSON.stringify({ folder_id: cfId, page: 1, pageSize: 1000 }),
             });
-            if (!cfRes.ok) return [];
+            if (!cfRes.ok) return { wave, msgs: [] as CampaignMessage[] };
             const cfData = await cfRes.json();
             const cfRaw = Array.isArray(cfData) ? cfData : (cfData.messages || cfData.data || cfData.items || cfData.results || []);
-            return normalizeMessages(cfRaw);
+            return { wave, msgs: normalizeMessages(cfRaw) };
           })
         );
         for (const r of contResults) {
-          if (r.status === "fulfilled") continuationMessages.push(...r.value);
+          if (r.status === "fulfilled") continuationMessagesByWave.push(r.value);
         }
+        // Sort again by wave to ensure correct append order regardless of promise resolution
+        continuationMessagesByWave.sort((a, b) => a.wave - b.wave);
       }
+      const continuationMessages: CampaignMessage[] = continuationMessagesByWave.flatMap(w => w.msgs);
 
       // Merge split parts into main message per contact, filter anti-ban buttons
       const merged: CampaignMessage[] = [];
