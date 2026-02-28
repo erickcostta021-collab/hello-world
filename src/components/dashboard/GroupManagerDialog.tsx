@@ -117,7 +117,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
         <Button
           onClick={handleCreateGroup}
           size="sm"
-          className="bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white border-0"
+          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0"
         >
           <Plus className="h-4 w-4 mr-1" />
           Criar Grupo
