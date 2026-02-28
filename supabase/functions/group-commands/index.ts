@@ -687,7 +687,7 @@ async function getGroupLink(
     const extractCode = (text: string): string | null => {
       try {
         const data = JSON.parse(text);
-        const code = data.code || data.inviteCode || data.invite || data.inviteUrl || data.link || data.InviteLink;
+        const code = data.code || data.inviteCode || data.inviteLink || data.invite || data.inviteUrl || data.link || data.InviteLink;
         if (code) return code;
         if (typeof data === "string" && data.includes("chat.whatsapp.com")) return data;
       } catch {
