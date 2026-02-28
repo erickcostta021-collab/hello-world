@@ -23,6 +23,8 @@ import {
   RefreshCw,
   Shield,
   Copy,
+  Plus,
+  CalendarClock,
 } from "lucide-react";
 
 interface GroupManagerDialogProps {
@@ -84,8 +86,45 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     toast.success("ID do grupo copiado!");
   };
 
+  const handleCreateGroup = () => {
+    toast.info("Use o comando #criar_grupo no WhatsApp para criar um grupo.");
+  };
+
+  const handleScheduledMessages = () => {
+    toast.info("Funcionalidade de mensagens programadas em breve!");
+  };
+
   const content = (
     <div className="flex flex-col gap-4">
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          onClick={handleCreateGroup}
+          size="sm"
+          className="bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white border-0"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Criar Grupo
+        </Button>
+        <Button
+          onClick={handleScheduledMessages}
+          size="sm"
+          className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white border-0"
+        >
+          <CalendarClock className="h-4 w-4 mr-1" />
+          Mensagens Programadas
+        </Button>
+        <Button
+          onClick={fetchGroups}
+          disabled={loading}
+          size="sm"
+          className="bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-white border-0"
+        >
+          <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
+          Buscar Grupos
+        </Button>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -109,15 +148,6 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
               {adminCount} como administrador
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="ml-auto h-8 w-8"
-            onClick={fetchGroups}
-            disabled={loading}
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          </Button>
         </div>
       )}
 
@@ -173,10 +203,6 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
         <div className="text-center py-12">
           <Users className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">Nenhum grupo encontrado</p>
-          <Button variant="outline" size="sm" className="mt-3" onClick={fetchGroups}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Buscar Grupos
-          </Button>
         </div>
       )}
 
