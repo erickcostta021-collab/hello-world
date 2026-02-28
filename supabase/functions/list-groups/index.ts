@@ -519,105 +519,87 @@ serve(async (req) => {
       }
     }
 
-    // Fetch profile pictures for groups
+    // Try to fetch profile pictures using /group/profilePicture endpoint
     const groupsWithoutPic = groups.filter(g => !g.profilePicUrl);
     if (groupsWithoutPic.length > 0) {
-      console.log(`[list-groups] Fetching profile pics for ${groupsWithoutPic.length} groups`);
+      console.log(`[list-groups] Trying /group/profilePicture for ${groupsWithoutPic.length} groups`);
       
-      // Try multiple endpoint patterns - GET with query params first (most UAZAPI endpoints are GET)
+      // Test with first group
+      const testJid = groupsWithoutPic[0].id;
+      let endpointWorks = false;
+
       const picEndpoints = [
-        // UAZAPI v2: try contact/getDetail which may return profile pic
-        (jid: string) => ({ url: `${baseUrl}/contact/getDetail`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
-        // group/info may contain profile pic in some versions
-        (jid: string) => ({ url: `${baseUrl}/group/info`, method: "POST", body: JSON.stringify({ groupjid: jid, getInviteLink: false }) }),
-        // Legacy endpoints as fallback
-        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic?Phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
-        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl?jid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        (jid: string) => ({ url: `${baseUrl}/group/profilePicture?jid=${encodeURIComponent(jid)}`, method: "GET" as const }),
+        (jid: string) => ({ url: `${baseUrl}/group/profilePicture`, method: "POST" as const, body: JSON.stringify({ groupjid: jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/group/getProfilePic?jid=${encodeURIComponent(jid)}`, method: "GET" as const }),
       ];
 
-      const testJid = groupsWithoutPic[0].id;
-      let workingEndpointIdx = -1;
-      
-      function extractPicUrl(data: any): string {
-        if (!data || typeof data !== "object") return "";
-        const fields = ["profilePicUrl", "ProfilePicUrl", "profilePic", "ProfilePic", 
-          "picture", "Picture", "url", "URL", "imgUrl", "ImgUrl", "PicURL", "picUrl",
-          "photo", "Photo", "image", "Image", "profilePicture", "ProfilePicture",
-          "pictureUrl", "PictureUrl", "pic", "Pic", "avatar", "Avatar",
-          "GroupPicture", "groupPicture", "PictureID", "pictureID"];
-        // Scan top-level
-        for (const f of fields) {
-          if (data[f] && typeof data[f] === "string" && data[f].startsWith("http")) return data[f];
-        }
-        // Scan nested: data, groupInfo, GroupInfo, info, Info
-        const nested = [data.data, data.groupInfo, data.GroupInfo, data.info, data.Info];
-        for (const obj of nested) {
-          if (obj && typeof obj === "object") {
-            for (const f of fields) {
-              if (obj[f] && typeof obj[f] === "string" && obj[f].startsWith("http")) return obj[f];
-            }
-          }
-        }
-        // Deep scan: look for any string value starting with "https://pps.whatsapp.net"
-        const jsonStr = JSON.stringify(data);
-        const ppsMatch = jsonStr.match(/"(https:\/\/pps\.whatsapp\.net[^"]+)"/);
-        if (ppsMatch) return ppsMatch[1];
-        return "";
-      }
-
+      let workingIdx = -1;
       for (let i = 0; i < picEndpoints.length; i++) {
         try {
           const ep = picEndpoints[i](testJid);
-          console.log(`[list-groups] Trying pic endpoint ${i}: ${ep.method} ${ep.url}`);
+          console.log(`[list-groups] Trying pic: ${ep.method} ${ep.url}`);
           const res = await fetch(ep.url, {
             method: ep.method,
             headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
-            ...(ep.body ? { body: ep.body } : {}),
+            ...("body" in ep && ep.body ? { body: ep.body } : {}),
           });
           const text = await res.text();
-          console.log(`[list-groups] Pic endpoint ${i} response ${res.status}: ${text.substring(0, 500)}`);
+          console.log(`[list-groups] Pic response ${res.status}: ${text.substring(0, 500)}`);
           if (res.ok) {
+            // Check for pps.whatsapp.net URL anywhere in response
+            const ppsMatch = text.match(/"(https:\/\/pps\.whatsapp\.net[^"]+)"/);
+            if (ppsMatch) {
+              groupsWithoutPic[0].profilePicUrl = ppsMatch[1];
+              workingIdx = i;
+              console.log(`[list-groups] ✅ Pic endpoint ${i} works!`);
+              break;
+            }
+            // Also check for url/URL fields
             try {
               const data = JSON.parse(text);
-              const picUrl = extractPicUrl(data);
-              if (picUrl) {
-                groupsWithoutPic[0].profilePicUrl = picUrl;
-                workingEndpointIdx = i;
-                console.log(`[list-groups] ✅ Profile pic endpoint ${i} works! URL: ${picUrl.substring(0, 80)}`);
+              const url = data?.url || data?.URL || data?.profilePicUrl || data?.ProfilePicUrl || data?.picture || "";
+              if (url && typeof url === "string" && url.startsWith("http")) {
+                groupsWithoutPic[0].profilePicUrl = url;
+                workingIdx = i;
+                console.log(`[list-groups] ✅ Pic endpoint ${i} works!`);
                 break;
               }
-            } catch { /* not JSON */ }
+            } catch {}
           }
         } catch (e) { console.log(`[list-groups] Pic endpoint ${i} error: ${e}`); }
       }
 
-      // Fetch remaining using working endpoint
-      if (workingEndpointIdx >= 0) {
+      // Fetch remaining if endpoint works
+      if (workingIdx >= 0) {
         const remaining = groupsWithoutPic.filter(g => !g.profilePicUrl);
         const batchSize = 10;
         for (let i = 0; i < remaining.length; i += batchSize) {
           const batch = remaining.slice(i, i + batchSize);
           await Promise.allSettled(batch.map(async (g) => {
             try {
-              const ep = picEndpoints[workingEndpointIdx](g.id);
+              const ep = picEndpoints[workingIdx](g.id);
               const res = await fetch(ep.url, {
                 method: ep.method,
                 headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
-                ...(ep.body ? { body: ep.body } : {}),
+                ...("body" in ep && ep.body ? { body: ep.body } : {}),
               });
               if (res.ok) {
-                const data = await res.json();
-                const picUrl = extractPicUrl(data);
-                if (picUrl) g.profilePicUrl = picUrl;
+                const text = await res.text();
+                const ppsMatch = text.match(/"(https:\/\/pps\.whatsapp\.net[^"]+)"/);
+                if (ppsMatch) { g.profilePicUrl = ppsMatch[1]; return; }
+                try {
+                  const data = JSON.parse(text);
+                  const url = data?.url || data?.URL || data?.profilePicUrl || data?.ProfilePicUrl || data?.picture || "";
+                  if (url && typeof url === "string" && url.startsWith("http")) g.profilePicUrl = url;
+                } catch {}
               }
-            } catch { /* skip */ }
+            } catch {}
           }));
         }
-        const picCount = groups.filter(g => g.profilePicUrl).length;
-        console.log(`[list-groups] Got profile pics for ${picCount}/${groups.length} groups`);
+        console.log(`[list-groups] Got pics for ${groups.filter(g => g.profilePicUrl).length}/${groups.length} groups`);
       } else {
-        console.log(`[list-groups] No working profile pic endpoint found after trying all ${picEndpoints.length} patterns`);
+        console.log(`[list-groups] No working profile pic endpoint found`);
       }
     }
 
