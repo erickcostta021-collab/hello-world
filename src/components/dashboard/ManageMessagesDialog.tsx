@@ -907,7 +907,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
         // If split messages is enabled, split each message by triple line breaks
         // Mark each part so anti-ban button is only added after the last part per contact
-        if (antiBanEnabled && splitMessages) {
+        if (splitMessages) {
           const splitDelaySec = parseInt(splitDelay) || 2;
           const expanded: Record<string, unknown>[] = [];
           for (const msg of messages) {
@@ -928,21 +928,25 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
         // If anti-ban button is enabled, add button messages only after last part per contact
         if (antiBanEnabled && antiBanButton) {
-          const wasSplit = antiBanEnabled && splitMessages;
+          const wasSplit = splitMessages;
+          const splitDelaySec2 = parseInt(splitDelay) || 2;
           const withButtons: Record<string, unknown>[] = [];
           for (const msg of messages) {
             const { _isLastPart, ...cleanMsg } = msg as Record<string, unknown> & { _isLastPart?: boolean };
             withButtons.push(cleanMsg);
             // Only add button after last part (or every msg if not split)
             if (!wasSplit || _isLastPart) {
-              withButtons.push({
+              const btnMsg: Record<string, unknown> = {
                 number: msg.number,
                 type: "button",
                 text: antiBanBtnMessage,
                 footerText: antiBanBtnFooter,
                 buttonText: antiBanBtnTitle,
                 choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
-              });
+                delayOverride: splitDelaySec2,
+                splitPart: true,
+              };
+              withButtons.push(btnMsg);
             }
           }
           messages = withButtons;
@@ -1057,7 +1061,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
           else toast.success(`Round-robin com botão anti-ban! ${numberList.length} contatos em ${instances.length} instâncias.`);
         }
-      } else if (antiBanEnabled && splitMessages) {
+      } else if (splitMessages) {
         // Split messages by triple line break → convert to advanced mode
         let bodyText = text;
         if (antiBanEnabled) {
