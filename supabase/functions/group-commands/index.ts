@@ -676,10 +676,12 @@ async function getGroupLink(
     ];
 
     const getAttempts = [
-      `${baseUrl}/group/inviteCode/${encodeURIComponent(group.id)}`,
+      `${baseUrl}/group/invitelink/${group.id}`,
+      `${baseUrl}/group/inviteCode/${group.id}`,
       `${baseUrl}/group/invitelink/${encodeURIComponent(group.id)}`,
-      `${baseUrl}/group/getInviteLink/${encodeURIComponent(group.id)}`,
-      `${baseUrl}/group/${encodeURIComponent(group.id)}/invite`,
+      `${baseUrl}/group/getInviteLink/${group.id}`,
+      `${baseUrl}/group/invitelink?groupJid=${encodeURIComponent(group.id)}`,
+      `${baseUrl}/group/${group.id}/invite`,
     ];
 
     let inviteCode: string | null = null;
