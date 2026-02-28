@@ -393,6 +393,8 @@ export type Database = {
           instance_id: string
           is_recurring: boolean
           last_error: string | null
+          media_type: string | null
+          media_url: string | null
           mention_all: boolean
           message_text: string
           recurring_interval: string | null
@@ -410,6 +412,8 @@ export type Database = {
           instance_id: string
           is_recurring?: boolean
           last_error?: string | null
+          media_type?: string | null
+          media_url?: string | null
           mention_all?: boolean
           message_text: string
           recurring_interval?: string | null
@@ -427,6 +431,8 @@ export type Database = {
           instance_id?: string
           is_recurring?: boolean
           last_error?: string | null
+          media_type?: string | null
+          media_url?: string | null
           mention_all?: boolean
           message_text?: string
           recurring_interval?: string | null

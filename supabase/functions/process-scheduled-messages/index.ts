@@ -66,19 +66,33 @@ serve(async (req: Request) => {
       }
 
       try {
-        const sendBody: Record<string, unknown> = {
+        let endpoint = "/send/text";
+        let sendBody: Record<string, unknown> = {
           number: msg.group_jid,
-          text: msg.message_text,
         };
 
         // If mention_all, prepend @todos
-        if (msg.mention_all) {
-          sendBody.text = `@todos\n${msg.message_text}`;
+        const text = msg.mention_all ? `@todos\n${msg.message_text}` : msg.message_text;
+
+        if (msg.media_url && msg.media_type) {
+          // Send media message
+          if (msg.media_type === "audio") {
+            endpoint = "/send/audio";
+            sendBody.url = msg.media_url;
+            if (text) sendBody.text = text;
+          } else {
+            endpoint = "/send/media";
+            sendBody.url = msg.media_url;
+            sendBody.type = msg.media_type === "document" ? "document" : msg.media_type;
+            if (text) sendBody.caption = text;
+          }
+        } else {
+          sendBody.text = text;
         }
 
-        console.log(`[process-scheduled] Sending to ${msg.group_jid}: ${(sendBody.text as string).substring(0, 50)}...`);
+        console.log(`[process-scheduled] Sending to ${msg.group_jid} via ${endpoint}`);
 
-        const response = await fetch(`${baseUrl}/send/text`, {
+        const response = await fetch(`${baseUrl}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "token": inst.uazapi_instance_token },
           body: JSON.stringify(sendBody),
@@ -115,6 +129,8 @@ serve(async (req: Request) => {
             group_name: msg.group_name,
             message_text: msg.message_text,
             mention_all: msg.mention_all,
+            media_url: msg.media_url,
+            media_type: msg.media_type,
             scheduled_for: nextDate.toISOString(),
             is_recurring: true,
             recurring_interval: msg.recurring_interval,

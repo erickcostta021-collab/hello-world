@@ -23,6 +23,10 @@ import {
   Loader2,
   Inbox,
   RefreshCw,
+  Image,
+  Video,
+  Music,
+  FileText,
 } from "lucide-react";
 
 interface ScheduledMessage {
@@ -36,6 +40,8 @@ interface ScheduledMessage {
   status: string;
   mention_all: boolean;
   created_at: string;
+  media_url?: string;
+  media_type?: string;
 }
 
 interface ScheduledMessagesDialogProps {
@@ -172,6 +178,15 @@ export function ScheduledMessagesDialog({ open, onOpenChange }: ScheduledMessage
                       <MessageSquare className="h-3 w-3 inline mr-1" />
                       {msg.mention_all ? "@todos " : ""}{msg.message_text}
                     </p>
+                    {msg.media_url && (
+                      <p className="text-xs text-primary/80 mt-0.5 flex items-center gap-1">
+                        {msg.media_type === "image" && <Image className="h-3 w-3" />}
+                        {msg.media_type === "video" && <Video className="h-3 w-3" />}
+                        {msg.media_type === "audio" && <Music className="h-3 w-3" />}
+                        {msg.media_type === "document" && <FileText className="h-3 w-3" />}
+                        {msg.media_type === "image" ? "Imagem" : msg.media_type === "video" ? "Vídeo" : msg.media_type === "audio" ? "Áudio" : "Documento"} anexado
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-1">
                       <CalendarClock className="h-3 w-3 inline mr-1" />
                       {new Date(msg.scheduled_for).toLocaleString("pt-BR")}

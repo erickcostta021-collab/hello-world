@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -54,6 +54,12 @@ import {
   ArrowDown,
   FileSpreadsheet,
   RefreshCw,
+  Image,
+  Video,
+  Music,
+  FileText,
+  Paperclip,
+  X,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -98,6 +104,10 @@ export function GroupDetailDialog({
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
   const [scheduleTime, setScheduleTime] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [mediaType, setMediaType] = useState<string | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const isMobile = useIsMobile();
 
   // New states for added features
@@ -152,6 +162,8 @@ export function GroupDetailDialog({
       setScheduleEnabled(false);
       setScheduleDate(undefined);
       setScheduleTime("");
+      setMediaUrl("");
+      setMediaType(null);
       setAddPhoneInput("");
       setEditingName(false);
       setEditingDesc(false);
@@ -261,6 +273,40 @@ export function GroupDetailDialog({
     }
   };
 
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Arquivo muito grande (máx. 5MB)");
+      return;
+    }
+    setUploadingMedia(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const { data, error } = await supabase.functions.invoke("upload-command-image", { body: formData });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setMediaUrl(data.url);
+      setMediaType(type);
+      toast.success(`${type === "image" ? "Imagem" : type === "video" ? "Vídeo" : type === "audio" ? "Áudio" : "Documento"} anexado!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao fazer upload");
+    } finally {
+      setUploadingMedia(false);
+      if (mediaInputRef.current) mediaInputRef.current.value = "";
+    }
+  };
+
+  const triggerMediaUpload = (type: string) => {
+    setMediaType(type);
+    const accept = type === "image" ? "image/*" : type === "video" ? "video/*" : type === "audio" ? "audio/*" : "*/*";
+    if (mediaInputRef.current) {
+      mediaInputRef.current.accept = accept;
+      mediaInputRef.current.click();
+    }
+  };
+
   const sendGroupMessage = async () => {
     if (!messageText.trim()) {
       toast.error("Digite uma mensagem");
@@ -304,6 +350,8 @@ export function GroupDetailDialog({
             scheduled_for: scheduledFor,
             is_recurring: false,
             status: "pending",
+            media_url: mediaUrl || null,
+            media_type: mediaType || null,
           });
 
         if (insertError) throw insertError;
@@ -329,6 +377,8 @@ export function GroupDetailDialog({
       setScheduleEnabled(false);
       setScheduleDate(undefined);
       setScheduleTime("");
+      setMediaUrl("");
+      setMediaType(null);
       setShowMessageDialog(false);
     } catch (err: any) {
       toast.error(err.message || "Erro ao enviar mensagem");
@@ -913,6 +963,55 @@ export function GroupDetailDialog({
               onChange={(e) => setMessageText(e.target.value)}
               className="min-h-[140px] resize-y text-sm"
             />
+          </div>
+
+          {/* Media attachment */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Paperclip className="h-3.5 w-3.5" />
+              <span>Anexar Mídia (opcional)</span>
+            </div>
+            <input
+              ref={mediaInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => handleMediaUpload(e, mediaType || "image")}
+            />
+            {mediaUrl ? (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                {mediaType === "image" && <Image className="h-4 w-4 text-primary" />}
+                {mediaType === "video" && <Video className="h-4 w-4 text-primary" />}
+                {mediaType === "audio" && <Music className="h-4 w-4 text-primary" />}
+                {mediaType === "document" && <FileText className="h-4 w-4 text-primary" />}
+                <span className="text-xs text-card-foreground truncate flex-1">
+                  {mediaType === "image" ? "Imagem" : mediaType === "video" ? "Vídeo" : mediaType === "audio" ? "Áudio" : "Documento"} anexado
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                  onClick={() => { setMediaUrl(""); setMediaType(null); }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("image")} disabled={uploadingMedia}>
+                  <Image className="h-3.5 w-3.5 mr-1" /> Imagem
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("video")} disabled={uploadingMedia}>
+                  <Video className="h-3.5 w-3.5 mr-1" /> Vídeo
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("audio")} disabled={uploadingMedia}>
+                  <Music className="h-3.5 w-3.5 mr-1" /> Áudio
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("document")} disabled={uploadingMedia}>
+                  <FileText className="h-3.5 w-3.5 mr-1" /> Documento
+                </Button>
+                {uploadingMedia && <Loader2 className="h-4 w-4 animate-spin text-primary ml-1 self-center" />}
+              </div>
+            )}
           </div>
 
           {/* Mention all */}
