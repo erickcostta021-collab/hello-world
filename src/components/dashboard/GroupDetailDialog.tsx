@@ -516,34 +516,58 @@ export function GroupDetailDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
-            {scheduleEnabled ? "Agendar Mensagem" : "Enviar Mensagem no Grupo"}
+            {scheduleEnabled ? "Agendar Mensagem" : "Enviar Mensagem"}
           </DialogTitle>
-          <DialogDescription>{groupName}</DialogDescription>
+          <DialogDescription className="text-xs">{groupName}</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          {/* Schedule toggle */}
-          <div className="flex items-center gap-2">
-            <Switch
-              id="schedule-toggle"
-              checked={scheduleEnabled}
-              onCheckedChange={setScheduleEnabled}
+        <div className="flex flex-col gap-3 py-1">
+          {/* Message */}
+          <div className="space-y-1.5">
+            <Label htmlFor="group-message" className="text-xs font-medium">Mensagem</Label>
+            <Textarea
+              id="group-message"
+              placeholder="Digite sua mensagem..."
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              className="min-h-[100px] resize-none text-sm"
             />
-            <Label htmlFor="schedule-toggle" className="text-sm cursor-pointer flex items-center gap-1.5">
-              <CalendarIcon className="h-4 w-4" />
-              Agendar envio
-            </Label>
+          </div>
+
+          {/* Toggles row */}
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border/50 p-3">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="mention-all"
+                checked={mentionAll}
+                onCheckedChange={setMentionAll}
+              />
+              <Label htmlFor="mention-all" className="text-xs cursor-pointer">
+                Mencionar @todos
+              </Label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="schedule-toggle"
+                checked={scheduleEnabled}
+                onCheckedChange={setScheduleEnabled}
+              />
+              <Label htmlFor="schedule-toggle" className="text-xs cursor-pointer flex items-center gap-1">
+                <CalendarIcon className="h-3.5 w-3.5" />
+                Agendar
+              </Label>
+            </div>
           </div>
 
           {/* Date/time picker */}
           {scheduleEnabled && (
-            <div className="space-y-2">
-              <Label>Data e Hora do Envio</Label>
+            <div className="rounded-lg border border-border/50 p-3 space-y-1.5">
+              <Label className="text-xs font-medium">Data e Hora</Label>
               <div className="flex gap-2">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="flex-1 justify-start text-left font-normal">
-                      <CalendarIcon className="h-4 w-4 mr-2" />
-                      {scheduleDate ? format(scheduleDate, "dd/MM/yyyy") : "dd/mm/aaaa"}
+                    <Button variant="outline" size="sm" className="flex-1 justify-start text-left font-normal text-xs h-9">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+                      {scheduleDate ? format(scheduleDate, "dd/MM/yyyy") : "Selecionar data"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -561,60 +585,36 @@ export function GroupDetailDialog({
                   type="time"
                   value={scheduleTime}
                   onChange={(e) => setScheduleTime(e.target.value)}
-                  className="w-[120px]"
-                  placeholder="--:--"
+                  className="w-[100px] h-9 text-xs"
                 />
               </div>
             </div>
           )}
-
-          {/* Message */}
-          <div className="space-y-2">
-            <Label htmlFor="group-message">Mensagem</Label>
-            <Textarea
-              id="group-message"
-              placeholder="Digite sua mensagem..."
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              className="min-h-[120px] resize-none"
-            />
-          </div>
-
-          {/* Mention all */}
-          <div className="flex items-center gap-2">
-            <Switch
-              id="mention-all"
-              checked={mentionAll}
-              onCheckedChange={setMentionAll}
-            />
-            <Label htmlFor="mention-all" className="text-sm cursor-pointer">
-              Mencionar @todos no grupo
-            </Label>
-          </div>
         </div>
-        <DialogFooter className="flex gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={sendGroupMessage}
-            disabled={sendingMessage || !messageText.trim()}
-          >
-            {sendingMessage ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4 mr-1" />
-            )}
-            {scheduleEnabled ? "Agendar Mensagem" : "Enviar Agora"}
-          </Button>
+        <DialogFooter className="flex-row gap-2 sm:gap-2">
           <Button
             variant="secondary"
+            size="sm"
+            className="flex-1"
             onClick={() => {
               toast.info("Mensagens recorrentes em breve!");
             }}
           >
-            <CalendarIcon className="h-4 w-4 mr-1" />
+            <CalendarIcon className="h-3.5 w-3.5 mr-1" />
             Recorrente
+          </Button>
+          <Button
+            size="sm"
+            className="flex-1"
+            onClick={sendGroupMessage}
+            disabled={sendingMessage || !messageText.trim()}
+          >
+            {sendingMessage ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5 mr-1" />
+            )}
+            {scheduleEnabled ? "Agendar" : "Enviar"}
           </Button>
         </DialogFooter>
       </DialogContent>

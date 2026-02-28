@@ -11,6 +11,7 @@ interface GroupInfo {
   name: string;
   memberCount?: number;
   isAdmin?: boolean;
+  profilePicUrl?: string;
 }
 
 interface Participant {
@@ -512,8 +513,9 @@ serve(async (req) => {
       const name = group.subject || group.Subject || group.name || group.Name || group.groupName || group.GroupName || group.Topic || group.topic || `Grupo ${id.split("@")[0].slice(-6)}`;
       const memberCount = group.size || group.Size || group.ParticipantCount || group.participantCount || group.participants?.length || group.Participants?.length || group.MemberCount || group.memberCount;
       const isAdmin = group.isAdmin || group.IsAdmin || group.admin || group.Admin || group.OwnerIsAdmin || group.ownerIsAdmin;
+      const profilePicUrl = group.profilePicUrl || group.ProfilePicUrl || group.profilePic || group.ProfilePic || group.picture || group.Picture || group.pictureUrl || group.PictureUrl || group.imgUrl || group.ImgUrl || group.photo || group.Photo || "";
       if (id) {
-        groups.push({ id, name, memberCount, isAdmin });
+        groups.push({ id, name, memberCount, isAdmin, profilePicUrl: profilePicUrl || undefined });
       }
     }
 

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Instance } from "@/hooks/useInstances";
@@ -40,6 +41,7 @@ interface GroupInfo {
   name: string;
   memberCount?: number;
   isAdmin?: boolean;
+  profilePicUrl?: string;
 }
 
 export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManagerDialogProps) {
@@ -175,16 +177,24 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
               title="Clique para ver detalhes do grupo"
             >
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-3">
+                  <Avatar className="h-10 w-10 shrink-0 rounded-lg">
+                    {group.profilePicUrl ? (
+                      <AvatarImage src={group.profilePicUrl} alt={group.name} className="object-cover" />
+                    ) : null}
+                    <AvatarFallback className="rounded-lg bg-muted text-muted-foreground text-xs font-medium">
+                      {group.name.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="min-w-0 flex-1">
                     <h4 className="font-medium text-card-foreground text-sm truncate">
                       {group.name}
                     </h4>
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       {group.memberCount != null && group.memberCount > 0 && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Users className="h-3 w-3" />
-                          {group.memberCount} participantes
+                          {group.memberCount}
                         </div>
                       )}
                       {group.isAdmin && (
@@ -195,7 +205,6 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
                       )}
                     </div>
                   </div>
-                  <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                 </div>
               </CardContent>
             </Card>
