@@ -129,6 +129,8 @@ export function GroupDetailDialog({
   // New states for added features
   const [addPhoneInput, setAddPhoneInput] = useState("");
   const [addingMember, setAddingMember] = useState(false);
+  const [importingCsv, setImportingCsv] = useState(false);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [savingName, setSavingName] = useState(false);
@@ -523,6 +525,51 @@ export function GroupDetailDialog({
       toast.error(err.message || "Erro ao adicionar membro");
     } finally {
       setAddingMember(false);
+    }
+  };
+
+  // Import participants from CSV
+  const importCsv = async (file: File) => {
+    setImportingCsv(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const phones: string[] = [];
+      for (const line of lines) {
+        // Extract first column (phone), supports comma/semicolon separator
+        const cols = line.split(/[,;]/);
+        const phone = (cols[0] || "").trim().replace(/\D/g, "");
+        if (phone && phone.length >= 8) phones.push(phone);
+      }
+      if (phones.length === 0) {
+        toast.error("Nenhum número válido encontrado no CSV");
+        return;
+      }
+      toast.info(`Importando ${phones.length} participantes...`);
+      let success = 0;
+      let failed = 0;
+      for (const phone of phones) {
+        try {
+          const { data, error } = await supabase.functions.invoke("group-commands", {
+            body: { instanceId: instance.id, messageText: `#addnogrupo ${groupId}|${phone}` },
+          });
+          if (error || (data && !data.success)) {
+            failed++;
+          } else {
+            success++;
+          }
+          // Small delay to avoid rate limiting
+          await new Promise(r => setTimeout(r, 1000));
+        } catch {
+          failed++;
+        }
+      }
+      toast.success(`Importação concluída: ${success} adicionados, ${failed} falharam`);
+      fetchGroupDetails();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao importar CSV");
+    } finally {
+      setImportingCsv(false);
     }
   };
 
@@ -968,9 +1015,36 @@ export function GroupDetailDialog({
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            💡 Digite o número completo com DDD e código do país
-          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <p className="text-xs text-muted-foreground flex-1">
+              💡 Digite o número completo com DDD e código do país
+            </p>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,.txt"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) importCsv(file);
+                e.target.value = "";
+              }}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => csvInputRef.current?.click()}
+              disabled={importingCsv}
+              className="text-primary border-primary/50 shrink-0"
+            >
+              {importingCsv ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <FileSpreadsheet className="h-3.5 w-3.5 mr-1" />
+              )}
+              Importar CSV
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
