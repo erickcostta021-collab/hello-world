@@ -95,6 +95,13 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     setDetailOpen(true);
   };
 
+  const handleGroupNameChanged = (groupId: string, newName: string) => {
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, name: newName } : g));
+    if (selectedGroup?.id === groupId) {
+      setSelectedGroup(prev => prev ? { ...prev, name: newName } : prev);
+    }
+  };
+
   const handleCreateGroup = () => {
     setCreateOpen(true);
   };
@@ -240,6 +247,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
       instance={instance}
       groupId={selectedGroup.id}
       groupName={selectedGroup.name}
+      onGroupNameChanged={handleGroupNameChanged}
     />
   );
 

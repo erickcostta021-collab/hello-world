@@ -72,6 +72,7 @@ interface GroupDetailDialogProps {
   instance: Instance;
   groupId: string;
   groupName: string;
+  onGroupNameChanged?: (groupId: string, newName: string) => void;
 }
 
 interface ParticipantInfo {
@@ -89,6 +90,7 @@ export function GroupDetailDialog({
   instance,
   groupId,
   groupName,
+  onGroupNameChanged,
 }: GroupDetailDialogProps) {
   const [participants, setParticipants] = useState<ParticipantInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -528,6 +530,7 @@ export function GroupDetailDialog({
       toast.success("Nome do grupo atualizado!");
       setCurrentGroupName(newGroupName.trim());
       setEditingName(false);
+      onGroupNameChanged?.(groupId, newGroupName.trim());
     } catch (err: any) {
       toast.error(err.message || "Erro ao atualizar nome");
     } finally {
