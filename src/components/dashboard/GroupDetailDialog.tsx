@@ -793,42 +793,6 @@ export function GroupDetailDialog({
                 )}
               </div>
 
-              {/* Description with edit */}
-              <div className="flex items-start gap-1 mt-1">
-                {editingDesc ? (
-                  <div className="flex flex-col gap-2 flex-1">
-                    <Textarea
-                      value={newGroupDesc}
-                      onChange={(e) => setNewGroupDesc(e.target.value)}
-                      className="text-sm min-h-[140px] resize-y"
-                      placeholder="Nova descrição"
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={saveGroupDesc} disabled={savingDesc}>
-                        {savingDesc ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingDesc(false)}>
-                        Cancelar
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto rounded-md bg-muted/30 p-3 border border-border/40"
-                      onClick={() => {
-                        setNewGroupDesc(groupDescription);
-                        setEditingDesc(true);
-                      }}
-                      title="Clique para editar descrição"
-                    >
-                      {groupDescription || "Sem descrição"}
-                    </div>
-                  </>
-                )}
-              </div>
-
               {/* Stats */}
               <div className="flex items-center gap-4 mt-2 flex-wrap">
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -844,7 +808,44 @@ export function GroupDetailDialog({
                 JID: {groupId}
               </p>
             </div>
-            {/* Link Convite button */}
+          </div>
+
+          {/* Description with edit - full width */}
+          <div className="mt-3">
+            {editingDesc ? (
+              <div className="flex flex-col gap-2">
+                <Textarea
+                  value={newGroupDesc}
+                  onChange={(e) => setNewGroupDesc(e.target.value)}
+                  className="text-sm min-h-[140px] resize-y"
+                  placeholder="Nova descrição"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={saveGroupDesc} disabled={savingDesc}>
+                    {savingDesc ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingDesc(false)}>
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto rounded-md bg-muted/30 p-3 border border-border/40 w-full"
+                onClick={() => {
+                  setNewGroupDesc(groupDescription);
+                  setEditingDesc(true);
+                }}
+                title="Clique para editar descrição"
+              >
+                {groupDescription || "Sem descrição"}
+              </div>
+            )}
+          </div>
+
+          {/* Link buttons */}
+          <div className="flex items-center gap-2 mt-3">
             <Button
               variant="outline"
               size="sm"
