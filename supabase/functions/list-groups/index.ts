@@ -526,13 +526,11 @@ serve(async (req) => {
       
       // Try multiple endpoint patterns with full logging
       const picEndpoints = [
-        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl`, method: "POST", body: JSON.stringify({ jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/chat/getProfilePicUrl`, method: "POST", body: JSON.stringify({ jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/group/profilePic`, method: "POST", body: JSON.stringify({ groupjid: jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/group/profilePic`, method: "POST", body: JSON.stringify({ jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/user/avatar`, method: "GET", body: JSON.stringify({ Phone: jid, Preview: false }) }),
+        (jid: string) => ({ url: `${baseUrl}/user/avatar`, method: "GET", body: JSON.stringify({ Phone: jid.split("@")[0], Preview: false }) }),
+        (jid: string) => ({ url: `${baseUrl}/user/avatar`, method: "POST", body: JSON.stringify({ Phone: jid, Preview: false }) }),
+        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl`, method: "GET", body: JSON.stringify({ jid }) }),
         (jid: string) => ({ url: `${baseUrl}/group/photo/${encodeURIComponent(jid)}`, method: "GET", body: null }),
-        (jid: string) => ({ url: `${baseUrl}/chat/getProfilePic/${encodeURIComponent(jid)}`, method: "GET", body: null }),
-        (jid: string) => ({ url: `${baseUrl}/user/fetchProfilePictureUrl/${encodeURIComponent(jid)}?type=image`, method: "GET", body: null }),
       ];
 
       const testJid = groupsWithoutPic[0].id;
