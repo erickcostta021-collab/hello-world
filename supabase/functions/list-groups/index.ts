@@ -454,7 +454,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         success: true,
         instanceName: instanceData.instance_name,
-        groupName: data.subject || data.Subject || data.name || data.Name || data.groupName || groupjid,
+        groupName: data.subject || data.Subject || data.data?.subject || data.data?.Subject || data.Topic || data.topic || data.groupName || data.GroupName || groupjid,
         groupDescription: data.desc || data.Desc || data.description || data.Description || data.Topic || "",
         participantCount: participants.length,
         participants,

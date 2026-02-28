@@ -160,7 +160,10 @@ export function GroupDetailDialog({
       setParticipantCount(data?.participantCount || data?.participants?.length || 0);
       setIsAnnounce(data?.isAnnounce ?? false);
       setIsLocked(data?.isLocked ?? false);
-      setCurrentGroupName(data?.groupName || groupName);
+      const returnedName = data?.groupName;
+      // Only use returned name if it's not a JID (contains @)
+      const isJid = returnedName && returnedName.includes("@");
+      setCurrentGroupName(isJid ? groupName : (returnedName || groupName));
       setGroupProfilePic(data?.profilePicUrl || null);
     } catch (err: any) {
       console.error("Failed to fetch group details:", err);
