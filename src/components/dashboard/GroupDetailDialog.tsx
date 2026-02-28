@@ -140,6 +140,7 @@ export function GroupDetailDialog({
   const [demotingPhone, setDemotingPhone] = useState<string | null>(null);
   const [currentGroupName, setCurrentGroupName] = useState(groupName);
   const [changingPhoto, setChangingPhoto] = useState(false);
+  const [showAdvancedRecurring, setShowAdvancedRecurring] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchGroupDetails = async () => {
@@ -1290,32 +1291,44 @@ export function GroupDetailDialog({
                 </div>
               )}
 
-              {/* Advanced: end date and max executions */}
-              <div className="space-y-1.5 pt-1 border-t border-border/30">
-                <Label className="text-xs font-medium text-muted-foreground">Opções Avançadas</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">Data Final</Label>
-                    <Input
-                      type="date"
-                      value={recurringEndDate}
-                      onChange={(e) => setRecurringEndDate(e.target.value)}
-                      min={format(new Date(), "yyyy-MM-dd")}
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[10px] text-muted-foreground">Máx. Execuções</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={recurringMaxExec}
-                      onChange={(e) => setRecurringMaxExec(e.target.value)}
-                      placeholder="∞"
-                      className="h-8 text-xs"
-                    />
-                  </div>
+              {/* Advanced: end date and max executions - collapsible */}
+              <div className="pt-1 border-t border-border/30">
+                <div
+                  className="flex items-center justify-between cursor-pointer py-1"
+                  onClick={() => setShowAdvancedRecurring(prev => !prev)}
+                >
+                  <Label className="text-xs font-medium text-muted-foreground cursor-pointer">Opções Avançadas</Label>
+                  <Switch
+                    checked={showAdvancedRecurring}
+                    onCheckedChange={setShowAdvancedRecurring}
+                    className="scale-75"
+                  />
                 </div>
+                {showAdvancedRecurring && (
+                  <div className="grid grid-cols-2 gap-2 mt-1.5">
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Data Final</Label>
+                      <Input
+                        type="date"
+                        value={recurringEndDate}
+                        onChange={(e) => setRecurringEndDate(e.target.value)}
+                        min={format(new Date(), "yyyy-MM-dd")}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Máx. Execuções</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={recurringMaxExec}
+                        onChange={(e) => setRecurringMaxExec(e.target.value)}
+                        placeholder="∞"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
