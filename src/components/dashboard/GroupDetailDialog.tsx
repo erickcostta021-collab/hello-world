@@ -63,6 +63,7 @@ import {
   X,
   Repeat,
   CalendarDays,
+  Upload,
   CalendarRange,
   Camera,
 } from "lucide-react";
@@ -143,6 +144,8 @@ export function GroupDetailDialog({
   const [demotingPhone, setDemotingPhone] = useState<string | null>(null);
   const [currentGroupName, setCurrentGroupName] = useState(groupName);
   const [changingPhoto, setChangingPhoto] = useState(false);
+  const [mediaInputMode, setMediaInputMode] = useState<string | null>(null);
+  const [mediaLinkInput, setMediaLinkInput] = useState("");
   const [groupProfilePic, setGroupProfilePic] = useState<string | null>(null);
   const [showAdvancedRecurring, setShowAdvancedRecurring] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
@@ -317,6 +320,8 @@ export function GroupDetailDialog({
       setMediaUrl(data.url);
       setMediaType(type);
       toast.success(`${type === "image" ? "Imagem" : type === "video" ? "Vídeo" : type === "audio" ? "Áudio" : "Documento"} anexado!`);
+      setMediaInputMode(null);
+      setMediaLinkInput("");
     } catch (err: any) {
       toast.error(err.message || "Erro ao fazer upload");
     } finally {
@@ -1457,26 +1462,74 @@ export function GroupDetailDialog({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                  onClick={() => { setMediaUrl(""); setMediaType(null); }}
+                  onClick={() => { setMediaUrl(""); setMediaType(null); setMediaInputMode(null); setMediaLinkInput(""); }}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
+            ) : mediaInputMode ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  {mediaInputMode === "image" && <Image className="h-3.5 w-3.5 text-primary" />}
+                  {mediaInputMode === "video" && <Video className="h-3.5 w-3.5 text-primary" />}
+                  {mediaInputMode === "audio" && <Music className="h-3.5 w-3.5 text-primary" />}
+                  {mediaInputMode === "document" && <FileText className="h-3.5 w-3.5 text-primary" />}
+                  <span className="text-xs font-medium text-foreground capitalize">{mediaInputMode === "image" ? "Imagem" : mediaInputMode === "video" ? "Vídeo" : mediaInputMode === "audio" ? "Áudio" : "Documento"}</span>
+                  <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto text-muted-foreground hover:text-destructive" onClick={() => { setMediaInputMode(null); setMediaLinkInput(""); }}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="flex gap-1.5">
+                  <Input
+                    placeholder={`https://exemplo.com/${mediaInputMode === "image" ? "foto.jpg" : mediaInputMode === "video" ? "video.mp4" : mediaInputMode === "audio" ? "audio.mp3" : "arquivo.pdf"} (opcional)`}
+                    value={mediaLinkInput}
+                    onChange={(e) => setMediaLinkInput(e.target.value)}
+                    className="h-9 text-sm flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && mediaLinkInput.trim()) {
+                        setMediaUrl(mediaLinkInput.trim());
+                        setMediaType(mediaInputMode);
+                        setMediaInputMode(null);
+                        setMediaLinkInput("");
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    disabled={uploadingMedia}
+                    onClick={() => triggerMediaUpload(mediaInputMode)}
+                    title="Upload de arquivo"
+                  >
+                    {uploadingMedia ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </Button>
+                </div>
+                {mediaLinkInput.trim() && (
+                  <Button size="sm" className="w-full" onClick={() => {
+                    setMediaUrl(mediaLinkInput.trim());
+                    setMediaType(mediaInputMode);
+                    setMediaInputMode(null);
+                    setMediaLinkInput("");
+                  }}>
+                    Confirmar link
+                  </Button>
+                )}
+              </div>
             ) : (
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("image")} disabled={uploadingMedia}>
+                <Button variant="outline" size="sm" onClick={() => setMediaInputMode("image")} disabled={uploadingMedia}>
                   <Image className="h-3.5 w-3.5 mr-1" /> Imagem
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("video")} disabled={uploadingMedia}>
+                <Button variant="outline" size="sm" onClick={() => setMediaInputMode("video")} disabled={uploadingMedia}>
                   <Video className="h-3.5 w-3.5 mr-1" /> Vídeo
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("audio")} disabled={uploadingMedia}>
+                <Button variant="outline" size="sm" onClick={() => setMediaInputMode("audio")} disabled={uploadingMedia}>
                   <Music className="h-3.5 w-3.5 mr-1" /> Áudio
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => triggerMediaUpload("document")} disabled={uploadingMedia}>
+                <Button variant="outline" size="sm" onClick={() => setMediaInputMode("document")} disabled={uploadingMedia}>
                   <FileText className="h-3.5 w-3.5 mr-1" /> Documento
                 </Button>
-                {uploadingMedia && <Loader2 className="h-4 w-4 animate-spin text-primary ml-1 self-center" />}
               </div>
             )}
           </div>
