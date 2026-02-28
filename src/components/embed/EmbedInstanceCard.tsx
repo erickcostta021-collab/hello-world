@@ -77,6 +77,7 @@ export function EmbedInstanceCard({
   const opts = instance.embed_visible_options;
   const isVisible = (key: keyof EmbedVisibleOptions) => opts?.[key] !== false;
   const [syncing, setSyncing] = useState(false);
+  const [isOfficialApi, setIsOfficialApi] = useState(instance.is_official_api || false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(instance.phone || null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(instance.profile_pic_url || null);
   const [currentStatus, setCurrentStatus] = useState(instance.instance_status);
@@ -515,7 +516,7 @@ export function EmbedInstanceCard({
                       <StatusIcon className="h-3 w-3 mr-1" />
                       {status.label}
                     </Badge>
-                    {isVisible("api_oficial") && instance.is_official_api && (
+                    {isVisible("api_oficial") && isOfficialApi && (
                       <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] shrink-0">
                         API Oficial
                       </Badge>
@@ -627,6 +628,24 @@ export function EmbedInstanceCard({
                   <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Mensagem em massa
+                  </DropdownMenuItem>
+                  )}
+                  {isVisible("api_oficial") && (
+                  <DropdownMenuItem onClick={async () => {
+                    const newValue = !isOfficialApi;
+                    const { error } = await supabase
+                      .from("instances")
+                      .update({ is_official_api: newValue })
+                      .eq("id", instance.id);
+                    if (error) {
+                      toast.error("Erro ao atualizar API Oficial");
+                    } else {
+                      setIsOfficialApi(newValue);
+                      toast.success(newValue ? "API Oficial ativada" : "API Oficial desativada");
+                    }
+                  }}>
+                    <Smartphone className="h-4 w-4 mr-2" />
+                    {isOfficialApi ? "Desativar API Oficial" : "Ativar API Oficial"}
                   </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
