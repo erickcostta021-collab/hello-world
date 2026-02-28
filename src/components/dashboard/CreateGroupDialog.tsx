@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Instance } from "@/hooks/useInstances";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Users, ImageIcon, FileText, X } from "lucide-react";
+import { Loader2, Plus, Users, ImageIcon, FileText, Upload, X } from "lucide-react";
 
 interface CreateGroupDialogProps {
   open: boolean;
@@ -31,6 +31,8 @@ export function CreateGroupDialog({ open, onOpenChange, instance, onCreated }: C
   const [photoUrl, setPhotoUrl] = useState("");
   const [participantsText, setParticipantsText] = useState("");
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useIsMobile();
 
   const resetForm = () => {
@@ -38,6 +40,40 @@ export function CreateGroupDialog({ open, onOpenChange, instance, onCreated }: C
     setDescription("");
     setPhotoUrl("");
     setParticipantsText("");
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Imagem deve ter no máximo 5MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const { data, error } = await supabase.functions.invoke("upload-command-image", {
+        body: formData,
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.url) {
+        setPhotoUrl(data.url);
+        toast.success("Imagem enviada com sucesso!");
+      }
+    } catch (err: any) {
+      console.error("Upload failed:", err);
+      toast.error(err.message || "Erro ao enviar imagem");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const handleCreate = async () => {
@@ -56,7 +92,6 @@ export function CreateGroupDialog({ open, onOpenChange, instance, onCreated }: C
       return;
     }
 
-    // Build #criargrupo command
     const messageText = `#criargrupo ${groupName.trim()}|${description.trim() || "Sem descrição"}|${photoUrl.trim() || "sem_foto"}|${phones.join("|")}`;
 
     setCreating(true);
@@ -115,18 +150,57 @@ export function CreateGroupDialog({ open, onOpenChange, instance, onCreated }: C
         />
       </div>
 
-      {/* Photo URL */}
+      {/* Photo URL + Upload */}
       <div className="space-y-2">
-        <Label htmlFor="group-photo" className="flex items-center gap-2">
+        <Label className="flex items-center gap-2">
           <ImageIcon className="h-4 w-4 text-muted-foreground" />
-          URL da Foto
+          Foto do Grupo
         </Label>
-        <Input
-          id="group-photo"
-          placeholder="https://exemplo.com/foto.jpg (opcional)"
-          value={photoUrl}
-          onChange={(e) => setPhotoUrl(e.target.value)}
-        />
+        <div className="flex gap-2">
+          <Input
+            placeholder="https://exemplo.com/foto.jpg (opcional)"
+            value={photoUrl}
+            onChange={(e) => setPhotoUrl(e.target.value)}
+            className="flex-1"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            title="Fazer upload de imagem"
+          >
+            {uploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+          </Button>
+          {photoUrl && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setPhotoUrl("")}
+              title="Remover foto"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        {photoUrl && (
+          <div className="mt-2 rounded-md overflow-hidden border border-border/50 w-16 h-16">
+            <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          </div>
+        )}
       </div>
 
       {/* Participants */}
@@ -154,7 +228,7 @@ export function CreateGroupDialog({ open, onOpenChange, instance, onCreated }: C
       <Button variant="outline" onClick={() => onOpenChange(false)} disabled={creating}>
         Cancelar
       </Button>
-      <Button onClick={handleCreate} disabled={creating}>
+      <Button onClick={handleCreate} disabled={creating || uploading}>
         {creating ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
