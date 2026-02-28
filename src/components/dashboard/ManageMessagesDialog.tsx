@@ -1768,6 +1768,22 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                   onChange={(e) => setText(e.target.value)}
                   className="bg-secondary border-border min-h-[100px]"
                 />
+                {/* Split preview indicator */}
+                {splitMessages && text && splitMessageByTripleBreak(text).length > 1 && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[11px] font-medium text-primary flex items-center gap-1">
+                      ✂️ Mensagem será dividida em {splitMessageByTripleBreak(text).length} partes
+                    </p>
+                    <div className="space-y-1">
+                      {splitMessageByTripleBreak(text).map((part, i) => (
+                        <div key={i} className="text-[10px] bg-secondary rounded px-2 py-1 border border-border">
+                          <span className="font-semibold text-muted-foreground">Parte {i + 1}:</span>{" "}
+                          <span className="text-foreground">{part.length > 80 ? part.slice(0, 80) + "…" : part}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
