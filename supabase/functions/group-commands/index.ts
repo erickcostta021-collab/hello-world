@@ -667,75 +667,62 @@ async function getGroupLink(
   }
   
   try {
-    // Try multiple endpoint/method/payload combinations for invite code
-    const postAttempts = [
-      { url: `${baseUrl}/group/inviteCode`, body: { groupjid: group.id } },
-      { url: `${baseUrl}/group/inviteCode`, body: { groupJid: group.id } },
-      { url: `${baseUrl}/group/invitelink`, body: { groupjid: group.id } },
-      { url: `${baseUrl}/group/getInviteLink`, body: { groupjid: group.id } },
-    ];
-
-    const getAttempts = [
-      `${baseUrl}/group/invitelink/${group.id}`,
-      `${baseUrl}/group/inviteCode/${group.id}`,
-      `${baseUrl}/group/invitelink/${encodeURIComponent(group.id)}`,
-      `${baseUrl}/group/getInviteLink/${group.id}`,
-      `${baseUrl}/group/invitelink?groupJid=${encodeURIComponent(group.id)}`,
-      `${baseUrl}/group/${group.id}/invite`,
-    ];
-
     let inviteCode: string | null = null;
 
     const extractCode = (text: string): string | null => {
       try {
         const data = JSON.parse(text);
-        const code = data.code || data.inviteCode || data.inviteLink || data.invite || data.inviteUrl || data.link || data.InviteLink;
+        // Check nested groupInfo.inviteLink from /group/info response
+        if (data.groupInfo?.inviteLink) return data.groupInfo.inviteLink;
+        if (data.inviteLink) return data.inviteLink;
+        const code = data.code || data.inviteCode || data.invite || data.inviteUrl || data.link || data.InviteLink;
         if (code) return code;
         if (typeof data === "string" && data.includes("chat.whatsapp.com")) return data;
       } catch {
         if (text.includes("chat.whatsapp.com")) return text.trim();
-        // Could be a plain invite code
         const clean = text.trim().replace(/["\s]/g, "");
         if (clean.length > 10 && clean.length < 50 && /^[A-Za-z0-9_-]+$/.test(clean)) return clean;
       }
       return null;
     };
 
-    // Try GET first (UAZAPI often prefers GET for reads)
-    for (const url of getAttempts) {
-      try {
-        const response = await fetch(url, {
-          method: "GET",
-          headers: { "token": instanceToken },
-        });
-        const text = await response.text();
-        console.log(`inviteCode GET ${url}:`, response.status, text.substring(0, 300));
-        if (response.ok) {
-          inviteCode = extractCode(text);
-          if (inviteCode) break;
-        }
-      } catch (e) {
-        console.error("inviteCode GET error:", e);
+    // Priority 1: POST /group/info with getInviteLink: true (documented API)
+    try {
+      const infoResp = await fetch(`${baseUrl}/group/info`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "token": instanceToken },
+        body: JSON.stringify({ groupjid: group.id, getInviteLink: true, force: false }),
+      });
+      const infoText = await infoResp.text();
+      console.log(`inviteCode POST /group/info:`, infoResp.status, infoText.substring(0, 400));
+      if (infoResp.ok) {
+        inviteCode = extractCode(infoText);
       }
+    } catch (e) {
+      console.error("inviteCode /group/info error:", e);
     }
 
-    // Try POST if GET didn't work
+    // Priority 2: GET /group/invitelink/{jid}
     if (!inviteCode) {
-      for (const attempt of postAttempts) {
+      const getAttempts = [
+        `${baseUrl}/group/invitelink/${group.id}`,
+        `${baseUrl}/group/invitelink/${encodeURIComponent(group.id)}`,
+        `${baseUrl}/group/inviteCode/${group.id}`,
+      ];
+      for (const url of getAttempts) {
         try {
-          const response = await fetch(attempt.url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "token": instanceToken },
-            body: JSON.stringify(attempt.body),
+          const response = await fetch(url, {
+            method: "GET",
+            headers: { "token": instanceToken },
           });
           const text = await response.text();
-          console.log(`inviteCode POST ${attempt.url}:`, response.status, text.substring(0, 300));
+          console.log(`inviteCode GET ${url}:`, response.status, text.substring(0, 300));
           if (response.ok) {
             inviteCode = extractCode(text);
             if (inviteCode) break;
           }
         } catch (e) {
-          console.error("inviteCode POST error:", e);
+          console.error("inviteCode GET error:", e);
         }
       }
     }
