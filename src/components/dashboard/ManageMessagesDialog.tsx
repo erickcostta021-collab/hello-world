@@ -569,8 +569,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
             // Filter anti-ban buttons
             if (sp?.type === "button" || sp?.messageType === "button" || sp?.buttonText || sp?.choices) return false;
-            // Filter split continuation parts (not the first part)
+            // Filter split continuation parts (explicit flag)
             if (sp?.splitPart === true) return false;
+            // Fallback: detect continuation parts by delayOverride + same number as previous
+            if (sp?.delayOverride != null && idx > 0) {
+              const prevNum = String(list[idx - 1]?.number || "");
+              const curNum = String(msg.number || "");
+              if (prevNum && curNum && prevNum === curNum) return false;
+            }
           }
         } catch { /* ignore */ }
         const msgType = String(msg.type || "").toLowerCase();
@@ -902,7 +908,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         // If split messages is enabled, split each message by triple line breaks
         // Mark each part so anti-ban button is only added after the last part per contact
         if (antiBanEnabled && splitMessages) {
-          const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+          const splitDelaySec = parseInt(splitDelay) || 2;
           const expanded: Record<string, unknown>[] = [];
           for (const msg of messages) {
             const msgText = (msg.text as string) || "";
@@ -910,7 +916,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (parts.length > 1) {
               for (let i = 0; i < parts.length; i++) {
                 const part: Record<string, unknown> = { ...msg, text: parts[i], _isLastPart: i === parts.length - 1 };
-                if (i > 0) { delete part.file; delete part.docName; part.delayOverride = splitDelayMs; part.splitPart = true; }
+                if (i > 0) { delete part.file; delete part.docName; part.delayOverride = splitDelaySec; part.splitPart = true; }
                 expanded.push(part);
               }
             } else {
@@ -1058,7 +1064,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
         }
         const parts = splitMessageByTripleBreak(bodyText);
-        const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+        const splitDelaySec = parseInt(splitDelay) || 2;
 
         const advMessages: Record<string, unknown>[] = [];
         for (const num of numberList) {
@@ -1072,7 +1078,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (i === 0 && fileUrl) msg.file = fileUrl;
             if (i === 0 && docName) msg.docName = docName;
             if (linkPreview) msg.linkPreview = true;
-            if (i > 0) { msg.delayOverride = splitDelayMs; msg.splitPart = true; }
+            if (i > 0) { msg.delayOverride = splitDelaySec; msg.splitPart = true; }
             advMessages.push(msg);
           }
         }
