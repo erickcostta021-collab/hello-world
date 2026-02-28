@@ -2153,18 +2153,36 @@ async function processGroupCommand(
         console.log("Updating profile name:", { profileName });
         
         try {
-          const nameRes = await fetch(`${baseUrl}/profile/name`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Accept: "application/json", token: instanceToken },
-            body: JSON.stringify({ name: profileName }),
-          });
-          const nameBody = await nameRes.text();
-          console.log("Profile name response:", { status: nameRes.status, body: nameBody.substring(0, 300) });
-          
-          if (nameRes.ok) {
-            return { isCommand: true, success: true, command, message: `Nome do perfil atualizado para: ${profileName}` };
+          // Try multiple endpoint patterns
+          const nameEndpoints = [
+            { url: `${baseUrl}/user/profile`, method: "PUT", body: { name: profileName } },
+            { url: `${baseUrl}/user/profile`, method: "POST", body: { name: profileName } },
+            { url: `${baseUrl}/instance/updateProfileName`, method: "PUT", body: { profileName } },
+            { url: `${baseUrl}/instance/setprofile`, method: "POST", body: { name: profileName } },
+            { url: `${baseUrl}/profile/name`, method: "PUT", body: { name: profileName } },
+            { url: `${baseUrl}/profile/name`, method: "POST", body: { name: profileName } },
+            { url: `${baseUrl}/chat/updateProfileName`, method: "POST", body: { name: profileName } },
+          ];
+
+          for (const ep of nameEndpoints) {
+            console.log(`Trying profile name: ${ep.method} ${ep.url}`);
+            const nameRes = await fetch(ep.url, {
+              method: ep.method,
+              headers: { "Content-Type": "application/json", Accept: "application/json", token: instanceToken },
+              body: JSON.stringify(ep.body),
+            });
+            const nameBody = await nameRes.text();
+            console.log(`Profile name response ${ep.method} ${ep.url}: ${nameRes.status} - ${nameBody.substring(0, 300)}`);
+            
+            if (nameRes.ok) {
+              return { isCommand: true, success: true, command, message: `Nome do perfil atualizado para: ${profileName}` };
+            }
+            // If 404/405, try next endpoint
+            if (nameRes.status === 404 || nameRes.status === 405) continue;
+            // Other error, stop
+            return { isCommand: true, success: false, command, message: `Falha ao atualizar nome (${nameRes.status}): ${nameBody.substring(0, 100)}` };
           }
-          return { isCommand: true, success: false, command, message: `Falha ao atualizar nome (${nameRes.status}): ${nameBody.substring(0, 100)}` };
+          return { isCommand: true, success: false, command, message: "Nenhum endpoint de atualização de nome funcionou. Verifique a versão da UAZAPI." };
         } catch (e) {
           return { isCommand: true, success: false, command, message: `Erro ao atualizar nome: ${e instanceof Error ? e.message : "Falha"}` };
         }
