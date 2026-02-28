@@ -496,11 +496,59 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     } finally { setLoadingFolders(false); }
   };
 
+  const normalizeMessages = (rawList: Record<string, unknown>[]): CampaignMessage[] => {
+    return rawList.map((item: Record<string, unknown>) => {
+      const extractPhone = (val: unknown): string => {
+        if (!val) return "";
+        const s = String(val);
+        return s.split("@")[0].replace(/\D/g, "");
+      };
+      const phone = extractPhone(item.chatid) || extractPhone(item.chatId) || extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
+      let name = String(item.name || item.contactName || item.contact_name || item.recipientName || item.recipient_name || "");
+      if (!name && item.send_payload) {
+        try {
+          const sp = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
+          name = String(sp?.name || sp?.contactName || sp?.firstName || sp?.first_name || "");
+        } catch { /* ignore */ }
+      }
+      if (!name && phone) {
+        try {
+          const stored: Record<string, string> = JSON.parse(localStorage.getItem("campaign_phone_names") || "{}");
+          name = stored[phone] || "";
+        } catch { /* ignore */ }
+      }
+      let msgText = "";
+      if (item.send_payload) {
+        try {
+          const payload = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
+          msgText = String(payload?.text || payload?.message || payload?.body || "");
+        } catch { /* ignore parse errors */ }
+      }
+      if (!msgText) msgText = String(item.text || item.message || item.body || "");
+      if (!msgText && item.content) {
+        try {
+          const cont = typeof item.content === "string" ? JSON.parse(item.content as string) : item.content;
+          msgText = String(cont?.text || cont?.message || "");
+        } catch { msgText = String(item.content || ""); }
+      }
+      msgText = msgText.replace(/[\u200B\u200C\u200D\uFEFF]/g, "").replace(/\s{2,}/g, " ").trim();
+      return {
+        ...item,
+        number: phone,
+        name,
+        type: String(item.type || item.messageType || item.message_type || item.kind || item.send_function || ""),
+        status: String(item.status || item.messageStatus || item.message_status || item.state || ""),
+        text: msgText,
+      } as CampaignMessage;
+    });
+  };
+
   const handleListMessages = async (folderId?: string) => {
     const id = folderId || msgFolderId;
     if (!id.trim()) { toast.error("Informe o ID da campanha"); return; }
     setLoadingMessages(true);
     try {
+      // Fetch main campaign messages
       const body: Record<string, unknown> = { folder_id: id.trim() };
       if (msgStatusFilter) body.messageStatus = msgStatusFilter;
       body.page = msgPage;
@@ -511,81 +559,65 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const data = await res.json();
       const rawList = Array.isArray(data) ? data : (data.messages || data.data || data.items || data.results || []);
-      // Normalize fields: map common alternative keys to our expected shape
-      const list: CampaignMessage[] = rawList.map((item: Record<string, unknown>) => {
-        // Extract phone from multiple possible fields, including jid and chatId
-        const extractPhone = (val: unknown): string => {
-          if (!val) return "";
-          const s = String(val);
-          return s.split("@")[0].replace(/\D/g, "");
-        };
-        const phone = extractPhone(item.chatid) || extractPhone(item.chatId) || extractPhone(item.number) || extractPhone(item.phone) || extractPhone(item.to) || extractPhone(item.recipient) || extractPhone(item.jid) || extractPhone(item.chat_id) || extractPhone(item.remoteJid) || "";
-        // Extract name from multiple possible fields, fallback to send_payload, then localStorage map
-        let name = String(item.name || item.contactName || item.contact_name || item.recipientName || item.recipient_name || "");
-        if (!name && item.send_payload) {
-          try {
-            const sp = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
-            name = String(sp?.name || sp?.contactName || sp?.firstName || sp?.first_name || "");
-          } catch { /* ignore */ }
-        }
-        // Fallback: look up name from localStorage phone→name map
-        if (!name && phone) {
-          try {
-            const stored: Record<string, string> = JSON.parse(localStorage.getItem("campaign_phone_names") || "{}");
-            name = stored[phone] || "";
-          } catch { /* ignore */ }
-        }
-        // Extract text: try send_payload first (contains the actual sent text), then direct fields
-        let msgText = "";
-        if (item.send_payload) {
-          try {
-            const payload = typeof item.send_payload === "string" ? JSON.parse(item.send_payload as string) : item.send_payload;
-            msgText = String(payload?.text || payload?.message || payload?.body || "");
-          } catch { /* ignore parse errors */ }
-        }
-        if (!msgText) msgText = String(item.text || item.message || item.body || "");
-        if (!msgText && item.content) {
-          try {
-            const cont = typeof item.content === "string" ? JSON.parse(item.content as string) : item.content;
-            msgText = String(cont?.text || cont?.message || "");
-          } catch { msgText = String(item.content || ""); }
-        }
-        // Strip zero-width characters that mask empty placeholders
-        msgText = msgText.replace(/[\u200B\u200C\u200D\uFEFF]/g, "").replace(/\s{2,}/g, " ").trim();
-        return {
-          ...item,
-          number: phone,
-          name,
-          type: item.type || item.messageType || item.message_type || item.kind || item.send_function || "",
-          status: item.status || item.messageStatus || item.message_status || item.state || "",
-          text: msgText,
-        };
+      const list: CampaignMessage[] = normalizeMessages(rawList);
+
+      // Find the campaign name to locate continuation waves (⏩)
+      const mainFolder = folders.find((f) => (f.folder_id || f.id) === id.trim());
+      const mainInfo = String(mainFolder?.info || mainFolder?.folder_name || mainFolder?.name || "");
+
+      // Fetch continuation campaigns (⏩) and merge their messages
+      const continuationFolders = folders.filter((f) => {
+        const info = String(f.info || f.folder_name || f.name || "");
+        return info.includes("⏩") && mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
       });
-      // Filter out anti-ban button messages and split continuation parts
-      const filtered = list.filter((msg, idx) => {
+
+      let allMessages = [...list];
+      if (continuationFolders.length > 0) {
+        const contResults = await Promise.allSettled(
+          continuationFolders.map(async (cf) => {
+            const cfId = cf.folder_id || cf.id;
+            const cfRes = await fetch(`${getBaseUrl()}/sender/listmessages`, {
+              method: "POST", headers: getHeaders(),
+              body: JSON.stringify({ folder_id: cfId, page: 1, pageSize: 1000 }),
+            });
+            if (!cfRes.ok) return [];
+            const cfData = await cfRes.json();
+            const cfRaw = Array.isArray(cfData) ? cfData : (cfData.messages || cfData.data || cfData.items || cfData.results || []);
+            return normalizeMessages(cfRaw);
+          })
+        );
+        for (const r of contResults) {
+          if (r.status === "fulfilled") allMessages = allMessages.concat(r.value);
+        }
+      }
+
+      // Merge split parts into main message per contact, filter anti-ban buttons
+      const merged: CampaignMessage[] = [];
+      const mainByNumber: Record<string, CampaignMessage> = {};
+      for (const msg of allMessages) {
+        let isSplitPart = false;
+        let isButton = false;
         try {
           const raw = (msg as any).send_payload || (msg as any).sendPayload;
           if (raw) {
             const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
-            // Filter anti-ban buttons
-            if (sp?.type === "button" || sp?.messageType === "button" || sp?.buttonText || sp?.choices) return false;
-            // Filter split continuation parts (explicit flag)
-            if (sp?.splitPart === true) return false;
+            if (sp?.type === "button" || sp?.messageType === "button" || sp?.buttonText || sp?.choices) isButton = true;
+            if (sp?.splitPart === true) isSplitPart = true;
           }
         } catch { /* ignore */ }
         const msgType = String(msg.type || "").toLowerCase();
-        if (msgType === "button") return false;
-        // Fallback: filter consecutive messages to the same number (split parts)
-        if (idx > 0) {
-          const prevNum = String(list[idx - 1]?.number || list[idx - 1]?.chatid || "");
-          const curNum = String(msg.number || (msg as any).chatid || "");
-          if (prevNum && curNum && prevNum === curNum) return false;
+        if (msgType === "button" || isButton) continue;
+        const num = String(msg.number || (msg as any).chatid || "");
+        if (isSplitPart && num && mainByNumber[num]) {
+          if (msg.text) mainByNumber[num].text = (mainByNumber[num].text || "") + "\n\n" + msg.text;
+        } else {
+          merged.push(msg);
+          if (num) mainByNumber[num] = msg;
         }
-        return true;
-      });
-      setCampaignMessages(filtered);
+      }
+      setCampaignMessages(merged);
       setExpandedFolder(id.trim());
-      if (filtered.length === 0) toast.info("Nenhuma mensagem encontrada");
+      if (merged.length === 0) toast.info("Nenhuma mensagem encontrada");
     } catch (err: any) {
       toast.error(`Erro ao listar mensagens: ${err.message}`);
     } finally { setLoadingMessages(false); }
