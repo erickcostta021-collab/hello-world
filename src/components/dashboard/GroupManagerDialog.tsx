@@ -26,6 +26,7 @@ import {
   Plus,
   CalendarClock,
 } from "lucide-react";
+import { GroupDetailDialog } from "./GroupDetailDialog";
 
 interface GroupManagerDialogProps {
   open: boolean;
@@ -44,6 +45,8 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedGroup, setSelectedGroup] = useState<GroupInfo | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const fetchGroups = async () => {
@@ -81,9 +84,9 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
 
   const adminCount = groups.filter((g) => g.isAdmin).length;
 
-  const copyGroupId = (id: string) => {
-    navigator.clipboard.writeText(id);
-    toast.success("ID do grupo copiado!");
+  const handleGroupClick = (group: GroupInfo) => {
+    setSelectedGroup(group);
+    setDetailOpen(true);
   };
 
   const handleCreateGroup = () => {
@@ -166,8 +169,8 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
             <Card
               key={group.id}
               className="bg-card/60 border-border/50 hover:border-primary/40 transition-all cursor-pointer"
-              onClick={() => copyGroupId(group.id)}
-              title="Clique para copiar o ID do grupo"
+              onClick={() => handleGroupClick(group)}
+              title="Clique para ver detalhes do grupo"
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
@@ -176,7 +179,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
                       {group.name}
                     </h4>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {group.memberCount != null && (
+                      {group.memberCount != null && group.memberCount > 0 && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Users className="h-3 w-3" />
                           {group.memberCount} participantes
@@ -190,7 +193,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
                       )}
                     </div>
                   </div>
-                  <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                  <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
                 </div>
               </CardContent>
             </Card>
@@ -217,38 +220,54 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     </div>
   );
 
+  const detailDialog = selectedGroup && (
+    <GroupDetailDialog
+      open={detailOpen}
+      onOpenChange={setDetailOpen}
+      instance={instance}
+      groupId={selectedGroup.id}
+      groupName={selectedGroup.name}
+    />
+  );
+
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-primary" />
-              Gerenciador de Grupos
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="p-4 pb-6 overflow-y-auto max-h-[70vh]">
-            {content}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <>
+        <Drawer open={open} onOpenChange={onOpenChange}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Gerenciador de Grupos
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="p-4 pb-6 overflow-y-auto max-h-[70vh]">
+              {content}
+            </div>
+          </DrawerContent>
+        </Drawer>
+        {detailDialog}
+      </>
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Gerenciador de Grupos
-          </DialogTitle>
-          <DialogDescription>
-            Gerencie os grupos do WhatsApp de <strong>{instance.instance_name}</strong>
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody>{content}</DialogBody>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-3xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Gerenciador de Grupos
+            </DialogTitle>
+            <DialogDescription>
+              Gerencie os grupos do WhatsApp de <strong>{instance.instance_name}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>{content}</DialogBody>
+        </DialogContent>
+      </Dialog>
+      {detailDialog}
+    </>
   );
 }
