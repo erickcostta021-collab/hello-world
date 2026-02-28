@@ -64,6 +64,7 @@ import {
   Repeat,
   CalendarDays,
   CalendarRange,
+  Camera,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -140,6 +141,7 @@ export function GroupDetailDialog({
   const [demotingPhone, setDemotingPhone] = useState<string | null>(null);
   const [currentGroupName, setCurrentGroupName] = useState(groupName);
   const [changingPhoto, setChangingPhoto] = useState(false);
+  const [groupProfilePic, setGroupProfilePic] = useState<string | null>(null);
   const [showAdvancedRecurring, setShowAdvancedRecurring] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -159,6 +161,7 @@ export function GroupDetailDialog({
       setIsAnnounce(data?.isAnnounce ?? false);
       setIsLocked(data?.isLocked ?? false);
       setCurrentGroupName(data?.groupName || groupName);
+      setGroupProfilePic(data?.profilePicUrl || null);
     } catch (err: any) {
       console.error("Failed to fetch group details:", err);
       toast.error(err.message || "Erro ao buscar detalhes do grupo");
@@ -564,6 +567,7 @@ export function GroupDetailDialog({
       if (error) throw error;
       if (data && !data.success && data.message) throw new Error(data.message);
       toast.success("Foto do grupo atualizada!");
+      setGroupProfilePic(imageUrl);
     } catch (err: any) {
       toast.error(err.message || "Erro ao atualizar foto");
     } finally {
@@ -715,10 +719,36 @@ export function GroupDetailDialog({
       <Card className="bg-card/80 border-border/50">
         <CardContent className="p-4">
           <div className="flex items-start gap-4">
-            {/* Group avatar placeholder */}
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
-              <Users className="h-8 w-8 text-muted-foreground" />
+            {/* Group avatar with hover to change photo */}
+            <div
+              className="relative h-16 w-16 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden group/avatar cursor-pointer"
+              onClick={() => photoInputRef.current?.click()}
+              title="Trocar foto do grupo"
+            >
+              {groupProfilePic ? (
+                <img src={groupProfilePic} alt={currentGroupName} className="h-full w-full object-cover" />
+              ) : (
+                <Users className="h-8 w-8 text-muted-foreground" />
+              )}
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full">
+                {changingPhoto ? (
+                  <Loader2 className="h-5 w-5 text-white animate-spin" />
+                ) : (
+                  <Camera className="h-5 w-5 text-white" />
+                )}
+              </div>
             </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) changeGroupPhoto(file);
+                e.target.value = "";
+              }}
+            />
             <div className="flex-1 min-w-0">
               {/* Group name with edit */}
               <div className="flex items-center gap-2">
@@ -902,30 +932,6 @@ export function GroupDetailDialog({
           )}
           {isLocked ? "Só Admins Editam" : "Todos Editam"}
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => photoInputRef.current?.click()}
-          disabled={changingPhoto}
-        >
-          {changingPhoto ? (
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-          ) : (
-            <Image className="h-4 w-4 mr-1" />
-          )}
-          Trocar Foto
-        </Button>
-        <input
-          ref={photoInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) changeGroupPhoto(file);
-            e.target.value = "";
-          }}
-        />
       </div>
 
       {/* Add Participant Section */}
