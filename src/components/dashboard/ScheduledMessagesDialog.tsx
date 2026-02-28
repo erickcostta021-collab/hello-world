@@ -222,8 +222,27 @@ export function ScheduledMessagesDialog({ open, onOpenChange }: ScheduledMessage
     }
   };
 
-  const pendingMessages = messages.filter((m) => m.status === "pending");
-  const historyMessages = messages.filter((m) => m.status !== "pending");
+  // Recurring messages stay in "pending" tab even if sent, as long as the campaign is still active
+  const isActiveCampaign = (m: ScheduledMessage) => {
+    if (!m.is_recurring) return false;
+    // Check if there's a pending sibling for this same group+interval (next occurrence created)
+    const hasPendingSibling = messages.some(
+      (other) =>
+        other.id !== m.id &&
+        other.group_jid === m.group_jid &&
+        other.is_recurring &&
+        other.recurring_interval === m.recurring_interval &&
+        other.status === "pending"
+    );
+    return hasPendingSibling;
+  };
+
+  const pendingMessages = messages.filter(
+    (m) => m.status === "pending" || (m.status === "sent" && isActiveCampaign(m))
+  );
+  const historyMessages = messages.filter(
+    (m) => m.status !== "pending" && !(m.status === "sent" && isActiveCampaign(m))
+  );
 
   const filterByRecurring = (list: ScheduledMessage[]) =>
     onlyRecurring ? list.filter((m) => m.is_recurring) : list;
