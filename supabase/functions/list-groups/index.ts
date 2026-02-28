@@ -519,6 +519,73 @@ serve(async (req) => {
       }
     }
 
+    // Fetch profile pictures for groups that don't have one (batch, max 20 concurrent)
+    const groupsWithoutPic = groups.filter(g => !g.profilePicUrl);
+    if (groupsWithoutPic.length > 0) {
+      console.log(`[list-groups] Fetching profile pics for ${groupsWithoutPic.length} groups`);
+      const picEndpoints = [
+        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl`, method: "POST", body: JSON.stringify({ jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/user/info/${encodeURIComponent(jid)}`, method: "GET", body: null }),
+        (jid: string) => ({ url: `${baseUrl}/group/profilePicUrl/${encodeURIComponent(jid)}`, method: "GET", body: null }),
+      ];
+
+      // Try first endpoint style on first group to find working one
+      let workingEndpointIdx = -1;
+      for (let i = 0; i < picEndpoints.length; i++) {
+        try {
+          const ep = picEndpoints[i](groupsWithoutPic[0].id);
+          const res = await fetch(ep.url, {
+            method: ep.method,
+            headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
+            ...(ep.body ? { body: ep.body } : {}),
+          });
+          if (res.ok) {
+            const text = await res.text();
+            try {
+              const data = JSON.parse(text);
+              const picUrl = data.profilePicUrl || data.ProfilePicUrl || data.profilePic || data.picture || data.Picture || data.url || data.URL || data.imgUrl || data.ImgUrl || data.PicURL || data.picUrl || "";
+              if (picUrl && picUrl.startsWith("http")) {
+                groupsWithoutPic[0].profilePicUrl = picUrl;
+                workingEndpointIdx = i;
+                console.log(`[list-groups] ✅ Profile pic endpoint ${i} works: ${ep.url}`);
+                break;
+              }
+            } catch { /* not JSON */ }
+          }
+        } catch { /* skip */ }
+      }
+
+      // Fetch remaining using working endpoint
+      if (workingEndpointIdx >= 0) {
+        const remaining = groupsWithoutPic.filter(g => !g.profilePicUrl);
+        const batchSize = 10;
+        for (let i = 0; i < remaining.length; i += batchSize) {
+          const batch = remaining.slice(i, i + batchSize);
+          const results = await Promise.allSettled(batch.map(async (g) => {
+            try {
+              const ep = picEndpoints[workingEndpointIdx](g.id);
+              const res = await fetch(ep.url, {
+                method: ep.method,
+                headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
+                ...(ep.body ? { body: ep.body } : {}),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const picUrl = data.profilePicUrl || data.ProfilePicUrl || data.profilePic || data.picture || data.Picture || data.url || data.URL || data.imgUrl || data.ImgUrl || data.PicURL || data.picUrl || "";
+                if (picUrl && picUrl.startsWith("http")) {
+                  g.profilePicUrl = picUrl;
+                }
+              }
+            } catch { /* skip */ }
+          }));
+        }
+        const picCount = groups.filter(g => g.profilePicUrl).length;
+        console.log(`[list-groups] Got profile pics for ${picCount}/${groups.length} groups`);
+      } else {
+        console.log(`[list-groups] No working profile pic endpoint found`);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, instanceName: instanceData.instance_name, groups }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error: unknown) {
