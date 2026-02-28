@@ -38,6 +38,10 @@ import {
   Phone,
   Download,
   Trash2,
+  MessageSquare,
+  Lock,
+  Unlock,
+  Pencil,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -71,6 +75,13 @@ export function GroupDetailDialog({
   const [participantCount, setParticipantCount] = useState(0);
   const [removingPhone, setRemovingPhone] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<ParticipantInfo | null>(null);
+  const [isAnnounce, setIsAnnounce] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const [togglingAnnounce, setTogglingAnnounce] = useState(false);
+  const [togglingLocked, setTogglingLocked] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [messageText, setMessageText] = useState("");
+  const [showMessageInput, setShowMessageInput] = useState(false);
   const isMobile = useIsMobile();
 
   const fetchGroupDetails = async () => {
@@ -86,6 +97,8 @@ export function GroupDetailDialog({
       setParticipants(data?.participants || []);
       setGroupDescription(data?.groupDescription || "");
       setParticipantCount(data?.participantCount || data?.participants?.length || 0);
+      setIsAnnounce(data?.isAnnounce ?? false);
+      setIsLocked(data?.isLocked ?? false);
     } catch (err: any) {
       console.error("Failed to fetch group details:", err);
       toast.error(err.message || "Erro ao buscar detalhes do grupo");
@@ -101,6 +114,8 @@ export function GroupDetailDialog({
       setParticipants([]);
       setSearchQuery("");
       setGroupDescription("");
+      setShowMessageInput(false);
+      setMessageText("");
     }
   }, [open, groupId]);
 
@@ -169,6 +184,82 @@ export function GroupDetailDialog({
     }
   };
 
+  const toggleAnnounce = async () => {
+    setTogglingAnnounce(true);
+    try {
+      const setting = isAnnounce ? "not_announcement" : "announcement";
+      const messageText = `#configurargrupo ${groupId}|${setting}`;
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText },
+      });
+      if (error) throw error;
+      if (data?.result && !data.result.success) throw new Error(data.result.message);
+      setIsAnnounce(!isAnnounce);
+      toast.success(isAnnounce ? "Todos podem enviar mensagens agora" : "Apenas admins podem enviar mensagens agora");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao alterar configuração");
+    } finally {
+      setTogglingAnnounce(false);
+    }
+  };
+
+  const toggleLocked = async () => {
+    setTogglingLocked(true);
+    try {
+      const setting = isLocked ? "unlocked" : "locked";
+      const messageText = `#configurargrupo ${groupId}|${setting}`;
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText },
+      });
+      if (error) throw error;
+      if (data?.result && !data.result.success) throw new Error(data.result.message);
+      setIsLocked(!isLocked);
+      toast.success(isLocked ? "Todos podem editar o grupo agora" : "Apenas admins podem editar o grupo agora");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao alterar configuração");
+    } finally {
+      setTogglingLocked(false);
+    }
+  };
+
+  const sendGroupMessage = async () => {
+    if (!messageText.trim()) {
+      toast.error("Digite uma mensagem");
+      return;
+    }
+    setSendingMessage(true);
+    try {
+      const { data: instData } = await supabase
+        .from("instances")
+        .select("uazapi_base_url, uazapi_instance_token")
+        .eq("id", instance.id)
+        .single();
+
+      if (!instData?.uazapi_base_url) throw new Error("URL base não encontrada");
+
+      const response = await fetch(`${instData.uazapi_base_url}/chat/send/text`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "token": instData.uazapi_instance_token,
+        },
+        body: JSON.stringify({
+          phone: groupId,
+          message: messageText.trim(),
+        }),
+      });
+
+      if (!response.ok) throw new Error("Erro ao enviar mensagem");
+      toast.success("Mensagem enviada ao grupo!");
+      setMessageText("");
+      setShowMessageInput(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar mensagem");
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   const content = (
     <div className="flex flex-col gap-4">
       {/* Group Info Card */}
@@ -216,6 +307,68 @@ export function GroupDetailDialog({
           </div>
         </CardContent>
       </Card>
+
+      {/* Action Buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant={showMessageInput ? "default" : "outline"}
+          onClick={() => setShowMessageInput(!showMessageInput)}
+        >
+          <MessageSquare className="h-4 w-4 mr-1" />
+          Enviar Mensagem
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={toggleAnnounce}
+          disabled={togglingAnnounce}
+        >
+          {togglingAnnounce ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : isAnnounce ? (
+            <Lock className="h-4 w-4 mr-1" />
+          ) : (
+            <MessageSquare className="h-4 w-4 mr-1" />
+          )}
+          {isAnnounce ? "Só Admins Enviam" : "Todos Enviam"}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={toggleLocked}
+          disabled={togglingLocked}
+        >
+          {togglingLocked ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : isLocked ? (
+            <Lock className="h-4 w-4 mr-1" />
+          ) : (
+            <Pencil className="h-4 w-4 mr-1" />
+          )}
+          {isLocked ? "Só Admins Editam" : "Todos Editam"}
+        </Button>
+      </div>
+
+      {/* Message Input */}
+      {showMessageInput && (
+        <div className="flex gap-2">
+          <Input
+            placeholder="Digite a mensagem para o grupo..."
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendGroupMessage()}
+            className="flex-1"
+          />
+          <Button
+            size="sm"
+            onClick={sendGroupMessage}
+            disabled={sendingMessage || !messageText.trim()}
+          >
+            {sendingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar"}
+          </Button>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative">

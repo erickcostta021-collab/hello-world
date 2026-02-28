@@ -457,6 +457,8 @@ serve(async (req) => {
         groupDescription: data.desc || data.Desc || data.description || data.Description || data.Topic || "",
         participantCount: participants.length,
         participants,
+        isAnnounce: data.IsAnnounce ?? data.isAnnounce ?? data.announce ?? false,
+        isLocked: data.IsLocked ?? data.isLocked ?? data.locked ?? false,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
