@@ -25,6 +25,7 @@ export interface EmbedVisibleOptions {
   disconnect: boolean;
   status: boolean;
   messages: boolean;
+  api_oficial: boolean;
 }
 
 const DEFAULT_OPTIONS: EmbedVisibleOptions = {
@@ -37,6 +38,7 @@ const DEFAULT_OPTIONS: EmbedVisibleOptions = {
   disconnect: true,
   status: true,
   messages: true,
+  api_oficial: true,
 };
 
 const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
@@ -48,7 +50,8 @@ const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   connect: "Conectar / QR Code",
   disconnect: "Desconectar",
   status: "Atualizar Status",
-  messages: "Disparos",
+  messages: "Mensagem em massa",
+  api_oficial: "API Oficial",
 };
 
 interface Props {
