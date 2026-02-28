@@ -283,7 +283,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
           Adicionar WhatsApp
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border max-w-md">
+      <DialogContent className="bg-card border-border max-w-md max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="text-card-foreground">
             Adicionar WhatsApp
@@ -604,29 +604,30 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
           </div>
         )}
 
-        {/* Unlink Confirmation Dialog */}
-        <AlertDialog open={unlinkConfirmOpen} onOpenChange={setUnlinkConfirmOpen}>
-          <AlertDialogContent className="bg-card border-border">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Desvincular instância?</AlertDialogTitle>
-              <AlertDialogDescription>
-                A instância <span className="font-semibold text-foreground">{instanceToUnlink?.instance_name}</span> será removida do sistema. Ela continuará disponível no servidor para uma nova importação.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                className="bg-orange-500 hover:bg-orange-600 text-white"
-                onClick={confirmUnlink}
-                disabled={deleteInstance.isPending}
-              >
-                {deleteInstance.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Desvincular
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </DialogContent>
+
+      {/* Unlink Confirmation Dialog - outside DialogContent to avoid nesting issues */}
+      <AlertDialog open={unlinkConfirmOpen} onOpenChange={setUnlinkConfirmOpen}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desvincular instância?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A instância <span className="font-semibold text-foreground">{instanceToUnlink?.instance_name}</span> será removida do sistema. Ela continuará disponível no servidor para uma nova importação.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={confirmUnlink}
+              disabled={deleteInstance.isPending}
+            >
+              {deleteInstance.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Desvincular
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

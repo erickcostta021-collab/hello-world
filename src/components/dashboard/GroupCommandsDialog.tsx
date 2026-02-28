@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from "@/components/ui/dialog";
 import {
   Drawer,
@@ -201,14 +202,16 @@ export function GroupCommandsDialog({ open, onOpenChange }: GroupCommandsDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="text-xl">Comandos de Grupo do WhatsApp</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Envie esses comandos pelo chat do GoHighLevel para gerenciar grupos do WhatsApp.
           </p>
         </DialogHeader>
-        <CommandsList />
+        <DialogBody>
+          <CommandsList />
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
