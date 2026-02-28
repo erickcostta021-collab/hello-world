@@ -667,44 +667,74 @@ async function getGroupLink(
   }
   
   try {
-    // Try multiple endpoint/payload combinations for invite code
-    const attempts = [
+    // Try multiple endpoint/method/payload combinations for invite code
+    const postAttempts = [
+      { url: `${baseUrl}/group/inviteCode`, body: { groupjid: group.id } },
       { url: `${baseUrl}/group/inviteCode`, body: { groupJid: group.id } },
-      { url: `${baseUrl}/group/inviteCode`, body: { groupId: group.id } },
-      { url: `${baseUrl}/group/inviteCode`, body: { jid: group.id } },
       { url: `${baseUrl}/group/invitelink`, body: { groupjid: group.id } },
-      { url: `${baseUrl}/group/invitelink`, body: { groupJid: group.id } },
+      { url: `${baseUrl}/group/getInviteLink`, body: { groupjid: group.id } },
+    ];
+
+    const getAttempts = [
+      `${baseUrl}/group/inviteCode/${encodeURIComponent(group.id)}`,
+      `${baseUrl}/group/invitelink/${encodeURIComponent(group.id)}`,
+      `${baseUrl}/group/getInviteLink/${encodeURIComponent(group.id)}`,
+      `${baseUrl}/group/${encodeURIComponent(group.id)}/invite`,
     ];
 
     let inviteCode: string | null = null;
 
-    for (const attempt of attempts) {
+    const extractCode = (text: string): string | null => {
       try {
-        const response = await fetch(attempt.url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "token": instanceToken },
-          body: JSON.stringify(attempt.body),
+        const data = JSON.parse(text);
+        const code = data.code || data.inviteCode || data.invite || data.inviteUrl || data.link || data.InviteLink;
+        if (code) return code;
+        if (typeof data === "string" && data.includes("chat.whatsapp.com")) return data;
+      } catch {
+        if (text.includes("chat.whatsapp.com")) return text.trim();
+        // Could be a plain invite code
+        const clean = text.trim().replace(/["\s]/g, "");
+        if (clean.length > 10 && clean.length < 50 && /^[A-Za-z0-9_-]+$/.test(clean)) return clean;
+      }
+      return null;
+    };
+
+    // Try GET first (UAZAPI often prefers GET for reads)
+    for (const url of getAttempts) {
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { "token": instanceToken },
         });
         const text = await response.text();
-        console.log(`inviteCode attempt ${attempt.url}:`, response.status, text.substring(0, 300));
+        console.log(`inviteCode GET ${url}:`, response.status, text.substring(0, 300));
         if (response.ok) {
-          try {
-            const data = JSON.parse(text);
-            inviteCode = data.code || data.inviteCode || data.invite || data.inviteUrl || data.link;
-            // If data is a string URL itself
-            if (!inviteCode && typeof data === "string" && data.includes("chat.whatsapp.com")) {
-              inviteCode = data;
-            }
-          } catch {
-            // Maybe plain text response
-            if (text.includes("chat.whatsapp.com")) {
-              inviteCode = text.trim();
-            }
-          }
+          inviteCode = extractCode(text);
           if (inviteCode) break;
         }
       } catch (e) {
-        console.error("inviteCode attempt error:", e);
+        console.error("inviteCode GET error:", e);
+      }
+    }
+
+    // Try POST if GET didn't work
+    if (!inviteCode) {
+      for (const attempt of postAttempts) {
+        try {
+          const response = await fetch(attempt.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "token": instanceToken },
+            body: JSON.stringify(attempt.body),
+          });
+          const text = await response.text();
+          console.log(`inviteCode POST ${attempt.url}:`, response.status, text.substring(0, 300));
+          if (response.ok) {
+            inviteCode = extractCode(text);
+            if (inviteCode) break;
+          }
+        } catch (e) {
+          console.error("inviteCode POST error:", e);
+        }
       }
     }
 
