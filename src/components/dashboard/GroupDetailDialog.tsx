@@ -800,7 +800,7 @@ export function GroupDetailDialog({
                     <Textarea
                       value={newGroupDesc}
                       onChange={(e) => setNewGroupDesc(e.target.value)}
-                      className="text-sm min-h-[60px]"
+                      className="text-sm min-h-[140px] resize-y"
                       placeholder="Nova descrição"
                       autoFocus
                     />
