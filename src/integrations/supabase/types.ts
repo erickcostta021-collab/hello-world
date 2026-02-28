@@ -384,6 +384,68 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_group_messages: {
+        Row: {
+          created_at: string
+          group_jid: string
+          group_name: string
+          id: string
+          instance_id: string
+          is_recurring: boolean
+          last_error: string | null
+          mention_all: boolean
+          message_text: string
+          recurring_interval: string | null
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_jid: string
+          group_name?: string
+          id?: string
+          instance_id: string
+          is_recurring?: boolean
+          last_error?: string | null
+          mention_all?: boolean
+          message_text: string
+          recurring_interval?: string | null
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          group_jid?: string
+          group_name?: string
+          id?: string
+          instance_id?: string
+          is_recurring?: boolean
+          last_error?: string | null
+          mention_all?: boolean
+          message_text?: string
+          recurring_interval?: string | null
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_group_messages_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       server_health_alerts: {
         Row: {
           created_at: string
