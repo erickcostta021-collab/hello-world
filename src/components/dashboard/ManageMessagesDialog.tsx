@@ -567,10 +567,20 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       const mainFolder = folders.find((f) => (f.folder_id || f.id) === id.trim());
       const mainInfo = String(mainFolder?.info || mainFolder?.folder_name || mainFolder?.name || "");
 
+      // Extract UID from main campaign info (🔗{uid}) for precise matching
+      const uidMatch = mainInfo.match(/🔗(\w+)$/);
+      const campaignUid = uidMatch ? uidMatch[1] : null;
+
       // Fetch continuation campaigns (⏩) and merge their messages
       const continuationFolders = folders.filter((f) => {
         const info = String(f.info || f.folder_name || f.name || "");
-        return info.includes("⏩") && mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
+        if (!info.includes("⏩")) return false;
+        if (campaignUid) {
+          // Match by unique ID
+          return info.includes(`⏩${campaignUid}#`);
+        }
+        // Legacy fallback: match by name prefix (old campaigns without UID)
+        return mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
       });
 
       // Tag messages from continuation folders so they always merge
@@ -1005,13 +1015,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           // Send each wave as a separate API call with real sleep between them.
           // First wave uses the campaign name; subsequent waves are marked with ⏩ to be hidden in history.
           const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+          const campaignUid = Date.now().toString(36);
           const campaignInfo = folder || "Campanha Bridge";
 
           const sendWave = async (inst: Instance, msgs: Record<string, unknown>[], waveIdx: number) => {
             const body: Record<string, unknown> = {
               delayMin: parseInt(delayMin) || 10,
               delayMax: parseInt(delayMax) || 30,
-              info: waveIdx === 0 ? campaignInfo : `${campaignInfo} ⏩${waveIdx + 1}`,
+              info: waveIdx === 0 ? (contactWaves.length > 1 ? `${campaignInfo} 🔗${campaignUid}` : campaignInfo) : `${campaignInfo} ⏩${campaignUid}#${waveIdx + 1}`,
               scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
               ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
               messages: msgs,
@@ -1186,6 +1197,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         }
         const parts = splitMessageByTripleBreak(bodyText);
         const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+        const campaignUid = Date.now().toString(36);
         const campaignInfo = folder || "Campanha Bridge";
 
         // Build waves: wave[w] = array of messages (one per contact) for part w
@@ -1212,7 +1224,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           const body: Record<string, unknown> = {
             delayMin: parseInt(delayMin) || 10,
             delayMax: parseInt(delayMax) || 30,
-            info: waveIdx === 0 ? campaignInfo : `${campaignInfo} ⏩${waveIdx + 1}`,
+            info: waveIdx === 0 ? (contactWaves.length > 1 ? `${campaignInfo} 🔗${campaignUid}` : campaignInfo) : `${campaignInfo} ⏩${campaignUid}#${waveIdx + 1}`,
             scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
             ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
             messages: msgs,
@@ -2184,7 +2196,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                               <Badge variant="outline" className={cn("text-[10px] shrink-0", getStatusColor(f.status))}>
                                 {getStatusLabel(f.status)}
                               </Badge>
-                              <span className="text-xs font-medium truncate">{f.info || fId}</span>
+                              <span className="text-xs font-medium truncate">{(f.info || fId).replace(/ 🔗\w+$/, "")}</span>
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
                               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCampaignFolderId(fId)} title="Usar ID para controle">
@@ -2208,11 +2220,15 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                                     Array.isArray(data) ? data : data?.messages || data?.data || data?.items || data?.results || []
                                   );
 
-                                  // Fetch continuation waves (⏩)
+                                  // Fetch continuation waves (⏩) using UID for precise matching
                                   const mainInfo = String(f.info || f.folder_name || f.name || "");
+                                  const uidMatch = mainInfo.match(/🔗(\w+)$/);
+                                  const uid = uidMatch ? uidMatch[1] : null;
                                   const contFolders = folders.filter((cf) => {
                                     const info = String(cf.info || cf.folder_name || cf.name || "");
-                                    return info.includes("⏩") && mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
+                                    if (!info.includes("⏩")) return false;
+                                    if (uid) return info.includes(`⏩${uid}#`);
+                                    return mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
                                   });
                                   const contMessages: CampaignMessage[] = [];
                                   if (contFolders.length > 0) {
@@ -2419,7 +2435,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       <DialogHeader>
         <DialogTitle className="text-card-foreground flex items-center gap-2">
           <FolderOpen className="h-5 w-5 text-primary" />
-          Campanha: {fullscreenCampaign?.info || fullscreenCampaign?.folder_id || fullscreenCampaign?.id || ""}
+          Campanha: {(fullscreenCampaign?.info || fullscreenCampaign?.folder_id || fullscreenCampaign?.id || "").replace(/ 🔗\w+$/, "")}
         </DialogTitle>
         <DialogDescription>
           <div className="flex gap-3 text-xs mt-1">
