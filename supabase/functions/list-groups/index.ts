@@ -519,40 +519,68 @@ serve(async (req) => {
       }
     }
 
-    // Fetch profile pictures for groups that don't have one (batch, max 20 concurrent)
+    // Fetch profile pictures for groups
     const groupsWithoutPic = groups.filter(g => !g.profilePicUrl);
     if (groupsWithoutPic.length > 0) {
       console.log(`[list-groups] Fetching profile pics for ${groupsWithoutPic.length} groups`);
+      
+      // Try multiple endpoint patterns with full logging
       const picEndpoints = [
         (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl`, method: "POST", body: JSON.stringify({ jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/user/info/${encodeURIComponent(jid)}`, method: "GET", body: null }),
-        (jid: string) => ({ url: `${baseUrl}/group/profilePicUrl/${encodeURIComponent(jid)}`, method: "GET", body: null }),
+        (jid: string) => ({ url: `${baseUrl}/chat/getProfilePicUrl`, method: "POST", body: JSON.stringify({ jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/group/profilePic`, method: "POST", body: JSON.stringify({ groupjid: jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/group/profilePic`, method: "POST", body: JSON.stringify({ jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/group/photo/${encodeURIComponent(jid)}`, method: "GET", body: null }),
+        (jid: string) => ({ url: `${baseUrl}/chat/getProfilePic/${encodeURIComponent(jid)}`, method: "GET", body: null }),
+        (jid: string) => ({ url: `${baseUrl}/user/fetchProfilePictureUrl/${encodeURIComponent(jid)}?type=image`, method: "GET", body: null }),
       ];
 
-      // Try first endpoint style on first group to find working one
+      const testJid = groupsWithoutPic[0].id;
       let workingEndpointIdx = -1;
+      
+      function extractPicUrl(data: any): string {
+        if (!data || typeof data !== "object") return "";
+        // Check all possible field names
+        const fields = ["profilePicUrl", "ProfilePicUrl", "profilePic", "ProfilePic", 
+          "picture", "Picture", "url", "URL", "imgUrl", "ImgUrl", "PicURL", "picUrl",
+          "photo", "Photo", "image", "Image", "profilePicture", "ProfilePicture",
+          "pictureUrl", "PictureUrl", "pic", "Pic", "avatar", "Avatar"];
+        for (const f of fields) {
+          if (data[f] && typeof data[f] === "string" && data[f].startsWith("http")) return data[f];
+        }
+        // Check nested data
+        if (data.data && typeof data.data === "object") {
+          for (const f of fields) {
+            if (data.data[f] && typeof data.data[f] === "string" && data.data[f].startsWith("http")) return data.data[f];
+          }
+        }
+        return "";
+      }
+
       for (let i = 0; i < picEndpoints.length; i++) {
         try {
-          const ep = picEndpoints[i](groupsWithoutPic[0].id);
+          const ep = picEndpoints[i](testJid);
+          console.log(`[list-groups] Trying pic endpoint ${i}: ${ep.method} ${ep.url}`);
           const res = await fetch(ep.url, {
             method: ep.method,
             headers: { "Accept": "application/json", "Content-Type": "application/json", "token": instanceData.uazapi_instance_token },
             ...(ep.body ? { body: ep.body } : {}),
           });
+          const text = await res.text();
+          console.log(`[list-groups] Pic endpoint ${i} response ${res.status}: ${text.substring(0, 500)}`);
           if (res.ok) {
-            const text = await res.text();
             try {
               const data = JSON.parse(text);
-              const picUrl = data.profilePicUrl || data.ProfilePicUrl || data.profilePic || data.picture || data.Picture || data.url || data.URL || data.imgUrl || data.ImgUrl || data.PicURL || data.picUrl || "";
-              if (picUrl && picUrl.startsWith("http")) {
+              const picUrl = extractPicUrl(data);
+              if (picUrl) {
                 groupsWithoutPic[0].profilePicUrl = picUrl;
                 workingEndpointIdx = i;
-                console.log(`[list-groups] ✅ Profile pic endpoint ${i} works: ${ep.url}`);
+                console.log(`[list-groups] ✅ Profile pic endpoint ${i} works! URL: ${picUrl.substring(0, 80)}`);
                 break;
               }
             } catch { /* not JSON */ }
           }
-        } catch { /* skip */ }
+        } catch (e) { console.log(`[list-groups] Pic endpoint ${i} error: ${e}`); }
       }
 
       // Fetch remaining using working endpoint
@@ -561,7 +589,7 @@ serve(async (req) => {
         const batchSize = 10;
         for (let i = 0; i < remaining.length; i += batchSize) {
           const batch = remaining.slice(i, i + batchSize);
-          const results = await Promise.allSettled(batch.map(async (g) => {
+          await Promise.allSettled(batch.map(async (g) => {
             try {
               const ep = picEndpoints[workingEndpointIdx](g.id);
               const res = await fetch(ep.url, {
@@ -571,10 +599,8 @@ serve(async (req) => {
               });
               if (res.ok) {
                 const data = await res.json();
-                const picUrl = data.profilePicUrl || data.ProfilePicUrl || data.profilePic || data.picture || data.Picture || data.url || data.URL || data.imgUrl || data.ImgUrl || data.PicURL || data.picUrl || "";
-                if (picUrl && picUrl.startsWith("http")) {
-                  g.profilePicUrl = picUrl;
-                }
+                const picUrl = extractPicUrl(data);
+                if (picUrl) g.profilePicUrl = picUrl;
               }
             } catch { /* skip */ }
           }));
@@ -582,7 +608,7 @@ serve(async (req) => {
         const picCount = groups.filter(g => g.profilePicUrl).length;
         console.log(`[list-groups] Got profile pics for ${picCount}/${groups.length} groups`);
       } else {
-        console.log(`[list-groups] No working profile pic endpoint found`);
+        console.log(`[list-groups] No working profile pic endpoint found after trying all ${picEndpoints.length} patterns`);
       }
     }
 
