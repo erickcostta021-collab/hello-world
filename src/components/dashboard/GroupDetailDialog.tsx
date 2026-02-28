@@ -7,6 +7,16 @@ import {
   DialogDescription,
   DialogBody,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,8 +35,9 @@ import {
   Copy,
   Link,
   ArrowLeft,
-  UserPlus,
   Phone,
+  Download,
+  Trash2,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -58,6 +69,8 @@ export function GroupDetailDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [participantCount, setParticipantCount] = useState(0);
+  const [removingPhone, setRemovingPhone] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<ParticipantInfo | null>(null);
   const isMobile = useIsMobile();
 
   const fetchGroupDetails = async () => {
@@ -111,6 +124,51 @@ export function GroupDetailDialog({
     toast.success("JID do grupo copiado!");
   };
 
+  const downloadCsv = () => {
+    if (participants.length === 0) {
+      toast.error("Nenhum participante para exportar");
+      return;
+    }
+    const header = "Nome,Telefone,Admin,Dono";
+    const rows = participants.map((p) =>
+      `"${(p.name || "").replace(/"/g, '""')}","${p.phone}","${p.isAdmin ? "Sim" : "Não"}","${p.isSuperAdmin ? "Sim" : "Não"}"`
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `participantes-${groupName.replace(/[^a-zA-Z0-9]/g, "_")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${participants.length} participantes exportados!`);
+  };
+
+  const removeParticipant = async (participant: ParticipantInfo) => {
+    setRemovingPhone(participant.phone);
+    try {
+      const messageText = `#remover ${groupName}|${participant.phone}`;
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText },
+      });
+
+      if (error) throw error;
+      if (data?.result && !data.result.success) {
+        throw new Error(data.result.message || "Erro ao remover participante");
+      }
+
+      toast.success(`${participant.name || participant.phone} removido do grupo!`);
+      setParticipants((prev) => prev.filter((p) => p.phone !== participant.phone));
+      setParticipantCount((prev) => Math.max(0, prev - 1));
+    } catch (err: any) {
+      console.error("Failed to remove participant:", err);
+      toast.error(err.message || "Erro ao remover participante");
+    } finally {
+      setRemovingPhone(null);
+      setConfirmRemove(null);
+    }
+  };
+
   const content = (
     <div className="flex flex-col gap-4">
       {/* Group Info Card */}
@@ -140,15 +198,21 @@ export function GroupDetailDialog({
                 JID: {groupId}
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyGroupJid}
-              className="shrink-0"
-            >
-              <Link className="h-4 w-4 mr-1" />
-              Copiar JID
-            </Button>
+            <div className="flex flex-col gap-2 shrink-0">
+              <Button variant="outline" size="sm" onClick={copyGroupJid}>
+                <Link className="h-4 w-4 mr-1" />
+                Copiar JID
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadCsv}
+                disabled={participants.length === 0}
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Baixar CSV
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -191,15 +255,17 @@ export function GroupDetailDialog({
           {filteredParticipants.map((p, idx) => (
             <Card
               key={p.id || idx}
-              className="bg-card/60 border-border/50 hover:border-primary/40 transition-all cursor-pointer"
-              onClick={() => copyPhone(p.phone)}
-              title="Clique para copiar o número"
+              className="bg-card/60 border-border/50 hover:border-primary/40 transition-all"
             >
               <CardContent className="p-3 flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+                <div
+                  className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0 cursor-pointer"
+                  onClick={() => copyPhone(p.phone)}
+                  title="Copiar número"
+                >
                   <Phone className="h-4 w-4 text-muted-foreground" />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => copyPhone(p.phone)}>
                   <p className="text-sm font-medium text-card-foreground truncate">
                     {p.name || `+${p.phone}`}
                   </p>
@@ -222,7 +288,37 @@ export function GroupDetailDialog({
                       Admin
                     </Badge>
                   )}
-                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyPhone(p.phone);
+                    }}
+                    title="Copiar número"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
+                  {!p.isSuperAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      disabled={removingPhone === p.phone}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmRemove(p);
+                      }}
+                      title="Remover do grupo"
+                    >
+                      {removingPhone === p.phone ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -249,36 +345,64 @@ export function GroupDetailDialog({
     </div>
   );
 
+  const confirmDialog = (
+    <AlertDialog open={!!confirmRemove} onOpenChange={(o) => !o && setConfirmRemove(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remover participante</AlertDialogTitle>
+          <AlertDialogDescription>
+            Tem certeza que deseja remover <strong>{confirmRemove?.name || confirmRemove?.phone}</strong> do grupo <strong>{groupName}</strong>?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={() => confirmRemove && removeParticipant(confirmRemove)}
+          >
+            Remover
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle className="flex items-center gap-2">
-              <ArrowLeft className="h-5 w-5 cursor-pointer" onClick={() => onOpenChange(false)} />
-              Detalhes do Grupo
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="p-4 pb-6 overflow-y-auto max-h-[70vh]">{content}</div>
-        </DrawerContent>
-      </Drawer>
+      <>
+        <Drawer open={open} onOpenChange={onOpenChange}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle className="flex items-center gap-2">
+                <ArrowLeft className="h-5 w-5 cursor-pointer" onClick={() => onOpenChange(false)} />
+                Detalhes do Grupo
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="p-4 pb-6 overflow-y-auto max-h-[70vh]">{content}</div>
+          </DrawerContent>
+        </Drawer>
+        {confirmDialog}
+      </>
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Detalhes do Grupo
-          </DialogTitle>
-          <DialogDescription>
-            Informações completas e participantes
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody>{content}</DialogBody>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Detalhes do Grupo
+            </DialogTitle>
+            <DialogDescription>
+              Informações completas e participantes
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>{content}</DialogBody>
+        </DialogContent>
+      </Dialog>
+      {confirmDialog}
+    </>
   );
 }
