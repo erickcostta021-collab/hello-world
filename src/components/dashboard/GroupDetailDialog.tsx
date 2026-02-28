@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogBody,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -26,6 +27,9 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Instance } from "@/hooks/useInstances";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Users,
   Search,
@@ -42,6 +46,8 @@ import {
   Lock,
   Unlock,
   Pencil,
+  Send,
+  Calendar,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -81,7 +87,8 @@ export function GroupDetailDialog({
   const [togglingLocked, setTogglingLocked] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [messageText, setMessageText] = useState("");
-  const [showMessageInput, setShowMessageInput] = useState(false);
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
+  const [mentionAll, setMentionAll] = useState(false);
   const isMobile = useIsMobile();
 
   const fetchGroupDetails = async () => {
@@ -114,8 +121,9 @@ export function GroupDetailDialog({
       setParticipants([]);
       setSearchQuery("");
       setGroupDescription("");
-      setShowMessageInput(false);
+      setShowMessageDialog(false);
       setMessageText("");
+      setMentionAll(false);
     }
   }, [open, groupId]);
 
@@ -229,10 +237,14 @@ export function GroupDetailDialog({
     }
     setSendingMessage(true);
     try {
+      let finalMessage = messageText.trim();
+      if (mentionAll) {
+        finalMessage = `@todos\n${finalMessage}`;
+      }
       const { data, error } = await supabase.functions.invoke("group-commands", {
         body: {
           instanceId: instance.id,
-          messageText: `#enviargrupo ${groupId}|${messageText.trim()}`,
+          messageText: `#enviargrupo ${groupId}|${finalMessage}`,
         },
       });
 
@@ -240,7 +252,8 @@ export function GroupDetailDialog({
       if (data?.result && !data.result.success) throw new Error(data.result.message);
       toast.success("Mensagem enviada ao grupo!");
       setMessageText("");
-      setShowMessageInput(false);
+      setMentionAll(false);
+      setShowMessageDialog(false);
     } catch (err: any) {
       toast.error(err.message || "Erro ao enviar mensagem");
     } finally {
@@ -300,8 +313,8 @@ export function GroupDetailDialog({
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
-          variant={showMessageInput ? "default" : "outline"}
-          onClick={() => setShowMessageInput(!showMessageInput)}
+          variant="outline"
+          onClick={() => setShowMessageDialog(true)}
         >
           <MessageSquare className="h-4 w-4 mr-1" />
           Enviar Mensagem
@@ -337,26 +350,6 @@ export function GroupDetailDialog({
           {isLocked ? "Só Admins Editam" : "Todos Editam"}
         </Button>
       </div>
-
-      {/* Message Input */}
-      {showMessageInput && (
-        <div className="flex gap-2">
-          <Input
-            placeholder="Digite a mensagem para o grupo..."
-            value={messageText}
-            onChange={(e) => setMessageText(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendGroupMessage()}
-            className="flex-1"
-          />
-          <Button
-            size="sm"
-            onClick={sendGroupMessage}
-            disabled={sendingMessage || !messageText.trim()}
-          >
-            {sendingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar"}
-          </Button>
-        </div>
-      )}
 
       {/* Search */}
       <div className="relative">
@@ -508,6 +501,58 @@ export function GroupDetailDialog({
     </AlertDialog>
   );
 
+  const messageDialog = (
+    <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5 text-primary" />
+            Enviar Mensagem no Grupo
+          </DialogTitle>
+          <DialogDescription>{groupName}</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="group-message">Mensagem</Label>
+            <Textarea
+              id="group-message"
+              placeholder="Digite sua mensagem..."
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              className="min-h-[120px] resize-none"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="mention-all"
+              checked={mentionAll}
+              onCheckedChange={setMentionAll}
+            />
+            <Label htmlFor="mention-all" className="text-sm cursor-pointer">
+              Mencionar @todos no grupo
+            </Label>
+          </div>
+        </div>
+        <DialogFooter className="flex gap-2 sm:gap-2">
+          <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={sendGroupMessage}
+            disabled={sendingMessage || !messageText.trim()}
+          >
+            {sendingMessage ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4 mr-1" />
+            )}
+            Enviar Agora
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (isMobile) {
     return (
       <>
@@ -523,6 +568,7 @@ export function GroupDetailDialog({
           </DrawerContent>
         </Drawer>
         {confirmDialog}
+        {messageDialog}
       </>
     );
   }
@@ -544,6 +590,7 @@ export function GroupDetailDialog({
         </DialogContent>
       </Dialog>
       {confirmDialog}
+      {messageDialog}
     </>
   );
 }
