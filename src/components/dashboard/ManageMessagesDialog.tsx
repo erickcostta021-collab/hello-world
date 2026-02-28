@@ -952,8 +952,23 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (wave.length > 0) contactWaves.push(wave);
           }
 
-          // Send each wave sequentially with sleep between them
-          const sendWave = async (inst: Instance, msgs: Record<string, unknown>[]) => {
+          // Flatten all waves into a single messages array so only ONE campaign is created.
+          // Order: wave0 msgs, wave1 msgs, wave2 msgs...
+          // The first message of wave1+ gets delayOverride to pause between parts.
+          const splitDelaySec = parseInt(splitDelay) || 2;
+          const allMessages: Record<string, unknown>[] = [];
+          for (let w = 0; w < contactWaves.length; w++) {
+            for (let m = 0; m < contactWaves[w].length; m++) {
+              const msg = { ...contactWaves[w][m] };
+              // Add delayOverride on the first message of each subsequent wave
+              if (w > 0 && m === 0) {
+                msg.delayOverride = splitDelaySec;
+              }
+              allMessages.push(msg);
+            }
+          }
+
+          const sendAll = async (inst: Instance, msgs: Record<string, unknown>[]) => {
             const body: Record<string, unknown> = {
               delayMin: parseInt(delayMin) || 10,
               delayMax: parseInt(delayMax) || 30,
@@ -969,26 +984,19 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           };
 
           if (instances.length === 1) {
-            for (let w = 0; w < contactWaves.length; w++) {
-              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
-              await sendWave(instances[0], contactWaves[w]);
-            }
-            toast.success(`Campanha dividida em ${contactWaves.length} onda(s) enviada! ${numberList.length} contato(s).`);
+            await sendAll(instances[0], allMessages);
+            toast.success(`Campanha enviada com ${contactWaves.length} parte(s)! ${numberList.length} contato(s).`);
           } else {
-            // Round-robin per wave
-            for (let w = 0; w < contactWaves.length; w++) {
-              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
-              const waveMsgs = contactWaves[w];
-              const buckets: Record<string, unknown>[][] = instances.map(() => []);
-              waveMsgs.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
-              await Promise.allSettled(
-                instances.map((inst, idx) => {
-                  if (buckets[idx].length === 0) return Promise.resolve();
-                  return sendWave(inst, buckets[idx]);
-                })
-              );
-            }
-            toast.success(`Campanha dividida em ${contactWaves.length} onda(s) round-robin! ${numberList.length} contato(s).`);
+            // Round-robin: distribute ALL messages across instances
+            const buckets: Record<string, unknown>[][] = instances.map(() => []);
+            allMessages.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
+            await Promise.allSettled(
+              instances.map((inst, idx) => {
+                if (buckets[idx].length === 0) return Promise.resolve();
+                return sendAll(inst, buckets[idx]);
+              })
+            );
+            toast.success(`Campanha round-robin com ${contactWaves.length} parte(s)! ${numberList.length} contato(s).`);
           }
           setSending(false);
           return;
