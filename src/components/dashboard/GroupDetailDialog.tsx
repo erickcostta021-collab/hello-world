@@ -1026,11 +1026,14 @@ export function GroupDetailDialog({
             >
               <CardContent className="p-3 flex items-center gap-3">
                 <div
-                  className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0 cursor-pointer"
+                  className="h-9 w-9 rounded-full bg-muted flex items-center justify-center shrink-0 cursor-pointer overflow-hidden"
                   onClick={() => copyPhone(p.phone)}
                   title="Copiar número"
                 >
-                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <svg viewBox="0 0 212 212" className="h-9 w-9 text-muted-foreground/60">
+                    <path fill="currentColor" d="M106 0C47.5 0 0 47.5 0 106s47.5 106 106 106 106-47.5 106-106S164.5 0 106 0z" opacity=".3"/>
+                    <path fill="currentColor" d="M106 53c-14.9 0-27 12.1-27 27s12.1 27 27 27 27-12.1 27-27-12.1-27-27-27zm0 81c-27 0-54 13.5-54 27v13.5h108V161c0-13.5-27-27-54-27z" opacity=".6"/>
+                  </svg>
                 </div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => copyPhone(p.phone)}>
                   <p className="text-sm font-medium text-card-foreground truncate">
