@@ -59,7 +59,7 @@ serve(async (req) => {
     // Use override URL when provided, then instance-level, then global setting
     const webhookUrl = webhook_url_override
       ? webhook_url_override
-      : (instance.webhook_url || settings?.global_webhook_url || `${Deno.env.get("SUPABASE_URL")}/functions/v1/webhook-inbound`);
+      : (instance.webhook_url || settings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound");
     const ignoreGroups = instance.ignore_groups ?? false;
     const events = Array.isArray(webhook_events) && webhook_events.length > 0 ? webhook_events : ["messages"];
     const enabledFlag = webhookEnabled !== undefined ? webhookEnabled : true;
