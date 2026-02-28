@@ -993,6 +993,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             }
             toast.success(`Campanha round-robin com ${contactWaves.length} parte(s)! ${numberList.length} contato(s).`);
           }
+          // Redirect to campaigns tab and reload folders
+          setActiveTab("campaigns");
+          setTimeout(() => { const el = document.querySelector('[data-dialog-body]'); el?.scrollTo({ top: 0, behavior: "smooth" }); handleListFolders(); }, 500);
           setSending(false);
           return;
         }
@@ -1190,6 +1193,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           }
           toast.success(`Round-robin dividido! ${numberList.length} contatos, ${parts.length} partes em ${instances.length} instâncias.`);
         }
+        // Redirect to campaigns tab and reload folders
+        setActiveTab("campaigns");
+        setTimeout(() => { const el = document.querySelector('[data-dialog-body]'); el?.scrollTo({ top: 0, behavior: "smooth" }); handleListFolders(); }, 500);
+        setSending(false);
+        return;
       } else {
         // Standard simple send (no dynamic fields, no anti-ban button, no split)
         let bodyText = text;
