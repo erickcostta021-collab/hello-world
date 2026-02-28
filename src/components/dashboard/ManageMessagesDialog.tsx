@@ -571,16 +571,16 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (sp?.type === "button" || sp?.messageType === "button" || sp?.buttonText || sp?.choices) return false;
             // Filter split continuation parts (explicit flag)
             if (sp?.splitPart === true) return false;
-            // Fallback: detect continuation parts by delayOverride + same number as previous
-            if (sp?.delayOverride != null && idx > 0) {
-              const prevNum = String(list[idx - 1]?.number || "");
-              const curNum = String(msg.number || "");
-              if (prevNum && curNum && prevNum === curNum) return false;
-            }
           }
         } catch { /* ignore */ }
         const msgType = String(msg.type || "").toLowerCase();
         if (msgType === "button") return false;
+        // Fallback: filter consecutive messages to the same number (split parts)
+        if (idx > 0) {
+          const prevNum = String(list[idx - 1]?.number || list[idx - 1]?.chatid || "");
+          const curNum = String(msg.number || (msg as any).chatid || "");
+          if (prevNum && curNum && prevNum === curNum) return false;
+        }
         return true;
       });
       setCampaignMessages(filtered);
