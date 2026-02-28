@@ -908,7 +908,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         // If split messages is enabled, organize into waves (wave 0 = part 1 of all contacts, wave 1 = part 2, etc.)
         // Each wave is sent as a separate API call with a real sleep between them
         if (splitMessages) {
-          const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
           // Build per-contact parts
           const contactWaves: Record<string, unknown>[][] = []; // waves[waveIdx] = array of messages
           let maxParts = 1;
@@ -952,27 +951,16 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (wave.length > 0) contactWaves.push(wave);
           }
 
-          // Flatten all waves into a single messages array so only ONE campaign is created.
-          // Order: wave0 msgs, wave1 msgs, wave2 msgs...
-          // The first message of wave1+ gets delayOverride to pause between parts.
-          const splitDelaySec = parseInt(splitDelay) || 2;
-          const allMessages: Record<string, unknown>[] = [];
-          for (let w = 0; w < contactWaves.length; w++) {
-            for (let m = 0; m < contactWaves[w].length; m++) {
-              const msg = { ...contactWaves[w][m] };
-              // Add delayOverride on the first message of each subsequent wave
-              if (w > 0 && m === 0) {
-                msg.delayOverride = splitDelaySec;
-              }
-              allMessages.push(msg);
-            }
-          }
+          // Send each wave as a separate API call with real sleep between them.
+          // First wave uses the campaign name; subsequent waves are marked with ⏩ to be hidden in history.
+          const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+          const campaignInfo = folder || "Campanha Bridge";
 
-          const sendAll = async (inst: Instance, msgs: Record<string, unknown>[]) => {
+          const sendWave = async (inst: Instance, msgs: Record<string, unknown>[], waveIdx: number) => {
             const body: Record<string, unknown> = {
               delayMin: parseInt(delayMin) || 10,
               delayMax: parseInt(delayMax) || 30,
-              info: folder || "Campanha Bridge",
+              info: waveIdx === 0 ? campaignInfo : `${campaignInfo} ⏩${waveIdx + 1}`,
               scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
               ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
               messages: msgs,
@@ -984,18 +972,25 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           };
 
           if (instances.length === 1) {
-            await sendAll(instances[0], allMessages);
+            for (let w = 0; w < contactWaves.length; w++) {
+              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+              await sendWave(instances[0], contactWaves[w], w);
+            }
             toast.success(`Campanha enviada com ${contactWaves.length} parte(s)! ${numberList.length} contato(s).`);
           } else {
-            // Round-robin: distribute ALL messages across instances
-            const buckets: Record<string, unknown>[][] = instances.map(() => []);
-            allMessages.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
-            await Promise.allSettled(
-              instances.map((inst, idx) => {
-                if (buckets[idx].length === 0) return Promise.resolve();
-                return sendAll(inst, buckets[idx]);
-              })
-            );
+            // Round-robin per wave
+            for (let w = 0; w < contactWaves.length; w++) {
+              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+              const waveMsgs = contactWaves[w];
+              const buckets: Record<string, unknown>[][] = instances.map(() => []);
+              waveMsgs.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
+              await Promise.allSettled(
+                instances.map((inst, idx) => {
+                  if (buckets[idx].length === 0) return Promise.resolve();
+                  return sendWave(inst, buckets[idx], w);
+                })
+              );
+            }
             toast.success(`Campanha round-robin com ${contactWaves.length} parte(s)! ${numberList.length} contato(s).`);
           }
           setSending(false);
@@ -1136,30 +1131,34 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
         }
         const parts = splitMessageByTripleBreak(bodyText);
-        const splitDelaySec = parseInt(splitDelay) || 2;
+        const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+        const campaignInfo = folder || "Campanha Bridge";
 
-        const advMessages: Record<string, unknown>[] = [];
-        for (const num of numberList) {
-          const cleanNum = num.replace("@s.whatsapp.net", "");
-          for (let i = 0; i < parts.length; i++) {
+        // Build waves: wave[w] = array of messages (one per contact) for part w
+        const contactWaves: Record<string, unknown>[][] = [];
+        for (let w = 0; w < parts.length; w++) {
+          const wave: Record<string, unknown>[] = [];
+          for (const num of numberList) {
+            const cleanNum = num.replace("@s.whatsapp.net", "");
             const msg: Record<string, unknown> = {
               number: cleanNum,
               type: messageType,
             };
-            if (parts[i]) msg.text = parts[i];
-            if (i === 0 && fileUrl) msg.file = fileUrl;
-            if (i === 0 && docName) msg.docName = docName;
+            if (parts[w]) msg.text = parts[w];
+            if (w === 0 && fileUrl) msg.file = fileUrl;
+            if (w === 0 && docName) msg.docName = docName;
             if (linkPreview) msg.linkPreview = true;
-            if (i > 0) { msg.delayOverride = splitDelaySec; msg.splitPart = true; }
-            advMessages.push(msg);
+            if (w > 0) msg.splitPart = true;
+            wave.push(msg);
           }
+          contactWaves.push(wave);
         }
 
-        const sendAdv = async (inst: Instance, msgs: Record<string, unknown>[]) => {
+        const sendWave = async (inst: Instance, msgs: Record<string, unknown>[], waveIdx: number) => {
           const body: Record<string, unknown> = {
             delayMin: parseInt(delayMin) || 10,
             delayMax: parseInt(delayMax) || 30,
-            info: folder || "Campanha Bridge",
+            info: waveIdx === 0 ? campaignInfo : `${campaignInfo} ⏩${waveIdx + 1}`,
             scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
             ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
             messages: msgs,
@@ -1171,28 +1170,25 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         };
 
         if (instances.length === 1) {
-          await sendAdv(instances[0], advMessages);
+          for (let w = 0; w < contactWaves.length; w++) {
+            if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+            await sendWave(instances[0], contactWaves[w], w);
+          }
           toast.success(`Campanha dividida criada! ${numberList.length} contato(s), ${parts.length} parte(s) cada.`);
         } else {
-          // Round-robin: distribute per-contact groups together
-          const msgsPerContact = parts.length;
-          const buckets: Record<string, unknown>[][] = instances.map(() => []);
-          for (let i = 0; i < numberList.length; i++) {
-            const bucket = i % instances.length;
-            for (let j = 0; j < msgsPerContact; j++) {
-              buckets[bucket].push(advMessages[i * msgsPerContact + j]);
-            }
+          for (let w = 0; w < contactWaves.length; w++) {
+            if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+            const waveMsgs = contactWaves[w];
+            const buckets: Record<string, unknown>[][] = instances.map(() => []);
+            waveMsgs.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
+            await Promise.allSettled(
+              instances.map((inst, idx) => {
+                if (buckets[idx].length === 0) return Promise.resolve();
+                return sendWave(inst, buckets[idx], w);
+              })
+            );
           }
-          const results = await Promise.allSettled(
-            instances.map((inst, idx) => {
-              if (buckets[idx].length === 0) return Promise.resolve();
-              return sendAdv(inst, buckets[idx]);
-            })
-          );
-          const succeeded = results.filter((r) => r.status === "fulfilled").length;
-          const failed = results.filter((r) => r.status === "rejected").length;
-          if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
-          else toast.success(`Round-robin dividido! ${numberList.length} contatos, ${parts.length} partes em ${instances.length} instâncias.`);
+          toast.success(`Round-robin dividido! ${numberList.length} contatos, ${parts.length} partes em ${instances.length} instâncias.`);
         }
       } else {
         // Standard simple send (no dynamic fields, no anti-ban button, no split)
@@ -2111,6 +2107,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 </div>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
                   {folders.filter((f) => {
+                    // Hide split continuation campaigns (marked with ⏩)
+                    const info = String(f.info || f.folder_name || f.name || "");
+                    if (info.includes("⏩")) return false;
                     if (!folderSearch) return true;
                     const q = folderSearch.toLowerCase();
                     const searchable = [f.folder_name, f.name, f.info, f.folder_id, f.id].filter(Boolean).join(" ").toLowerCase();
