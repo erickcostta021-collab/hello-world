@@ -41,6 +41,7 @@ export interface EmbedVisibleOptions {
   disconnect?: boolean;
   status?: boolean;
   messages?: boolean;
+  api_oficial?: boolean;
 }
 
 export interface EmbedInstance {
