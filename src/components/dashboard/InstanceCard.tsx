@@ -55,11 +55,22 @@ import { checkServerHealth } from "@/hooks/instances/instanceApi";
 import { useGHLUsers, GHLUser } from "@/hooks/useGHLUsers";
 import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
-import { AssignGHLUserDialog } from "./AssignGHLUserDialog";
-import { WebhookConfigDialog } from "./WebhookConfigDialog";
-import { ManageMessagesDialog } from "./ManageMessagesDialog";
-import { GroupManagerDialog } from "./GroupManagerDialog";
-import { ConfigureEmbedTabsDialog, EmbedVisibleOptions } from "./ConfigureEmbedTabsDialog";
+import { lazy, Suspense } from "react";
+import { Loader2 as LazyLoader } from "lucide-react";
+import type { EmbedVisibleOptions } from "./ConfigureEmbedTabsDialog";
+
+// Lazy-load heavy dialog components for smaller initial bundle
+const AssignGHLUserDialog = lazy(() => import("./AssignGHLUserDialog").then(m => ({ default: m.AssignGHLUserDialog })));
+const WebhookConfigDialog = lazy(() => import("./WebhookConfigDialog").then(m => ({ default: m.WebhookConfigDialog })));
+const ManageMessagesDialog = lazy(() => import("./ManageMessagesDialog").then(m => ({ default: m.ManageMessagesDialog })));
+const GroupManagerDialog = lazy(() => import("./GroupManagerDialog").then(m => ({ default: m.GroupManagerDialog })));
+const ConfigureEmbedTabsDialog = lazy(() => import("./ConfigureEmbedTabsDialog").then(m => ({ default: m.ConfigureEmbedTabsDialog })));
+
+const DialogFallback = () => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
+    <LazyLoader className="h-6 w-6 animate-spin text-primary" />
+  </div>
+);
 import { supabase } from "@/integrations/supabase/client";
 
 interface InstanceCardProps {
@@ -644,80 +655,63 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
         </DialogContent>
       </Dialog>
 
-      {/* Webhook Dialog */}
-      <WebhookConfigDialog
-        open={webhookDialogOpen}
-        onOpenChange={setWebhookDialogOpen}
-        instance={instance}
-        onSave={handleSaveWebhook}
-        isSaving={updateInstanceWebhook.isPending}
-        ignoreGroups={ignoreGroups}
-        onIgnoreGroupsChange={setIgnoreGroups}
-      />
+      {/* Lazy-loaded dialogs - only fetched when opened */}
+      <Suspense fallback={<DialogFallback />}>
+        {webhookDialogOpen && (
+          <WebhookConfigDialog
+            open={webhookDialogOpen}
+            onOpenChange={setWebhookDialogOpen}
+            instance={instance}
+            onSave={handleSaveWebhook}
+            isSaving={updateInstanceWebhook.isPending}
+            ignoreGroups={ignoreGroups}
+            onIgnoreGroupsChange={setIgnoreGroups}
+          />
+        )}
 
-      {/* Delete Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="bg-card border-border">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-card-foreground">
-              {deleteFromUazapi ? "Excluir Permanentemente?" : "Desvincular Instância?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteFromUazapi 
-                ? "Esta ação vai excluir a instância da UAZAPI e do sistema. A conexão com o WhatsApp será perdida permanentemente."
-                : "A instância será removida do sistema mas continuará existindo na UAZAPI. Você poderá importá-la novamente depois."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className={deleteFromUazapi ? "bg-destructive hover:bg-destructive/90" : "bg-amber-500 hover:bg-amber-500/90 text-white"}
-            >
-              {deleteFromUazapi ? "Excluir" : "Desvincular"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {assignUserDialogOpen && (
+          <AssignGHLUserDialog
+            open={assignUserDialogOpen}
+            onOpenChange={setAssignUserDialogOpen}
+            instanceName={instance.instance_name}
+            currentUserId={instance.ghl_user_id}
+            subaccount={subaccount}
+            onAssign={(userId) => {
+              updateInstanceGHLUser.mutate({ instanceId: instance.id, ghlUserId: userId });
+              setAssignUserDialogOpen(false);
+            }}
+            isAssigning={updateInstanceGHLUser.isPending}
+          />
+        )}
 
-      {/* Assign GHL User Dialog */}
-      <AssignGHLUserDialog
-        open={assignUserDialogOpen}
-        onOpenChange={setAssignUserDialogOpen}
-        instanceName={instance.instance_name}
-        currentUserId={instance.ghl_user_id}
-        subaccount={subaccount}
-        onAssign={(userId) => {
-          updateInstanceGHLUser.mutate({ instanceId: instance.id, ghlUserId: userId });
-          setAssignUserDialogOpen(false);
-        }}
-        isAssigning={updateInstanceGHLUser.isPending}
-      />
+        {messagesDialogOpen && (
+          <ManageMessagesDialog
+            open={messagesDialogOpen}
+            onOpenChange={setMessagesDialogOpen}
+            instance={instance}
+            allInstances={allInstances}
+          />
+        )}
 
-      {/* Manage Messages Dialog */}
-      <ManageMessagesDialog
-        open={messagesDialogOpen}
-        onOpenChange={setMessagesDialogOpen}
-        instance={instance}
-        allInstances={allInstances}
-      />
+        {embedTabsDialogOpen && (
+          <ConfigureEmbedTabsDialog
+            open={embedTabsDialogOpen}
+            onOpenChange={setEmbedTabsDialogOpen}
+            instanceId={instance.id}
+            instanceName={instance.instance_name}
+            currentOptions={embedVisibleOptions}
+            onSaved={setEmbedVisibleOptions}
+          />
+        )}
 
-      {/* Configure Embed Tabs Dialog */}
-      <ConfigureEmbedTabsDialog
-        open={embedTabsDialogOpen}
-        onOpenChange={setEmbedTabsDialogOpen}
-        instanceId={instance.id}
-        instanceName={instance.instance_name}
-        currentOptions={embedVisibleOptions}
-        onSaved={setEmbedVisibleOptions}
-      />
-
-      {/* Group Manager Dialog */}
-      <GroupManagerDialog
-        open={groupManagerDialogOpen}
-        onOpenChange={setGroupManagerDialogOpen}
-        instance={instance}
-      />
+        {groupManagerDialogOpen && (
+          <GroupManagerDialog
+            open={groupManagerDialogOpen}
+            onOpenChange={setGroupManagerDialogOpen}
+            instance={instance}
+          />
+        )}
+      </Suspense>
     </>
   );
 });

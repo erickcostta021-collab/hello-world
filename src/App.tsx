@@ -4,9 +4,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/hooks/useAuth";
-import { usePausedCheck } from "@/hooks/usePausedCheck";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { Loader2 } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 // Lazy-loaded pages for code splitting
 const Index = lazy(() => import("./pages/Index"));
@@ -27,7 +29,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // 1 minute — avoid refetching on every navigation
+      staleTime: 1000 * 60,
       refetchOnWindowFocus: false,
     },
   },
@@ -41,11 +43,23 @@ function PageLoader() {
   );
 }
 
+/**
+ * Uses the unified useAccountStatus hook instead of a separate usePausedCheck,
+ * eliminating one redundant Supabase query per protected route mount.
+ */
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const { isPaused, checking } = usePausedCheck();
+  const { user, loading, signOut } = useAuth();
+  const { isPaused, isLoading: statusLoading } = useAccountStatus();
+  const didSignOutRef = useRef(false);
 
-  if (loading || checking) {
+  useEffect(() => {
+    if (!statusLoading && isPaused && !didSignOutRef.current) {
+      didSignOutRef.current = true;
+      signOut();
+    }
+  }, [isPaused, statusLoading, signOut]);
+
+  if (loading || statusLoading) {
     return <PageLoader />;
   }
 
@@ -56,64 +70,67 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+const AppRoutes = () => (
+  <Suspense fallback={<PageLoader />}>
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/login" element={<MainLogin />} />
+      <Route path="/convidadospormim" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/checkout" element={<Checkout />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/subaccount/:id/settings"
+        element={
+          <ProtectedRoute>
+            <SubaccountSettings />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/embed/:embedToken" element={<EmbedInstances />} />
+      <Route
+        path="/admin/health"
+        element={
+          <ProtectedRoute>
+            <AdminHealth />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/oauth/callback" element={<OAuthCallback />} />
+      <Route path="/oauth/success/:locationId" element={<OAuthSuccess />} />
+      <Route path="/oauth/success" element={<OAuthSuccess />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </Suspense>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<MainLogin />} />
-            <Route path="/convidadospormim" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/subaccount/:id/settings"
-              element={
-                <ProtectedRoute>
-                  <SubaccountSettings />
-                </ProtectedRoute>
-              }
-            />
-            {/* Public embed route - no auth required */}
-            <Route path="/embed/:embedToken" element={<EmbedInstances />} />
-            {/* Admin health dashboard */}
-            <Route
-              path="/admin/health"
-              element={
-                <ProtectedRoute>
-                  <AdminHealth />
-                </ProtectedRoute>
-              }
-            />
-            {/* OAuth routes - public for GHL */}
-            <Route path="/oauth/callback" element={<OAuthCallback />} />
-            <Route path="/oauth/success/:locationId" element={<OAuthSuccess />} />
-            <Route path="/oauth/success" element={<OAuthSuccess />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
