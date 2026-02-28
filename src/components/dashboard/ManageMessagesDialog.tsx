@@ -129,22 +129,24 @@ interface CampaignMessage {
 
 // ─── Parse inline "phone: name" format ───
 function parseInlineContacts(raw: string): CsvContact[] | null {
-  // Detect "phone: name" pattern — support newline, comma, or period as separators
-  // Example: "5521...: Érick silva da costa\n5511...: Maria" or "5521...: João.5511...: Maria"
+  // Detect "phone, name" pattern — entries separated by newline or period
+  // Example: "5521980014713, Érick silva da costa\n5511999999999, Maria"
+  // Or: "5521980014713, João.5511999999999, Maria"
   const expanded: string[] = [];
   for (const line of raw.split(/\r?\n/).filter(Boolean)) {
-    // Split by comma or period, only when followed by optional space then a digit
-    const parts = line.split(/[,.]\s*(?=\d)/);
+    // Split by period only when followed by optional space then a digit (entry separator)
+    const parts = line.split(/\.\s*(?=\d)/);
     expanded.push(...parts);
   }
 
-  const colonEntries = expanded.filter((e) => /^\s*[\d+]+\s*:\s*.+/.test(e));
-  if (colonEntries.length === 0) return null;
+  // Match: digits, comma, then name (at least one non-digit char)
+  const commaEntries = expanded.filter((e) => /^\s*[\d+]+\s*,\s*[^\d].+/.test(e));
+  if (commaEntries.length === 0) return null;
 
-  return colonEntries.map((entry) => {
-    const colonIdx = entry.indexOf(":");
-    const phone = entry.slice(0, colonIdx).trim().replace(/\D/g, "");
-    const fullName = entry.slice(colonIdx + 1).trim();
+  return commaEntries.map((entry) => {
+    const commaIdx = entry.indexOf(",");
+    const phone = entry.slice(0, commaIdx).trim().replace(/\D/g, "");
+    const fullName = entry.slice(commaIdx + 1).trim();
     const parts = fullName.split(/\s+/);
     return {
       phone,
@@ -891,11 +893,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   // ─── Simple send (with round-robin, dynamic fields, AI variations, anti-ban) ───
   const handleSendSimple = async () => {
     // Parse numbers — support "phone: name" inline format and plain numbers
-    const rawEntries = numbers.split(/[\n]+/).flatMap((line) => line.split(/[,.]\s*(?=\d)/)).map((n) => n.trim()).filter(Boolean);
+    const rawEntries = numbers.split(/[\n]+/).flatMap((line) => line.split(/\.\s*(?=\d)/)).map((n) => n.trim()).filter(Boolean);
     const numberList = rawEntries
       .map((entry) => {
-        const colonIdx = entry.indexOf(":");
-        const raw = colonIdx >= 0 ? entry.slice(0, colonIdx).trim() : entry.trim();
+        const commaIdx = entry.indexOf(",");
+        // If comma exists and what follows is non-digit (i.e. a name), split there
+        const hasName = commaIdx >= 0 && /[^\d\s]/.test(entry.slice(commaIdx + 1).trim().charAt(0));
+        const raw = hasName ? entry.slice(0, commaIdx).trim() : entry.trim();
         const clean = raw.replace(/\D/g, "");
         return clean ? `${clean}@s.whatsapp.net` : "";
       })
@@ -1460,12 +1464,12 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         </div>
       </div>
       <Textarea
-        placeholder={"5511999999999: João Silva\n5521888888888: Maria\n\nOu só números, vírgula, ou CSV (phone,nome,sobrenome)"}
+        placeholder={"5511999999999, João Silva\n5521888888888, Maria\n\nOu só números, quebra de linha, ou CSV (phone,nome,sobrenome)"}
       value={numbers}
       onChange={(e) => {
         const val = e.target.value;
         setNumbers(val);
-        // Auto-detect "phone: name" format
+        // Auto-detect "phone, name" format
         const inline = parseInlineContacts(val);
         if (inline && inline.length > 0) {
           setCsvContacts(inline);
