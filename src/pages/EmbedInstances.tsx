@@ -93,7 +93,7 @@ export default function EmbedInstances() {
       // Fetch instances for this subaccount
       const { data: instData, error: instError } = await supabase
         .from("instances")
-        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url, embed_visible_options")
+        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url, embed_visible_options, is_official_api")
         .eq("subaccount_id", subData.id)
         .order("instance_name");
 
@@ -106,6 +106,7 @@ export default function EmbedInstances() {
           uazapi_instance_token: i.uazapi_instance_token || "",
           uazapi_base_url: i.uazapi_base_url || null,
           embed_visible_options: i.embed_visible_options as any || null,
+          is_official_api: i.is_official_api || false,
         })));
       }
     } catch (err) {
@@ -131,7 +132,7 @@ export default function EmbedInstances() {
 
       const { data: instData } = await supabase
         .from("instances")
-        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url, embed_visible_options")
+        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url, embed_visible_options, is_official_api")
         .eq("subaccount_id", subaccount.id)
         .order("instance_name");
 
@@ -140,6 +141,7 @@ export default function EmbedInstances() {
         uazapi_instance_token: i.uazapi_instance_token || "",
         uazapi_base_url: i.uazapi_base_url || null,
         embed_visible_options: i.embed_visible_options as any || null,
+        is_official_api: i.is_official_api || false,
       })));
     } catch {
       console.error("Error loading instances after password");
