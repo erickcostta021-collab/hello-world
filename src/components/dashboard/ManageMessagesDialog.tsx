@@ -571,7 +571,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         return info.includes("⏩") && mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
       });
 
-      let allMessages = [...list];
+      // Tag messages from continuation folders so they always merge
+      const continuationMessages: CampaignMessage[] = [];
       if (continuationFolders.length > 0) {
         const contResults = await Promise.allSettled(
           continuationFolders.map(async (cf) => {
@@ -587,30 +588,44 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           })
         );
         for (const r of contResults) {
-          if (r.status === "fulfilled") allMessages = allMessages.concat(r.value);
+          if (r.status === "fulfilled") continuationMessages.push(...r.value);
         }
       }
 
       // Merge split parts into main message per contact, filter anti-ban buttons
       const merged: CampaignMessage[] = [];
       const mainByNumber: Record<string, CampaignMessage> = {};
-      for (const msg of allMessages) {
-        let isSplitPart = false;
-        let isButton = false;
+
+      // Helper to check if message is a button type
+      const isButtonMsg = (msg: CampaignMessage) => {
+        const msgType = String(msg.type || "").toLowerCase();
+        if (msgType === "button") return true;
         try {
           const raw = (msg as any).send_payload || (msg as any).sendPayload;
           if (raw) {
             const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
-            if (sp?.type === "button" || sp?.messageType === "button" || sp?.buttonText || sp?.choices) isButton = true;
-            if (sp?.splitPart === true) isSplitPart = true;
+            if (sp?.type === "button" || sp?.messageType === "button" || sp?.buttonText || sp?.choices) return true;
           }
         } catch { /* ignore */ }
-        const msgType = String(msg.type || "").toLowerCase();
-        if (msgType === "button" || isButton) continue;
+        return false;
+      };
+
+      // First pass: process main campaign messages
+      for (const msg of list) {
+        if (isButtonMsg(msg)) continue;
         const num = String(msg.number || (msg as any).chatid || "");
-        if (isSplitPart && num && mainByNumber[num]) {
+        merged.push(msg);
+        if (num) mainByNumber[num] = msg;
+      }
+
+      // Second pass: merge ALL continuation messages into main entries
+      for (const msg of continuationMessages) {
+        if (isButtonMsg(msg)) continue;
+        const num = String(msg.number || (msg as any).chatid || "");
+        if (num && mainByNumber[num]) {
           if (msg.text) mainByNumber[num].text = (mainByNumber[num].text || "") + "\n\n" + msg.text;
         } else {
+          // No main entry found, add as standalone
           merged.push(msg);
           if (num) mainByNumber[num] = msg;
         }
