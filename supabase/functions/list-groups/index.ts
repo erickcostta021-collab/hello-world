@@ -524,14 +524,17 @@ serve(async (req) => {
     if (groupsWithoutPic.length > 0) {
       console.log(`[list-groups] Fetching profile pics for ${groupsWithoutPic.length} groups`);
       
-      // Try multiple endpoint patterns with full logging
+      // Try multiple endpoint patterns - GET with query params first (most UAZAPI endpoints are GET)
       const picEndpoints = [
+        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic?Phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic?phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl?jid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        (jid: string) => ({ url: `${baseUrl}/contact/profilepic?Phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        (jid: string) => ({ url: `${baseUrl}/group/photo?groupjid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        (jid: string) => ({ url: `${baseUrl}/group/profilepic?groupjid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        // POST fallbacks
         (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic`, method: "POST", body: JSON.stringify({ phone: jid, number: jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/contact/profilepic`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl`, method: "POST", body: JSON.stringify({ jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/group/photo`, method: "POST", body: JSON.stringify({ groupjid: jid }) }),
-        (jid: string) => ({ url: `${baseUrl}/group/info`, method: "POST", body: JSON.stringify({ groupjid: jid, getInviteLink: false, force: false }) }),
+        (jid: string) => ({ url: `${baseUrl}/group/info`, method: "POST", body: JSON.stringify({ groupjid: jid, getInviteLink: false }) }),
       ];
 
       const testJid = groupsWithoutPic[0].id;
