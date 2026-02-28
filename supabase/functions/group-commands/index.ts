@@ -728,7 +728,34 @@ async function getGroupLink(
       console.error("inviteCode /group/info error:", e);
     }
 
-    // Priority 2: GET /group/invitelink/{jid}
+    // Priority 2: POST /group/invitelink (UAZAPI v2 style)
+    if (!inviteCode) {
+      const postAttempts = [
+        { url: `${baseUrl}/group/invitelink`, body: { groupjid: group.id } },
+        { url: `${baseUrl}/group/invitelink`, body: { jid: group.id } },
+        { url: `${baseUrl}/group/inviteCode`, body: { groupjid: group.id } },
+        { url: `${baseUrl}/group/inviteCode`, body: { jid: group.id } },
+      ];
+      for (const attempt of postAttempts) {
+        try {
+          const response = await fetch(attempt.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "token": instanceToken },
+            body: JSON.stringify(attempt.body),
+          });
+          const text = await response.text();
+          console.log(`inviteCode POST ${attempt.url}:`, response.status, text.substring(0, 300));
+          if (response.ok) {
+            inviteCode = extractCode(text);
+            if (inviteCode) break;
+          }
+        } catch (e) {
+          console.error("inviteCode POST error:", e);
+        }
+      }
+    }
+
+    // Priority 3: GET /group/invitelink/{jid} (legacy)
     if (!inviteCode) {
       const getAttempts = [
         `${baseUrl}/group/invitelink/${group.id}`,
