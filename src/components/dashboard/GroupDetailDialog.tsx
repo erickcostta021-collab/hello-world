@@ -463,14 +463,15 @@ export function GroupDetailDialog({
         body: { instanceId: instance.id, messageText: `#linkgrupo ${groupId}|clipboard` },
       });
       if (error) throw error;
-      // Extract link from response message
-      const msg = data?.message || "";
+      // The response is wrapped in data.result
+      const result = data?.result || data;
+      const msg = result?.message || "";
       const linkMatch = msg.match(/https:\/\/chat\.whatsapp\.com\/\S+/);
       if (linkMatch) {
         navigator.clipboard.writeText(linkMatch[0]);
         toast.success("Link de convite copiado!");
       } else {
-        toast.error("Não foi possível obter o link de convite");
+        toast.error(result?.message || "Não foi possível obter o link de convite");
       }
     } catch (err: any) {
       toast.error(err.message || "Erro ao copiar link");
