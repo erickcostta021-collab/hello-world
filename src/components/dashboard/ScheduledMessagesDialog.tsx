@@ -64,6 +64,7 @@ interface ScheduledMessage {
 interface ScheduledMessagesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  instanceId?: string;
 }
 
 function MessageCard({
@@ -170,7 +171,7 @@ function MessageCard({
   );
 }
 
-export function ScheduledMessagesDialog({ open, onOpenChange }: ScheduledMessagesDialogProps) {
+export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: ScheduledMessagesDialogProps) {
   const [messages, setMessages] = useState<ScheduledMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -181,13 +182,21 @@ export function ScheduledMessagesDialog({ open, onOpenChange }: ScheduledMessage
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("scheduled_group_messages")
-        .select("*")
-        .order("scheduled_for", { ascending: true });
-
-      if (error) throw error;
-      setMessages(data || []);
+      if (instanceId) {
+        // Use edge function proxy (works in embed context without auth)
+        const { data, error } = await supabase.functions.invoke("scheduled-messages-proxy", {
+          body: { action: "list", instanceId },
+        });
+        if (error) throw error;
+        setMessages(data?.messages || []);
+      } else {
+        const { data, error } = await supabase
+          .from("scheduled_group_messages")
+          .select("*")
+          .order("scheduled_for", { ascending: true });
+        if (error) throw error;
+        setMessages(data || []);
+      }
     } catch (err: any) {
       toast.error(err.message || "Erro ao buscar mensagens");
     } finally {
@@ -206,11 +215,18 @@ export function ScheduledMessagesDialog({ open, onOpenChange }: ScheduledMessage
   const deleteMessage = async (id: string) => {
     setDeletingId(id);
     try {
-      const { error } = await supabase
-        .from("scheduled_group_messages")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
+      if (instanceId) {
+        const { data, error } = await supabase.functions.invoke("scheduled-messages-proxy", {
+          body: { action: "delete", instanceId, messageId: id },
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("scheduled_group_messages")
+          .delete()
+          .eq("id", id);
+        if (error) throw error;
+      }
       setMessages((prev) => prev.filter((m) => m.id !== id));
       toast.success("Mensagem removida!");
     } catch (err: any) {
@@ -223,11 +239,18 @@ export function ScheduledMessagesDialog({ open, onOpenChange }: ScheduledMessage
   const clearHistory = async () => {
     setClearingHistory(true);
     try {
-      const { error } = await supabase
-        .from("scheduled_group_messages")
-        .delete()
-        .in("status", ["sent", "failed", "cancelled"]);
-      if (error) throw error;
+      if (instanceId) {
+        const { data, error } = await supabase.functions.invoke("scheduled-messages-proxy", {
+          body: { action: "clear-history", instanceId },
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("scheduled_group_messages")
+          .delete()
+          .in("status", ["sent", "failed", "cancelled"]);
+        if (error) throw error;
+      }
       setMessages((prev) => prev.filter((m) => m.status === "pending"));
       toast.success("Histórico limpo!");
     } catch (err: any) {
