@@ -480,18 +480,38 @@ serve(async (req) => {
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const groupsData = await response.json();
-    console.log(`Found ${Array.isArray(groupsData) ? groupsData.length : 0} groups`);
+    const rawText = await response.text();
+    console.log(`[list-groups] Raw response (first 2000 chars): ${rawText.substring(0, 2000)}`);
+    
+    let groupsData: any;
+    try {
+      groupsData = JSON.parse(rawText);
+    } catch {
+      return new Response(JSON.stringify({ error: `Invalid JSON from UAZAPI: ${rawText.substring(0, 200)}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Handle various response formats: direct array, or wrapped in object
+    let groupsList: any[] = [];
+    if (Array.isArray(groupsData)) {
+      groupsList = groupsData;
+    } else if (groupsData && typeof groupsData === "object") {
+      // Try common wrapper keys
+      groupsList = groupsData.data || groupsData.groups || groupsData.Groups || 
+                   groupsData.result || groupsData.Results || groupsData.items || [];
+      if (!Array.isArray(groupsList)) groupsList = [];
+    }
+    
+    console.log(`[list-groups] Found ${groupsList.length} groups`);
 
     const groups: GroupInfo[] = [];
-    if (Array.isArray(groupsData)) {
-      for (const group of groupsData) {
-        groups.push({
-          id: group.id || group.jid || group.groupId,
-          name: group.subject || group.name || group.groupName || "Unknown Group",
-          memberCount: group.size || group.participants?.length,
-          isAdmin: group.isAdmin || group.admin,
-        });
+    for (const group of groupsList) {
+      const id = group.id || group.jid || group.JID || group.groupId || group.GroupId || "";
+      const name = group.subject || group.Subject || group.name || group.Name || group.groupName || group.GroupName || "Unknown Group";
+      const memberCount = group.size || group.Size || group.participants?.length || group.Participants?.length || group.MemberCount || group.memberCount;
+      const isAdmin = group.isAdmin || group.IsAdmin || group.admin || group.Admin;
+      if (id) {
+        groups.push({ id, name, memberCount, isAdmin });
       }
     }
 
