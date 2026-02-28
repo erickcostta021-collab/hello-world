@@ -82,11 +82,14 @@ serve(async (req: Request) => {
             sendBody.file = msg.media_url;
             if (text) sendBody.text = text;
           } else {
-            endpoint = "/send/media";
-            sendBody.url = msg.media_url;
-            sendBody.file = msg.media_url;
-            sendBody.type = msg.media_type === "document" ? "document" : msg.media_type;
-            if (text) sendBody.caption = text;
+          endpoint = "/send/media";
+          sendBody.url = msg.media_url;
+          sendBody.file = msg.media_url;
+          sendBody.type = msg.media_type === "document" ? "document" : msg.media_type;
+          if (text) {
+            sendBody.caption = text;
+            sendBody.text = text;
+          }
           }
         } else {
           sendBody.text = text;
