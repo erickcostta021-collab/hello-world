@@ -139,6 +139,8 @@ export function GroupDetailDialog({
   const [promotingPhone, setPromotingPhone] = useState<string | null>(null);
   const [demotingPhone, setDemotingPhone] = useState<string | null>(null);
   const [currentGroupName, setCurrentGroupName] = useState(groupName);
+  const [changingPhoto, setChangingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchGroupDetails = async () => {
     setLoading(true);
@@ -538,6 +540,36 @@ export function GroupDetailDialog({
     }
   };
 
+  // Change group photo
+  const changeGroupPhoto = async (file: File) => {
+    setChangingPhoto(true);
+    try {
+      // Upload to command-uploads bucket
+      const ext = file.name.split(".").pop() || "jpg";
+      const fileName = `group-photo-${Date.now()}.${ext}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("command-uploads")
+        .upload(fileName, file, { contentType: file.type, upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("command-uploads")
+        .getPublicUrl(fileName);
+      const imageUrl = urlData.publicUrl;
+
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: `#attfotogrupo ${groupId}|${imageUrl}` },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.message) throw new Error(data.message);
+      toast.success("Foto do grupo atualizada!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar foto");
+    } finally {
+      setChangingPhoto(false);
+    }
+  };
+
   // Edit group description
   const saveGroupDesc = async () => {
     setSavingDesc(true);
@@ -869,6 +901,30 @@ export function GroupDetailDialog({
           )}
           {isLocked ? "Só Admins Editam" : "Todos Editam"}
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => photoInputRef.current?.click()}
+          disabled={changingPhoto}
+        >
+          {changingPhoto ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            <Image className="h-4 w-4 mr-1" />
+          )}
+          Trocar Foto
+        </Button>
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) changeGroupPhoto(file);
+            e.target.value = "";
+          }}
+        />
       </div>
 
       {/* Add Participant Section */}
