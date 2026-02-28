@@ -905,54 +905,114 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           return obj;
         });
 
-        // If split messages is enabled, split each message by triple line breaks
-        // Mark each part so anti-ban button is only added after the last part per contact
+        // If split messages is enabled, organize into waves (wave 0 = part 1 of all contacts, wave 1 = part 2, etc.)
+        // Each wave is sent as a separate API call with a real sleep between them
         if (splitMessages) {
-          const splitDelaySec = parseInt(splitDelay) || 2;
-          const expanded: Record<string, unknown>[] = [];
+          const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+          // Build per-contact parts
+          const contactWaves: Record<string, unknown>[][] = []; // waves[waveIdx] = array of messages
+          let maxParts = 1;
+          const perContactParts: { parts: Record<string, unknown>[]; }[] = [];
+
           for (const msg of messages) {
             const msgText = (msg.text as string) || "";
             const parts = splitMessageByTripleBreak(msgText);
-            if (parts.length > 1) {
-              for (let i = 0; i < parts.length; i++) {
-                const part: Record<string, unknown> = { ...msg, text: parts[i], _isLastPart: i === parts.length - 1 };
-                if (i > 0) { delete part.file; delete part.docName; part.delayOverride = splitDelaySec; part.splitPart = true; }
-                expanded.push(part);
-              }
-            } else {
-              expanded.push({ ...msg, _isLastPart: true });
+            const built: Record<string, unknown>[] = [];
+            for (let i = 0; i < parts.length; i++) {
+              const part: Record<string, unknown> = { ...msg, text: parts[i] };
+              if (i > 0) { delete part.file; delete part.docName; part.splitPart = true; }
+              built.push(part);
             }
+            perContactParts.push({ parts: built });
+            if (parts.length > maxParts) maxParts = parts.length;
           }
-          messages = expanded;
+
+          // Add anti-ban button as an extra wave after the last part
+          const addBtnWave = antiBanEnabled && antiBanButton;
+          const totalWaves = maxParts + (addBtnWave ? 1 : 0);
+
+          for (let w = 0; w < totalWaves; w++) {
+            const wave: Record<string, unknown>[] = [];
+            for (const contact of perContactParts) {
+              if (w < contact.parts.length) {
+                wave.push(contact.parts[w]);
+              } else if (w === maxParts && addBtnWave) {
+                // Anti-ban button wave
+                wave.push({
+                  number: contact.parts[0].number,
+                  type: "button",
+                  text: antiBanBtnMessage,
+                  footerText: antiBanBtnFooter,
+                  buttonText: antiBanBtnTitle,
+                  choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+                  splitPart: true,
+                });
+              }
+            }
+            if (wave.length > 0) contactWaves.push(wave);
+          }
+
+          // Send each wave sequentially with sleep between them
+          const sendWave = async (inst: Instance, msgs: Record<string, unknown>[]) => {
+            const body: Record<string, unknown> = {
+              delayMin: parseInt(delayMin) || 10,
+              delayMax: parseInt(delayMax) || 30,
+              info: folder || "Campanha Bridge",
+              scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
+              ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
+              messages: msgs,
+            };
+            const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
+              method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
+            });
+            if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+          };
+
+          if (instances.length === 1) {
+            for (let w = 0; w < contactWaves.length; w++) {
+              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+              await sendWave(instances[0], contactWaves[w]);
+            }
+            toast.success(`Campanha dividida em ${contactWaves.length} onda(s) enviada! ${numberList.length} contato(s).`);
+          } else {
+            // Round-robin per wave
+            for (let w = 0; w < contactWaves.length; w++) {
+              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+              const waveMsgs = contactWaves[w];
+              const buckets: Record<string, unknown>[][] = instances.map(() => []);
+              waveMsgs.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
+              await Promise.allSettled(
+                instances.map((inst, idx) => {
+                  if (buckets[idx].length === 0) return Promise.resolve();
+                  return sendWave(inst, buckets[idx]);
+                })
+              );
+            }
+            toast.success(`Campanha dividida em ${contactWaves.length} onda(s) round-robin! ${numberList.length} contato(s).`);
+          }
+          setSending(false);
+          return;
         }
 
-        // If anti-ban button is enabled, add button messages only after last part per contact
+        // If anti-ban button is enabled (no split), add button messages
         if (antiBanEnabled && antiBanButton) {
-          const wasSplit = splitMessages;
-          const splitDelaySec2 = parseInt(splitDelay) || 2;
           const withButtons: Record<string, unknown>[] = [];
           for (const msg of messages) {
-            const { _isLastPart, ...cleanMsg } = msg as Record<string, unknown> & { _isLastPart?: boolean };
-            withButtons.push(cleanMsg);
-            // Only add button after last part (or every msg if not split)
-            if (!wasSplit || _isLastPart) {
-              const btnMsg: Record<string, unknown> = {
-                number: msg.number,
-                type: "button",
-                text: antiBanBtnMessage,
-                footerText: antiBanBtnFooter,
-                buttonText: antiBanBtnTitle,
-                choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
-                delayOverride: splitDelaySec2,
-                splitPart: true,
-              };
-              withButtons.push(btnMsg);
-            }
+            withButtons.push(msg);
+            const btnMsg: Record<string, unknown> = {
+              number: msg.number,
+              type: "button",
+              text: antiBanBtnMessage,
+              footerText: antiBanBtnFooter,
+              buttonText: antiBanBtnTitle,
+              choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+            };
+            withButtons.push(btnMsg);
           }
           messages = withButtons;
         }
 
-        // Send as advanced
+        // Send as advanced (no split)
         if (instances.length === 1) {
           const body: Record<string, unknown> = {
             delayMin: parseInt(delayMin) || 10,
