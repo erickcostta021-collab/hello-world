@@ -708,6 +708,7 @@ async function processCommand(
   baseUrl: string,
   instanceToken: string,
   instanceName?: string,
+  scheduledFor?: string,
 ): Promise<CommandResult | null> {
   console.log("Processing command:", { command, params });
   
@@ -825,17 +826,24 @@ async function processCommand(
       const [targetGroup, ...msgParts] = params;
       const groupJid = targetGroup.includes("@g.us") ? targetGroup : `${targetGroup}@g.us`;
       try {
+        const sendBody: Record<string, unknown> = { number: groupJid, text: msgParts.join("|") };
+        // Support scheduling via scheduledFor ISO string
+        if (scheduledFor) {
+          sendBody.scheduled_for = scheduledFor;
+          console.log(`[group-commands] Scheduling message for ${scheduledFor}`);
+        }
         const response = await fetch(`${baseUrl}/send/text`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "token": instanceToken },
-          body: JSON.stringify({ number: groupJid, text: msgParts.join("|") }),
+          body: JSON.stringify(sendBody),
         });
         if (!response.ok) {
           const errData = await response.text();
           console.error("Send message error:", errData);
           return { success: false, command: "enviargrupo", message: `❌ Erro ao enviar: ${response.status}` };
         }
-        return { success: true, command: "enviargrupo", message: `✅ Mensagem enviada ao grupo!` };
+        const successMsg = scheduledFor ? `✅ Mensagem agendada para ${new Date(scheduledFor).toLocaleString("pt-BR")}!` : `✅ Mensagem enviada ao grupo!`;
+        return { success: true, command: "enviargrupo", message: successMsg };
       } catch (e) {
         return { success: false, command: "enviargrupo", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
       }
@@ -852,7 +860,7 @@ serve(async (req: Request) => {
   }
 
   try {
-    const { instanceId, messageText } = await req.json();
+    const { instanceId, messageText, scheduledFor } = await req.json();
 
     if (!instanceId || !messageText) {
       return new Response(
@@ -925,6 +933,7 @@ serve(async (req: Request) => {
       baseUrl,
       instanceData.uazapi_instance_token,
       instanceData.instance_name,
+      scheduledFor,
     );
 
     if (!result) {
