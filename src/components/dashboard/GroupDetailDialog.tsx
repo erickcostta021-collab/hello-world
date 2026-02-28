@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,8 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Users,
   Search,
@@ -47,7 +50,7 @@ import {
   Unlock,
   Pencil,
   Send,
-  Calendar,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -89,6 +92,9 @@ export function GroupDetailDialog({
   const [messageText, setMessageText] = useState("");
   const [showMessageDialog, setShowMessageDialog] = useState(false);
   const [mentionAll, setMentionAll] = useState(false);
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<Date | undefined>(undefined);
+  const [scheduleTime, setScheduleTime] = useState("");
   const isMobile = useIsMobile();
 
   const fetchGroupDetails = async () => {
@@ -124,6 +130,9 @@ export function GroupDetailDialog({
       setShowMessageDialog(false);
       setMessageText("");
       setMentionAll(false);
+      setScheduleEnabled(false);
+      setScheduleDate(undefined);
+      setScheduleTime("");
     }
   }, [open, groupId]);
 
@@ -507,11 +516,59 @@ export function GroupDetailDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
-            Enviar Mensagem no Grupo
+            {scheduleEnabled ? "Agendar Mensagem" : "Enviar Mensagem no Grupo"}
           </DialogTitle>
           <DialogDescription>{groupName}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-2">
+          {/* Schedule toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              id="schedule-toggle"
+              checked={scheduleEnabled}
+              onCheckedChange={setScheduleEnabled}
+            />
+            <Label htmlFor="schedule-toggle" className="text-sm cursor-pointer flex items-center gap-1.5">
+              <CalendarIcon className="h-4 w-4" />
+              Agendar envio
+            </Label>
+          </div>
+
+          {/* Date/time picker */}
+          {scheduleEnabled && (
+            <div className="space-y-2">
+              <Label>Data e Hora do Envio</Label>
+              <div className="flex gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="flex-1 justify-start text-left font-normal">
+                      <CalendarIcon className="h-4 w-4 mr-2" />
+                      {scheduleDate ? format(scheduleDate, "dd/MM/yyyy") : "dd/mm/aaaa"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={scheduleDate}
+                      onSelect={setScheduleDate}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="w-[120px]"
+                  placeholder="--:--"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Message */}
           <div className="space-y-2">
             <Label htmlFor="group-message">Mensagem</Label>
             <Textarea
@@ -522,6 +579,8 @@ export function GroupDetailDialog({
               className="min-h-[120px] resize-none"
             />
           </div>
+
+          {/* Mention all */}
           <div className="flex items-center gap-2">
             <Switch
               id="mention-all"
@@ -546,7 +605,16 @@ export function GroupDetailDialog({
             ) : (
               <Send className="h-4 w-4 mr-1" />
             )}
-            Enviar Agora
+            {scheduleEnabled ? "Agendar Mensagem" : "Enviar Agora"}
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              toast.info("Mensagens recorrentes em breve!");
+            }}
+          >
+            <CalendarIcon className="h-4 w-4 mr-1" />
+            Recorrente
           </Button>
         </DialogFooter>
       </DialogContent>
