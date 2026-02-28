@@ -652,43 +652,64 @@ async function getGroupLink(
   }
   
   try {
-    // Get invite code
-    const response = await fetch(`${baseUrl}/group/inviteCode`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "token": instanceToken,
-      },
-      body: JSON.stringify({
-        groupId: group.id,
-      }),
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return { success: false, command: "linkgrupo", message: `❌ Erro ao buscar link: ${data.message || response.status}` };
+    // Try multiple endpoint/payload combinations for invite code
+    const attempts = [
+      { url: `${baseUrl}/group/inviteCode`, body: { groupJid: group.id } },
+      { url: `${baseUrl}/group/inviteCode`, body: { groupId: group.id } },
+      { url: `${baseUrl}/group/inviteCode`, body: { jid: group.id } },
+      { url: `${baseUrl}/group/invitelink`, body: { groupjid: group.id } },
+      { url: `${baseUrl}/group/invitelink`, body: { groupJid: group.id } },
+    ];
+
+    let inviteCode: string | null = null;
+
+    for (const attempt of attempts) {
+      try {
+        const response = await fetch(attempt.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "token": instanceToken },
+          body: JSON.stringify(attempt.body),
+        });
+        const text = await response.text();
+        console.log(`inviteCode attempt ${attempt.url}:`, response.status, text.substring(0, 300));
+        if (response.ok) {
+          try {
+            const data = JSON.parse(text);
+            inviteCode = data.code || data.inviteCode || data.invite || data.inviteUrl || data.link;
+            // If data is a string URL itself
+            if (!inviteCode && typeof data === "string" && data.includes("chat.whatsapp.com")) {
+              inviteCode = data;
+            }
+          } catch {
+            // Maybe plain text response
+            if (text.includes("chat.whatsapp.com")) {
+              inviteCode = text.trim();
+            }
+          }
+          if (inviteCode) break;
+        }
+      } catch (e) {
+        console.error("inviteCode attempt error:", e);
+      }
     }
-    
-    const inviteCode = data.code || data.inviteCode || data.invite;
+
     if (!inviteCode) {
       return { success: false, command: "linkgrupo", message: `❌ Não foi possível obter o link do grupo` };
     }
     
-    const inviteLink = `https://chat.whatsapp.com/${inviteCode}`;
+    const inviteLink = inviteCode.startsWith("http") ? inviteCode : `https://chat.whatsapp.com/${inviteCode}`;
     
+    // If targetPhone is "clipboard", just return the link (used by the UI)
+    if (targetPhone === "clipboard") {
+      return { success: true, command: "linkgrupo", message: `✅ Link: ${inviteLink}` };
+    }
+
     // Send link to the target phone
     const cleanPhone = targetPhone.replace(/\D/g, "");
     const sendResponse = await fetch(`${baseUrl}/send/text`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "token": instanceToken,
-      },
-      body: JSON.stringify({
-        number: cleanPhone,
-        text: `📎 Link do grupo "${groupName}":\n${inviteLink}`,
-      }),
+      headers: { "Content-Type": "application/json", "token": instanceToken },
+      body: JSON.stringify({ number: cleanPhone, text: `📎 Link do grupo "${groupName}":\n${inviteLink}` }),
     });
     
     if (!sendResponse.ok) {
@@ -828,9 +849,14 @@ async function processCommand(
       try {
         const sendBody: Record<string, unknown> = { number: groupJid, text: msgParts.join("|") };
         // Support scheduling via scheduledFor ISO string
+        // UAZAPI may use "scheduled_for" or "Delay" (seconds from now)
         if (scheduledFor) {
+          const scheduledDate = new Date(scheduledFor);
+          const delaySeconds = Math.max(0, Math.floor((scheduledDate.getTime() - Date.now()) / 1000));
           sendBody.scheduled_for = scheduledFor;
-          console.log(`[group-commands] Scheduling message for ${scheduledFor}`);
+          sendBody.Delay = delaySeconds;
+          sendBody.delay = delaySeconds;
+          console.log(`[group-commands] Scheduling message for ${scheduledFor}, delay=${delaySeconds}s`);
         }
         const response = await fetch(`${baseUrl}/send/text`, {
           method: "POST",

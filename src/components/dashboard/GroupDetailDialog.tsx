@@ -31,8 +31,6 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Users,
   Search,
@@ -51,6 +49,11 @@ import {
   Pencil,
   Send,
   Calendar as CalendarIcon,
+  UserPlus,
+  ArrowUp,
+  ArrowDown,
+  FileSpreadsheet,
+  RefreshCw,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -97,6 +100,20 @@ export function GroupDetailDialog({
   const [scheduleTime, setScheduleTime] = useState("");
   const isMobile = useIsMobile();
 
+  // New states for added features
+  const [addPhoneInput, setAddPhoneInput] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [editingDesc, setEditingDesc] = useState(false);
+  const [newGroupDesc, setNewGroupDesc] = useState("");
+  const [savingDesc, setSavingDesc] = useState(false);
+  const [copyingLink, setCopyingLink] = useState(false);
+  const [promotingPhone, setPromotingPhone] = useState<string | null>(null);
+  const [demotingPhone, setDemotingPhone] = useState<string | null>(null);
+  const [currentGroupName, setCurrentGroupName] = useState(groupName);
+
   const fetchGroupDetails = async () => {
     setLoading(true);
     try {
@@ -112,6 +129,7 @@ export function GroupDetailDialog({
       setParticipantCount(data?.participantCount || data?.participants?.length || 0);
       setIsAnnounce(data?.isAnnounce ?? false);
       setIsLocked(data?.isLocked ?? false);
+      setCurrentGroupName(data?.groupName || groupName);
     } catch (err: any) {
       console.error("Failed to fetch group details:", err);
       toast.error(err.message || "Erro ao buscar detalhes do grupo");
@@ -122,6 +140,7 @@ export function GroupDetailDialog({
 
   useEffect(() => {
     if (open && groupId) {
+      setCurrentGroupName(groupName);
       fetchGroupDetails();
     } else {
       setParticipants([]);
@@ -133,6 +152,9 @@ export function GroupDetailDialog({
       setScheduleEnabled(false);
       setScheduleDate(undefined);
       setScheduleTime("");
+      setAddPhoneInput("");
+      setEditingName(false);
+      setEditingDesc(false);
     }
   }, [open, groupId]);
 
@@ -170,7 +192,7 @@ export function GroupDetailDialog({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `participantes-${groupName.replace(/[^a-zA-Z0-9]/g, "_")}.csv`;
+    a.download = `participantes-${currentGroupName.replace(/[^a-zA-Z0-9]/g, "_")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success(`${participants.length} participantes exportados!`);
@@ -179,9 +201,9 @@ export function GroupDetailDialog({
   const removeParticipant = async (participant: ParticipantInfo) => {
     setRemovingPhone(participant.phone);
     try {
-      const messageText = `#removerdogrupo ${groupId}|${participant.phone}`;
+      const msgText = `#removerdogrupo ${groupId}|${participant.phone}`;
       const { data, error } = await supabase.functions.invoke("group-commands", {
-        body: { instanceId: instance.id, messageText },
+        body: { instanceId: instance.id, messageText: msgText },
       });
 
       if (error) throw error;
@@ -205,9 +227,9 @@ export function GroupDetailDialog({
     setTogglingAnnounce(true);
     try {
       const cmd = isAnnounce ? "#msgliberada" : "#somenteadminmsg";
-      const messageText = `${cmd} ${groupId}`;
+      const msgText = `${cmd} ${groupId}`;
       const { data, error } = await supabase.functions.invoke("group-commands", {
-        body: { instanceId: instance.id, messageText },
+        body: { instanceId: instance.id, messageText: msgText },
       });
       if (error) throw error;
       if (data?.result && !data.result.success) throw new Error(data.result.message);
@@ -224,9 +246,9 @@ export function GroupDetailDialog({
     setTogglingLocked(true);
     try {
       const cmd = isLocked ? "#editliberado" : "#somenteadminedit";
-      const messageText = `${cmd} ${groupId}`;
+      const msgText = `${cmd} ${groupId}`;
       const { data, error } = await supabase.functions.invoke("group-commands", {
-        body: { instanceId: instance.id, messageText },
+        body: { instanceId: instance.id, messageText: msgText },
       });
       if (error) throw error;
       if (data?.result && !data.result.success) throw new Error(data.result.message);
@@ -296,59 +318,262 @@ export function GroupDetailDialog({
     }
   };
 
+  // Add member
+  const addMember = async () => {
+    const phone = addPhoneInput.trim().replace(/\D/g, "");
+    if (!phone) {
+      toast.error("Digite um número de telefone");
+      return;
+    }
+    setAddingMember(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: `#addnogrupo ${groupId}|${phone}` },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.message) throw new Error(data.message);
+      toast.success(`Membro ${phone} adicionado ao grupo!`);
+      setAddPhoneInput("");
+      fetchGroupDetails(); // Refresh
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao adicionar membro");
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  // Edit group name
+  const saveGroupName = async () => {
+    if (!newGroupName.trim()) return;
+    setSavingName(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: `#attnomegrupo ${groupId}|${newGroupName.trim()}` },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.message) throw new Error(data.message);
+      toast.success("Nome do grupo atualizado!");
+      setCurrentGroupName(newGroupName.trim());
+      setEditingName(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar nome");
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  // Edit group description
+  const saveGroupDesc = async () => {
+    setSavingDesc(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: `#attdescricao ${groupId}|${newGroupDesc.trim()}` },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.message) throw new Error(data.message);
+      toast.success("Descrição do grupo atualizada!");
+      setGroupDescription(newGroupDesc.trim());
+      setEditingDesc(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar descrição");
+    } finally {
+      setSavingDesc(false);
+    }
+  };
+
+  // Copy invite link
+  const copyInviteLink = async () => {
+    setCopyingLink(true);
+    try {
+      // We need to get the invite link - use the group-commands function but for link retrieval
+      // We'll call the UAZAPI inviteCode endpoint directly via a new approach
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: `#linkgrupo ${groupId}|clipboard` },
+      });
+      if (error) throw error;
+      // Extract link from response message
+      const msg = data?.message || "";
+      const linkMatch = msg.match(/https:\/\/chat\.whatsapp\.com\/\S+/);
+      if (linkMatch) {
+        navigator.clipboard.writeText(linkMatch[0]);
+        toast.success("Link de convite copiado!");
+      } else {
+        toast.error("Não foi possível obter o link de convite");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao copiar link");
+    } finally {
+      setCopyingLink(false);
+    }
+  };
+
+  // Promote to admin
+  const promoteParticipant = async (phone: string) => {
+    setPromotingPhone(phone);
+    try {
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: `#promoveradmin ${groupId}|${phone}` },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.message) throw new Error(data.message);
+      toast.success(`${phone} promovido a admin!`);
+      setParticipants((prev) =>
+        prev.map((p) => (p.phone === phone ? { ...p, isAdmin: true } : p))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao promover");
+    } finally {
+      setPromotingPhone(null);
+    }
+  };
+
+  // Demote from admin
+  const demoteParticipant = async (phone: string) => {
+    setDemotingPhone(phone);
+    try {
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: `#revogaradmin ${groupId}|${phone}` },
+      });
+      if (error) throw error;
+      if (data && !data.success && data.message) throw new Error(data.message);
+      toast.success(`${phone} rebaixado a membro!`);
+      setParticipants((prev) =>
+        prev.map((p) => (p.phone === phone ? { ...p, isAdmin: false } : p))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao revogar admin");
+    } finally {
+      setDemotingPhone(null);
+    }
+  };
+
   const content = (
     <div className="flex flex-col gap-4">
       {/* Group Info Card */}
       <Card className="bg-card/80 border-border/50">
         <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-4">
+            {/* Group avatar placeholder */}
+            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-card-foreground text-lg truncate">
-                {groupName}
-              </h3>
-              {groupDescription && (
-                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                  {groupDescription}
-                </p>
-              )}
-              <div className="flex items-center gap-4 mt-3 flex-wrap">
+              {/* Group name with edit */}
+              <div className="flex items-center gap-2">
+                {editingName ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      value={newGroupName}
+                      onChange={(e) => setNewGroupName(e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="Novo nome do grupo"
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && saveGroupName()}
+                    />
+                    <Button size="sm" variant="outline" onClick={saveGroupName} disabled={savingName}>
+                      {savingName ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
+                      ✕
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="font-semibold text-card-foreground text-lg truncate">
+                      {currentGroupName}
+                    </h3>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        setNewGroupName(currentGroupName);
+                        setEditingName(true);
+                      }}
+                      title="Editar nome do grupo"
+                    >
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              {/* Description with edit */}
+              <div className="flex items-start gap-1 mt-1">
+                {editingDesc ? (
+                  <div className="flex flex-col gap-2 flex-1">
+                    <Textarea
+                      value={newGroupDesc}
+                      onChange={(e) => setNewGroupDesc(e.target.value)}
+                      className="text-sm min-h-[60px]"
+                      placeholder="Nova descrição"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={saveGroupDesc} disabled={savingDesc}>
+                        {savingDesc ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setEditingDesc(false)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p
+                      className="text-sm text-muted-foreground line-clamp-2 cursor-pointer hover:text-foreground transition-colors"
+                      onClick={() => {
+                        setNewGroupDesc(groupDescription);
+                        setEditingDesc(true);
+                      }}
+                      title="Clique para editar descrição"
+                    >
+                      {groupDescription || "Sem descrição"}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Stats */}
+              <div className="flex items-center gap-4 mt-2 flex-wrap">
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Users className="h-4 w-4" />
                   <span className="font-medium text-card-foreground">{participantCount}</span> participantes
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <ShieldCheck className="h-4 w-4" />
-                  <span className="font-medium text-card-foreground">{adminCount}</span> admins
+                  <span className="font-medium text-card-foreground">{adminCount}</span> Admins
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mt-2 font-mono">
+              <p className="text-xs text-muted-foreground mt-1 font-mono">
                 JID: {groupId}
               </p>
             </div>
-            <div className="flex flex-col gap-2 shrink-0">
-              <Button variant="outline" size="sm" onClick={copyGroupJid}>
+            {/* Link Convite button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={copyInviteLink}
+              disabled={copyingLink}
+              className="shrink-0 border-primary/50 text-primary hover:bg-primary/10"
+            >
+              {copyingLink ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
                 <Link className="h-4 w-4 mr-1" />
-                Copiar JID
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={downloadCsv}
-                disabled={participants.length === 0}
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Baixar CSV
-              </Button>
-            </div>
+              )}
+              Link Convite
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Action Buttons */}
+      {/* Action Buttons Row */}
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
           variant="outline"
+          className="border-primary/50 text-primary hover:bg-primary/10"
           onClick={() => setShowMessageDialog(true)}
         >
           <MessageSquare className="h-4 w-4 mr-1" />
@@ -386,6 +611,66 @@ export function GroupDetailDialog({
         </Button>
       </div>
 
+      {/* Add Participant Section */}
+      <Card className="bg-card/80 border-border/50">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-primary">
+              <UserPlus className="h-4 w-4" />
+              <span className="text-sm font-semibold">Adicionar participante</span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="5511999999999"
+              value={addPhoneInput}
+              onChange={(e) => setAddPhoneInput(e.target.value)}
+              className="flex-1"
+              onKeyDown={(e) => e.key === "Enter" && addMember()}
+            />
+            <Button
+              size="icon"
+              onClick={addMember}
+              disabled={addingMember || !addPhoneInput.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+            >
+              {addingMember ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            💡 Digite o número completo com DDD e código do país
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Participants Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-bold text-card-foreground">Participantes</span>
+          <Badge variant="secondary" className="text-xs bg-primary/20 text-primary">
+            {participantCount} total
+          </Badge>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={fetchGroupDetails} title="Atualizar">
+            <RefreshCw className={`h-3.5 w-3.5 text-muted-foreground ${loading ? "animate-spin" : ""}`} />
+          </Button>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={downloadCsv}
+          disabled={participants.length === 0}
+          className="text-primary border-primary/50"
+        >
+          <Download className="h-4 w-4 mr-1" />
+          Baixar CSV
+        </Button>
+      </div>
+
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -395,19 +680,6 @@ export function GroupDetailDialog({
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-9"
         />
-      </div>
-
-      {/* Participants Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Users className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-card-foreground">
-            Participantes
-          </span>
-          <Badge variant="secondary" className="text-xs">
-            {filteredParticipants.length} total
-          </Badge>
-        </div>
       </div>
 
       {/* Loading */}
@@ -444,31 +716,53 @@ export function GroupDetailDialog({
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {p.isSuperAdmin && (
-                    <Badge className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
-                      <ShieldCheck className="h-2.5 w-2.5 mr-0.5" />
-                      Dono
-                    </Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Role badge */}
+                  {p.isSuperAdmin ? (
+                    <Badge variant="outline" className="text-[10px] px-2">Dono</Badge>
+                  ) : p.isAdmin ? (
+                    <Badge variant="outline" className="text-[10px] px-2">Admin</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] px-2 text-muted-foreground">Membro</Badge>
                   )}
+
+                  {/* Promote button */}
+                  {!p.isSuperAdmin && !p.isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-primary"
+                      onClick={() => promoteParticipant(p.phone)}
+                      disabled={promotingPhone === p.phone}
+                      title="Promover a Admin"
+                    >
+                      {promotingPhone === p.phone ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
+
+                  {/* Demote button */}
                   {p.isAdmin && !p.isSuperAdmin && (
-                    <Badge className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
-                      <Shield className="h-2.5 w-2.5 mr-0.5" />
-                      Admin
-                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-amber-500"
+                      onClick={() => demoteParticipant(p.phone)}
+                      disabled={demotingPhone === p.phone}
+                      title="Revogar Admin"
+                    >
+                      {demotingPhone === p.phone ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyPhone(p.phone);
-                    }}
-                    title="Copiar número"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
+
+                  {/* Remove button */}
                   {!p.isSuperAdmin && (
                     <Button
                       variant="ghost"
@@ -520,7 +814,7 @@ export function GroupDetailDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Remover participante</AlertDialogTitle>
           <AlertDialogDescription>
-            Tem certeza que deseja remover <strong>{confirmRemove?.name || confirmRemove?.phone}</strong> do grupo <strong>{groupName}</strong>?
+            Tem certeza que deseja remover <strong>{confirmRemove?.name || confirmRemove?.phone}</strong> do grupo <strong>{currentGroupName}</strong>?
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -543,7 +837,7 @@ export function GroupDetailDialog({
           <DialogTitle className="text-lg font-bold text-primary">
             Enviar Mensagem no Grupo
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">{groupName}</DialogDescription>
+          <DialogDescription className="text-xs text-muted-foreground">{currentGroupName}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4 py-1">
           {/* Schedule toggle */}
@@ -619,26 +913,16 @@ export function GroupDetailDialog({
             Cancelar
           </Button>
           <Button
-            variant="outline"
-            className="border-primary/50 text-primary hover:bg-primary/10"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
             onClick={sendGroupMessage}
             disabled={sendingMessage || !messageText.trim()}
           >
             {sendingMessage ? (
               <Loader2 className="h-4 w-4 mr-1 animate-spin" />
             ) : (
-              <CalendarIcon className="h-4 w-4 mr-1" />
+              <Send className="h-4 w-4 mr-1" />
             )}
-            Agendar Mensagem
-          </Button>
-          <Button
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => {
-              toast.info("Mensagens recorrentes em breve!");
-            }}
-          >
-            <CalendarIcon className="h-4 w-4 mr-1" />
-            Recorrente
+            {scheduleEnabled ? "Agendar" : "Enviar"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -675,7 +959,7 @@ export function GroupDetailDialog({
               Detalhes do Grupo
             </DialogTitle>
             <DialogDescription>
-              Informações completas e participantes
+              Detalhes do Grupo
             </DialogDescription>
           </DialogHeader>
           <DialogBody>{content}</DialogBody>
