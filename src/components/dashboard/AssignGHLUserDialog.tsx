@@ -5,6 +5,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogBody,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";

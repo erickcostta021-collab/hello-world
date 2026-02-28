@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogBody } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import { toast } from "sonner";
@@ -79,59 +79,60 @@ export function ScriptsDialog({ open, onOpenChange }: ScriptsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>Scripts para GoHighLevel</DialogTitle>
           <p className="text-sm text-muted-foreground">
             Abra o GoHighLevel e siga: <strong>Configurações → Empresa → WhiteLabel → JS Personalizado</strong>
           </p>
         </DialogHeader>
-
-        <div className="space-y-6 mt-2">
-          {/* Option 1 */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Opção 1 — Script Simples</h3>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleCopy(SCRIPT_SIMPLE, 0)}
-                className="gap-1.5"
-              >
-                {copiedIndex === 0 ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copiedIndex === 0 ? "Copiado" : "Copiar"}
-              </Button>
+        <DialogBody>
+          <div className="space-y-6">
+            {/* Option 1 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Opção 1 — Script Simples</h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(SCRIPT_SIMPLE, 0)}
+                  className="gap-1.5"
+                >
+                  {copiedIndex === 0 ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedIndex === 0 ? "Copiado" : "Copiar"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Carrega todos os scripts em todas as subcontas.
+              </p>
+              <pre className="bg-muted/50 border rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                {SCRIPT_SIMPLE}
+              </pre>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Carrega todos os scripts em todas as subcontas.
-            </p>
-            <pre className="bg-muted/50 border rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
-              {SCRIPT_SIMPLE}
-            </pre>
-          </div>
 
-          {/* Option 2 */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">Opção 2 — Script com Filtro de Subcontas</h3>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleCopy(SCRIPT_FILTERED, 1)}
-                className="gap-1.5"
-              >
-                {copiedIndex === 1 ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copiedIndex === 1 ? "Copiado" : "Copiar"}
-              </Button>
+            {/* Option 2 */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Opção 2 — Script com Filtro de Subcontas</h3>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(SCRIPT_FILTERED, 1)}
+                  className="gap-1.5"
+                >
+                  {copiedIndex === 1 ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedIndex === 1 ? "Copiado" : "Copiar"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Carrega os scripts apenas nas subcontas listadas no array <code className="bg-muted px-1 rounded">allowedSubaccounts</code>.
+              </p>
+              <pre className="bg-muted/50 border rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
+                {SCRIPT_FILTERED}
+              </pre>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Carrega os scripts apenas nas subcontas listadas no array <code className="bg-muted px-1 rounded">allowedSubaccounts</code>.
-            </p>
-            <pre className="bg-muted/50 border rounded-lg p-3 text-xs overflow-x-auto whitespace-pre-wrap font-mono">
-              {SCRIPT_FILTERED}
-            </pre>
           </div>
-        </div>
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );

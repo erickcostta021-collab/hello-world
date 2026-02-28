@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogBody,
 } from "@/components/ui/dialog";
 import {
   Drawer,
@@ -174,14 +175,16 @@ export function SendButtonsDialog({ open, onOpenChange }: SendButtonsDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[85vh]">
         <DialogHeader>
           <DialogTitle className="text-xl">Comandos de Enviar Botões</DialogTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Comandos para enviar botões interativos pelo chat do GoHighLevel.
           </p>
         </DialogHeader>
-        <ButtonCommandsList />
+        <DialogBody>
+          <ButtonCommandsList />
+        </DialogBody>
       </DialogContent>
     </Dialog>
   );
