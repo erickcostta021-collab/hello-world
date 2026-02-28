@@ -111,31 +111,80 @@ serve(async (req: Request) => {
         // Mark as sent
         await supabase.from("scheduled_group_messages").update({
           status: "sent", sent_at: new Date().toISOString(),
+          execution_count: (msg.execution_count || 0) + 1,
         }).eq("id", msg.id);
 
         // If recurring, create next occurrence
         if (msg.is_recurring && msg.recurring_interval) {
-          const nextDate = new Date(msg.scheduled_for);
-          switch (msg.recurring_interval) {
-            case "daily": nextDate.setDate(nextDate.getDate() + 1); break;
-            case "weekly": nextDate.setDate(nextDate.getDate() + 7); break;
-            case "monthly": nextDate.setMonth(nextDate.getMonth() + 1); break;
-          }
+          // Check limits
+          const newCount = (msg.execution_count || 0) + 1;
+          const reachedMaxExec = msg.max_executions && newCount >= msg.max_executions;
+          const pastEndDate = msg.end_date && new Date(msg.end_date) <= new Date();
 
-          await supabase.from("scheduled_group_messages").insert({
-            user_id: msg.user_id,
-            instance_id: msg.instance_id,
-            group_jid: msg.group_jid,
-            group_name: msg.group_name,
-            message_text: msg.message_text,
-            mention_all: msg.mention_all,
-            media_url: msg.media_url,
-            media_type: msg.media_type,
-            scheduled_for: nextDate.toISOString(),
-            is_recurring: true,
-            recurring_interval: msg.recurring_interval,
-            status: "pending",
-          });
+          if (!reachedMaxExec && !pastEndDate) {
+            const nextDate = new Date(msg.scheduled_for);
+            const sendTime = msg.send_time || null;
+
+            switch (msg.recurring_interval) {
+              case "daily":
+                nextDate.setDate(nextDate.getDate() + 1);
+                break;
+              case "weekly": {
+                // Find next weekday from the weekdays array
+                const weekdays: number[] = msg.weekdays || [];
+                if (weekdays.length > 0) {
+                  const currentDay = nextDate.getDay();
+                  const sorted = [...weekdays].sort();
+                  let nextDay = sorted.find((d: number) => d > currentDay);
+                  if (nextDay === undefined) {
+                    nextDay = sorted[0];
+                    nextDate.setDate(nextDate.getDate() + (7 - currentDay + nextDay));
+                  } else {
+                    nextDate.setDate(nextDate.getDate() + (nextDay - currentDay));
+                  }
+                } else {
+                  nextDate.setDate(nextDate.getDate() + 7);
+                }
+                break;
+              }
+              case "monthly":
+                nextDate.setMonth(nextDate.getMonth() + 1);
+                if (msg.day_of_month) {
+                  nextDate.setDate(msg.day_of_month);
+                }
+                break;
+            }
+
+            // Preserve send_time
+            if (sendTime) {
+              const [h, m] = sendTime.split(":").map(Number);
+              nextDate.setHours(h, m, 0, 0);
+            }
+
+            // Check if next date is past end_date
+            if (!msg.end_date || nextDate <= new Date(msg.end_date)) {
+              await supabase.from("scheduled_group_messages").insert({
+                user_id: msg.user_id,
+                instance_id: msg.instance_id,
+                group_jid: msg.group_jid,
+                group_name: msg.group_name,
+                message_text: msg.message_text,
+                mention_all: msg.mention_all,
+                media_url: msg.media_url,
+                media_type: msg.media_type,
+                scheduled_for: nextDate.toISOString(),
+                is_recurring: true,
+                recurring_interval: msg.recurring_interval,
+                send_time: msg.send_time,
+                weekdays: msg.weekdays,
+                day_of_month: msg.day_of_month,
+                end_date: msg.end_date,
+                max_executions: msg.max_executions,
+                execution_count: newCount,
+                status: "pending",
+              });
+            }
+          }
         }
 
         processed++;

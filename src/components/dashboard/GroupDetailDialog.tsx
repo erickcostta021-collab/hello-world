@@ -60,7 +60,9 @@ import {
   FileText,
   Paperclip,
   X,
+  Repeat,
 } from "lucide-react";
+import { CreateRecurringMessageDialog } from "./CreateRecurringMessageDialog";
 
 interface GroupDetailDialogProps {
   open: boolean;
@@ -109,6 +111,7 @@ export function GroupDetailDialog({
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const isMobile = useIsMobile();
+  const [showRecurringDialog, setShowRecurringDialog] = useState(false);
 
   // New states for added features
   const [addPhoneInput, setAddPhoneInput] = useState("");
@@ -651,6 +654,15 @@ export function GroupDetailDialog({
         <Button
           size="sm"
           variant="outline"
+          className="border-primary/50 text-primary hover:bg-primary/10"
+          onClick={() => setShowRecurringDialog(true)}
+        >
+          <Repeat className="h-4 w-4 mr-1" />
+          Recorrente
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
           onClick={toggleAnnounce}
           disabled={togglingAnnounce}
         >
@@ -1063,6 +1075,7 @@ export function GroupDetailDialog({
         </Drawer>
         {confirmDialog}
         {messageDialog}
+        <CreateRecurringMessageDialog open={showRecurringDialog} onOpenChange={setShowRecurringDialog} instance={instance} groupId={groupId} groupName={currentGroupName} />
       </>
     );
   }
@@ -1085,6 +1098,7 @@ export function GroupDetailDialog({
       </Dialog>
       {confirmDialog}
       {messageDialog}
+      <CreateRecurringMessageDialog open={showRecurringDialog} onOpenChange={setShowRecurringDialog} instance={instance} groupId={groupId} groupName={currentGroupName} />
     </>
   );
 }
