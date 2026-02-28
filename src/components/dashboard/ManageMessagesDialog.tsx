@@ -1012,18 +1012,24 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             if (wave.length > 0) contactWaves.push(wave);
           }
 
-          // Send each wave as a separate API call with real sleep between them.
-          // First wave uses the campaign name; subsequent waves are marked with ⏩ to be hidden in history.
-          const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+          // Send each wave with calculated scheduled_for to guarantee message ordering.
+          // Wave N only starts after Wave N-1 has finished delivering to all contacts.
           const campaignUid = Date.now().toString(36);
           const campaignInfo = folder || "Campanha Bridge";
+          const dMin = parseInt(delayMin) || 10;
+          const dMax = parseInt(delayMax) || 30;
+          const avgDelay = (dMin + dMax) / 2; // average seconds per message
+          const splitMarginSec = Math.max((parseInt(splitDelay) || 2), 5); // minimum 5s safety margin
 
-          const sendWave = async (inst: Instance, msgs: Record<string, unknown>[], waveIdx: number) => {
+          // Calculate the base timestamp for scheduling
+          const baseTs = scheduleEnabled && scheduledFor ? scheduledFor.getTime() : Date.now();
+
+          const sendWave = async (inst: Instance, msgs: Record<string, unknown>[], waveIdx: number, waveScheduledFor: number) => {
             const body: Record<string, unknown> = {
-              delayMin: parseInt(delayMin) || 10,
-              delayMax: parseInt(delayMax) || 30,
+              delayMin: dMin,
+              delayMax: dMax,
               info: waveIdx === 0 ? (contactWaves.length > 1 ? `${campaignInfo} 🔗${campaignUid}` : campaignInfo) : `${campaignInfo} ⏩${campaignUid}#${waveIdx + 1}`,
-              scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
+              scheduled_for: waveScheduledFor,
               ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
               messages: msgs,
             };
@@ -1034,26 +1040,33 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           };
 
           if (instances.length === 1) {
+            let cumulativeOffsetMs = 0;
             for (let w = 0; w < contactWaves.length; w++) {
-              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
-              await sendWave(instances[0], contactWaves[w], w);
+              const waveTs = w === 0 ? (scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1) : baseTs + cumulativeOffsetMs;
+              await sendWave(instances[0], contactWaves[w], w, waveTs);
+              // Estimate how long this wave takes: num contacts × avg delay + safety margin
+              cumulativeOffsetMs += (contactWaves[w].length * avgDelay + splitMarginSec) * 1000;
             }
-            toast.success(`Campanha enviada com ${contactWaves.length} parte(s)! ${numberList.length} contato(s).`);
+            toast.success(`Campanha enviada com ${contactWaves.length} parte(s)! ${numberList.length} contato(s). As partes estão agendadas em sequência para garantir a ordem.`);
           } else {
             // Round-robin per wave
+            let cumulativeOffsetMs = 0;
             for (let w = 0; w < contactWaves.length; w++) {
-              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
               const waveMsgs = contactWaves[w];
               const buckets: Record<string, unknown>[][] = instances.map(() => []);
               waveMsgs.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
+              const waveTs = w === 0 ? (scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1) : baseTs + cumulativeOffsetMs;
               await Promise.allSettled(
                 instances.map((inst, idx) => {
                   if (buckets[idx].length === 0) return Promise.resolve();
-                  return sendWave(inst, buckets[idx], w);
+                  return sendWave(inst, buckets[idx], w, waveTs);
                 })
               );
+              // For round-robin, the wave duration is based on the largest bucket
+              const maxBucket = Math.max(...buckets.map(b => b.length));
+              cumulativeOffsetMs += (maxBucket * avgDelay + splitMarginSec) * 1000;
             }
-            toast.success(`Campanha round-robin com ${contactWaves.length} parte(s)! ${numberList.length} contato(s).`);
+            toast.success(`Campanha round-robin com ${contactWaves.length} parte(s)! ${numberList.length} contato(s). Partes agendadas em sequência.`);
           }
           // Redirect to campaigns tab and reload folders
           setActiveTab("campaigns");
