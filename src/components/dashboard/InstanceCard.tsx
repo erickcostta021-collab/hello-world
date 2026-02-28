@@ -47,7 +47,8 @@ import {
   UserPlus,
   User,
   RotateCcw,
-  MessageSquare
+  MessageSquare,
+  Users
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -57,6 +58,7 @@ import { toast } from "sonner";
 import { AssignGHLUserDialog } from "./AssignGHLUserDialog";
 import { WebhookConfigDialog } from "./WebhookConfigDialog";
 import { ManageMessagesDialog } from "./ManageMessagesDialog";
+import { GroupManagerDialog } from "./GroupManagerDialog";
 import { ConfigureEmbedTabsDialog, EmbedVisibleOptions } from "./ConfigureEmbedTabsDialog";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -95,6 +97,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [ghlUserName, setGhlUserName] = useState<string | null>(null);
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
+  const [groupManagerDialogOpen, setGroupManagerDialogOpen] = useState(false);
   const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
@@ -493,6 +496,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Mensagem em massa (beta)
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setGroupManagerDialogOpen(true)}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Gerenciador de Grupos
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
@@ -703,6 +710,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
         instanceName={instance.instance_name}
         currentOptions={embedVisibleOptions}
         onSaved={setEmbedVisibleOptions}
+      />
+
+      {/* Group Manager Dialog */}
+      <GroupManagerDialog
+        open={groupManagerDialogOpen}
+        onOpenChange={setGroupManagerDialogOpen}
+        instance={instance}
       />
     </>
   );
