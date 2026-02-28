@@ -2196,21 +2196,66 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                                   const resp = await fetch(`${base}/sender/listmessages`, {
                                     method: "POST",
                                     headers: getHeaders(),
-                                    body: JSON.stringify({ folder_id: fId, page: 1, pageSize: 100 }),
+                                    body: JSON.stringify({ folder_id: fId, page: 1, pageSize: 1000 }),
                                   });
                                   if (!resp.ok) throw new Error(`Erro ${resp.status}`);
                                   const data = await resp.json();
-                                  const list: CampaignMessage[] = Array.isArray(data) ? data : data?.messages || [];
-                                  const filtered = list.filter((msg) => {
+                                  const mainList: CampaignMessage[] = normalizeMessages(
+                                    Array.isArray(data) ? data : data?.messages || data?.data || data?.items || data?.results || []
+                                  );
+
+                                  // Fetch continuation waves (⏩)
+                                  const mainInfo = String(f.info || f.folder_name || f.name || "");
+                                  const contFolders = folders.filter((cf) => {
+                                    const info = String(cf.info || cf.folder_name || cf.name || "");
+                                    return info.includes("⏩") && mainInfo && info.startsWith(mainInfo.split(" ⏩")[0]);
+                                  });
+                                  const contMessages: CampaignMessage[] = [];
+                                  if (contFolders.length > 0) {
+                                    const contResults = await Promise.allSettled(
+                                      contFolders.map(async (cf) => {
+                                        const cfId = cf.folder_id || cf.id;
+                                        const cfRes = await fetch(`${base}/sender/listmessages`, {
+                                          method: "POST", headers: getHeaders(),
+                                          body: JSON.stringify({ folder_id: cfId, page: 1, pageSize: 1000 }),
+                                        });
+                                        if (!cfRes.ok) return [];
+                                        const cfData = await cfRes.json();
+                                        return normalizeMessages(Array.isArray(cfData) ? cfData : cfData?.messages || cfData?.data || []);
+                                      })
+                                    );
+                                    for (const r of contResults) if (r.status === "fulfilled") contMessages.push(...r.value);
+                                  }
+
+                                  // Merge: main first, then continuation
+                                  const isBtn = (msg: CampaignMessage) => {
                                     const t = String(msg.type || "").toLowerCase();
-                                    if (t === "button") return false;
+                                    if (t === "button") return true;
                                     try {
                                       const raw = (msg as any).send_payload || (msg as any).sendPayload;
-                                      if (raw) { const sp = typeof raw === "string" ? JSON.parse(raw) : raw; if (sp?.type === "button" || sp?.buttonText) return false; }
+                                      if (raw) { const sp = typeof raw === "string" ? JSON.parse(raw) : raw; if (sp?.type === "button" || sp?.buttonText || sp?.choices) return true; }
                                     } catch {}
-                                    return true;
-                                  });
-                                  setFullscreenMessages(filtered);
+                                    return false;
+                                  };
+                                  const merged: CampaignMessage[] = [];
+                                  const byNum: Record<string, CampaignMessage> = {};
+                                  for (const msg of mainList) {
+                                    if (isBtn(msg)) continue;
+                                    const num = String(msg.number || (msg as any).chatid || "");
+                                    merged.push(msg);
+                                    if (num) byNum[num] = msg;
+                                  }
+                                  for (const msg of contMessages) {
+                                    if (isBtn(msg)) continue;
+                                    const num = String(msg.number || (msg as any).chatid || "");
+                                    if (num && byNum[num]) {
+                                      if (msg.text) byNum[num].text = (byNum[num].text || "") + "\n\n" + msg.text;
+                                    } else {
+                                      merged.push(msg);
+                                      if (num) byNum[num] = msg;
+                                    }
+                                  }
+                                  setFullscreenMessages(merged);
                                 } catch { toast.error("Erro ao carregar mensagens"); }
                                 setLoadingFullscreen(false);
                               }} title="Expandir campanha">
