@@ -322,33 +322,29 @@ async function removeMember(
   const participantJid = `${cleanPhone}@s.whatsapp.net`;
   
   try {
-    // Try multiple payload shapes for compatibility
-    const payloads = [
-      { groupJid: group.id, participants: [participantJid] },
-      { groupId: group.id, participants: [participantJid] },
-      { id: group.id, participants: [participantJid] },
-    ];
+    const cleanPhone = phone.replace(/\D/g, "");
+    // Use /group/updateParticipants with action:"remove" (matching webhook-outbound)
+    const response = await fetch(`${baseUrl}/group/updateParticipants`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "token": instanceToken,
+      },
+      body: JSON.stringify({
+        groupjid: group.id,
+        action: "remove",
+        participants: [cleanPhone],
+      }),
+    });
     
-    for (const payload of payloads) {
-      console.log(`Trying removeParticipant with payload:`, JSON.stringify(payload));
-      const response = await fetch(`${baseUrl}/group/removeParticipant`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "token": instanceToken,
-        },
-        body: JSON.stringify(payload),
-      });
-      
-      const data = await response.text();
-      console.log(`removeParticipant response (${response.status}):`, data);
-      
-      if (response.ok) {
-        return { success: true, command: "removerdogrupo", message: `✅ Membro ${phone} removido do grupo "${groupName}"` };
-      }
+    const data = await response.text();
+    console.log(`removeParticipant response (${response.status}):`, data);
+    
+    if (!response.ok) {
+      return { success: false, command: "removerdogrupo", message: `❌ Erro ao remover: ${data.substring(0, 100)}` };
     }
     
-    return { success: false, command: "removerdogrupo", message: `❌ Erro ao remover membro do grupo` };
+    return { success: true, command: "removerdogrupo", message: `✅ Membro ${phone} removido do grupo "${groupName}"` };
   } catch (e) {
     console.error("Error removing member:", e);
     return { success: false, command: "removerdogrupo", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
@@ -368,25 +364,26 @@ async function addMember(
   }
   
   const cleanPhone = phone.replace(/\D/g, "");
-  const participantJid = `${cleanPhone}@s.whatsapp.net`;
   
   try {
-    const response = await fetch(`${baseUrl}/group/addParticipant`, {
+    const response = await fetch(`${baseUrl}/group/updateParticipants`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "token": instanceToken,
       },
       body: JSON.stringify({
-        groupId: group.id,
-        participants: [participantJid],
+        groupjid: group.id,
+        action: "add",
+        participants: [cleanPhone],
       }),
     });
     
-    const data = await response.json();
+    const data = await response.text();
+    console.log(`addParticipant response (${response.status}):`, data);
     
     if (!response.ok) {
-      return { success: false, command: "addnogrupo", message: `❌ Erro ao adicionar: ${data.message || response.status}` };
+      return { success: false, command: "addnogrupo", message: `❌ Erro ao adicionar: ${data.substring(0, 100)}` };
     }
     
     return { success: true, command: "addnogrupo", message: `✅ Membro ${phone} adicionado ao grupo "${groupName}"` };
@@ -600,22 +597,33 @@ async function updateGroupSettings(
   }
   
   try {
-    const response = await fetch(`${baseUrl}/group/updateSetting`, {
+    // Use specific UAZAPI v2 endpoints matching webhook-outbound
+    let url: string;
+    let body: Record<string, unknown>;
+    
+    if (setting === "announcement" || setting === "not_announcement") {
+      url = `${baseUrl}/group/updateAnnounce`;
+      body = { groupjid: group.id, announce: setting === "announcement" };
+    } else {
+      url = `${baseUrl}/group/updateLocked`;
+      body = { groupjid: group.id, locked: setting === "locked" };
+    }
+    
+    console.log(`updateGroupSettings: ${url}`, JSON.stringify(body));
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "token": instanceToken,
       },
-      body: JSON.stringify({
-        groupId: group.id,
-        action: setting,
-      }),
+      body: JSON.stringify(body),
     });
     
-    const data = await response.json();
+    const data = await response.text();
+    console.log(`updateGroupSettings response (${response.status}):`, data);
     
     if (!response.ok) {
-      return { success: false, command: setting, message: `❌ Erro ao alterar configuração: ${data.message || response.status}` };
+      return { success: false, command: setting, message: `❌ Erro ao alterar configuração: ${data.substring(0, 100)}` };
     }
     
     const messages: Record<string, string> = {
@@ -817,10 +825,10 @@ async function processCommand(
       const [targetGroup, ...msgParts] = params;
       const groupJid = targetGroup.includes("@g.us") ? targetGroup : `${targetGroup}@g.us`;
       try {
-        const response = await fetch(`${baseUrl}/chat/send/text`, {
+        const response = await fetch(`${baseUrl}/send/text`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "token": instanceToken },
-          body: JSON.stringify({ phone: groupJid, message: msgParts.join("|") }),
+          body: JSON.stringify({ number: groupJid, text: msgParts.join("|") }),
         });
         if (!response.ok) {
           const errData = await response.text();
