@@ -526,15 +526,14 @@ serve(async (req) => {
       
       // Try multiple endpoint patterns - GET with query params first (most UAZAPI endpoints are GET)
       const picEndpoints = [
-        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic?Phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
-        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic?phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
-        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl?jid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
-        (jid: string) => ({ url: `${baseUrl}/contact/profilepic?Phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
-        (jid: string) => ({ url: `${baseUrl}/group/photo?groupjid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
-        (jid: string) => ({ url: `${baseUrl}/group/profilepic?groupjid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
-        // POST fallbacks
-        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
+        // UAZAPI v2: try contact/getDetail which may return profile pic
+        (jid: string) => ({ url: `${baseUrl}/contact/getDetail`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
+        // group/info may contain profile pic in some versions
         (jid: string) => ({ url: `${baseUrl}/group/info`, method: "POST", body: JSON.stringify({ groupjid: jid, getInviteLink: false }) }),
+        // Legacy endpoints as fallback
+        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic`, method: "POST", body: JSON.stringify({ Phone: jid }) }),
+        (jid: string) => ({ url: `${baseUrl}/contact/getprofilepic?Phone=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
+        (jid: string) => ({ url: `${baseUrl}/chat/profilePicUrl?jid=${encodeURIComponent(jid)}`, method: "GET", body: undefined }),
       ];
 
       const testJid = groupsWithoutPic[0].id;

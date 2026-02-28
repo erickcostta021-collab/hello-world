@@ -534,12 +534,9 @@ async function updateGroupName(
   
   // Try multiple endpoints and methods
   const attempts = [
-    { url: `${baseUrl}/group/updateSubject`, method: "PUT", body: { groupjid: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/updateName`, method: "POST", body: { groupjid: groupJid, name: newName } },
     { url: `${baseUrl}/group/updateSubject`, method: "POST", body: { groupjid: groupJid, subject: newName } },
-    { url: `${baseUrl}/group/updateSubject`, method: "PUT", body: { groupId: groupJid, subject: newName } },
-    { url: `${baseUrl}/group/updateGroupSubject`, method: "PUT", body: { groupjid: groupJid, subject: newName } },
-    { url: `${baseUrl}/group/updateGroupSubject`, method: "POST", body: { groupjid: groupJid, subject: newName } },
-    { url: `${baseUrl}/group/update`, method: "PUT", body: { groupjid: groupJid, subject: newName } },
+    { url: `${baseUrl}/group/updateSubject`, method: "PUT", body: { groupjid: groupJid, subject: newName } },
     { url: `${baseUrl}/group/update`, method: "POST", body: { groupjid: groupJid, subject: newName, name: newName } },
   ];
 
