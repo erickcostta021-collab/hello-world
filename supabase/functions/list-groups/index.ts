@@ -461,14 +461,15 @@ serve(async (req) => {
     }
 
     // ======== LIST ALL GROUPS ========
-    const groupsUrl = `${baseUrl}/group/all`;
+    const groupsUrl = `${baseUrl}/group/list?noparticipants=true`;
     console.log(`Fetching groups from: ${groupsUrl}`);
 
     const response = await fetch(groupsUrl, {
       method: "GET",
       headers: {
+        "Accept": "application/json",
         "Content-Type": "application/json",
-        "apikey": instanceData.uazapi_instance_token,
+        "token": instanceData.uazapi_instance_token,
       },
     });
 
