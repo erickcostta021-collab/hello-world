@@ -387,60 +387,78 @@ export type Database = {
       scheduled_group_messages: {
         Row: {
           created_at: string
+          day_of_month: number | null
+          end_date: string | null
+          execution_count: number | null
           group_jid: string
           group_name: string
           id: string
           instance_id: string
           is_recurring: boolean
           last_error: string | null
+          max_executions: number | null
           media_type: string | null
           media_url: string | null
           mention_all: boolean
           message_text: string
           recurring_interval: string | null
           scheduled_for: string
+          send_time: string | null
           sent_at: string | null
           status: string
           updated_at: string
           user_id: string
+          weekdays: number[] | null
         }
         Insert: {
           created_at?: string
+          day_of_month?: number | null
+          end_date?: string | null
+          execution_count?: number | null
           group_jid: string
           group_name?: string
           id?: string
           instance_id: string
           is_recurring?: boolean
           last_error?: string | null
+          max_executions?: number | null
           media_type?: string | null
           media_url?: string | null
           mention_all?: boolean
           message_text: string
           recurring_interval?: string | null
           scheduled_for: string
+          send_time?: string | null
           sent_at?: string | null
           status?: string
           updated_at?: string
           user_id: string
+          weekdays?: number[] | null
         }
         Update: {
           created_at?: string
+          day_of_month?: number | null
+          end_date?: string | null
+          execution_count?: number | null
           group_jid?: string
           group_name?: string
           id?: string
           instance_id?: string
           is_recurring?: boolean
           last_error?: string | null
+          max_executions?: number | null
           media_type?: string | null
           media_url?: string | null
           mention_all?: boolean
           message_text?: string
           recurring_interval?: string | null
           scheduled_for?: string
+          send_time?: string | null
           sent_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string
+          weekdays?: number[] | null
         }
         Relationships: [
           {
