@@ -162,7 +162,7 @@ export function GroupDetailDialog({
   const removeParticipant = async (participant: ParticipantInfo) => {
     setRemovingPhone(participant.phone);
     try {
-      const messageText = `#remover ${groupId}|${participant.phone}`;
+      const messageText = `#removerdogrupo ${groupId}|${participant.phone}`;
       const { data, error } = await supabase.functions.invoke("group-commands", {
         body: { instanceId: instance.id, messageText },
       });
