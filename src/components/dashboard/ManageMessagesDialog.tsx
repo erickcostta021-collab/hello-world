@@ -1855,7 +1855,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         <DialogHeader>
           <DialogTitle className="text-card-foreground flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
-            Mensagem em massa
+            Mensagem em massa (beta)
           </DialogTitle>
           <DialogDescription>
             Crie campanhas de disparo para a instância <strong>{instance.instance_name}</strong>

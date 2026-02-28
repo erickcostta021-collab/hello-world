@@ -50,7 +50,7 @@ const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   connect: "Conectar / QR Code",
   disconnect: "Desconectar",
   status: "Atualizar Status",
-  messages: "Mensagem em massa",
+  messages: "Mensagem em massa (beta)",
   api_oficial: "API Oficial",
 };
 
