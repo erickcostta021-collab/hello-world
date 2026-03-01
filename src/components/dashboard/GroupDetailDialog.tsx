@@ -1018,32 +1018,6 @@ export function GroupDetailDialog({
               <UserPlus className="h-4 w-4" />
               <span className="text-sm font-semibold">Adicionar participante</span>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="5511999999999"
-              value={addPhoneInput}
-              onChange={(e) => setAddPhoneInput(e.target.value)}
-              className="flex-1"
-              onKeyDown={(e) => e.key === "Enter" && addMember()}
-            />
-            <Button
-              size="icon"
-              onClick={addMember}
-              disabled={addingMember || !addPhoneInput.trim()}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
-            >
-              {addingMember ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <UserPlus className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <p className="text-xs text-muted-foreground flex-1">
-              💡 Digite o número completo com DDD e código do país
-            </p>
             <input
               ref={csvInputRef}
               type="file"
@@ -1070,6 +1044,30 @@ export function GroupDetailDialog({
               Importar CSV
             </Button>
           </div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="5511999999999"
+              value={addPhoneInput}
+              onChange={(e) => setAddPhoneInput(e.target.value)}
+              className="flex-1"
+              onKeyDown={(e) => e.key === "Enter" && addMember()}
+            />
+            <Button
+              size="icon"
+              onClick={addMember}
+              disabled={addingMember || !addPhoneInput.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
+            >
+              {addingMember ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <UserPlus className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            💡 Digite o número completo com DDD e código do país
+          </p>
         </CardContent>
       </Card>
 
