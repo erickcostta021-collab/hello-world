@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,11 +28,12 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
-import { EmbedAssignUserDialog } from "./EmbedAssignUserDialog";
-import { WebhookConfigDialog } from "@/components/dashboard/WebhookConfigDialog";
-import { ManageMessagesDialog } from "@/components/dashboard/ManageMessagesDialog";
-import { GroupManagerDialog } from "@/components/dashboard/GroupManagerDialog";
 import { supabase } from "@/integrations/supabase/client";
+
+const EmbedAssignUserDialog = lazy(() => import("./EmbedAssignUserDialog").then(m => ({ default: m.EmbedAssignUserDialog })));
+const WebhookConfigDialog = lazy(() => import("@/components/dashboard/WebhookConfigDialog").then(m => ({ default: m.WebhookConfigDialog })));
+const ManageMessagesDialog = lazy(() => import("@/components/dashboard/ManageMessagesDialog").then(m => ({ default: m.ManageMessagesDialog })));
+const GroupManagerDialog = lazy(() => import("@/components/dashboard/GroupManagerDialog").then(m => ({ default: m.GroupManagerDialog })));
 export interface EmbedVisibleOptions {
   assign_user?: boolean;
   webhook?: boolean;
@@ -757,83 +758,87 @@ export function EmbedInstanceCard({
         </div>
       )}
 
-      {/* Assign User Dialog */}
-      <EmbedAssignUserDialog
-        open={assignUserDialogOpen}
-        onOpenChange={setAssignUserDialogOpen}
-        instanceId={instance.id}
-        instanceName={instance.instance_name}
-        currentUserId={currentGhlUserId || null}
-        embedToken={embedToken}
-        locationId={locationId}
-        onAssigned={handleUserAssigned}
-      />
-      {/* Webhook Config Dialog */}
-      <WebhookConfigDialog
-        open={webhookDialogOpen}
-        onOpenChange={setWebhookDialogOpen}
-        instance={{
-          id: instance.id,
-          user_id: "",
-          subaccount_id: null,
-          instance_name: instance.instance_name,
-          uazapi_instance_token: instance.uazapi_instance_token,
-          instance_status: currentStatus,
-          webhook_url: null,
-          ignore_groups: ignoreGroups,
-          ghl_user_id: instance.ghl_user_id || null,
-          phone: connectedPhone,
-          profile_pic_url: profilePicUrl,
-          uazapi_base_url: instance.uazapi_base_url || null,
-          is_official_api: false,
-        }}
-        onSave={handleSaveWebhook}
-        isSaving={webhookSaving}
-        ignoreGroups={ignoreGroups}
-        onIgnoreGroupsChange={setIgnoreGroups}
-      />
-
-      {/* Manage Messages Dialog */}
-      <ManageMessagesDialog
-        open={messagesDialogOpen}
-        onOpenChange={setMessagesDialogOpen}
-        instance={{
-          id: instance.id,
-          user_id: "",
-          subaccount_id: null,
-          instance_name: instance.instance_name,
-          uazapi_instance_token: instance.uazapi_instance_token,
-          instance_status: currentStatus,
-          webhook_url: null,
-          ignore_groups: ignoreGroups,
-          ghl_user_id: instance.ghl_user_id || null,
-          phone: connectedPhone,
-          profile_pic_url: profilePicUrl,
-          uazapi_base_url: instance.uazapi_base_url || null,
-          is_official_api: false,
-        }}
-      />
-
-      {/* Group Manager Dialog */}
-      <GroupManagerDialog
-        open={groupManagerOpen}
-        onOpenChange={setGroupManagerOpen}
-        instance={{
-          id: instance.id,
-          user_id: "",
-          subaccount_id: null,
-          instance_name: instance.instance_name,
-          uazapi_instance_token: instance.uazapi_instance_token,
-          instance_status: currentStatus,
-          webhook_url: null,
-          ignore_groups: ignoreGroups,
-          ghl_user_id: instance.ghl_user_id || null,
-          phone: connectedPhone,
-          profile_pic_url: profilePicUrl,
-          uazapi_base_url: instance.uazapi_base_url || null,
-          is_official_api: false,
-        }}
-      />
+      <Suspense fallback={null}>
+        {assignUserDialogOpen && (
+          <EmbedAssignUserDialog
+            open={assignUserDialogOpen}
+            onOpenChange={setAssignUserDialogOpen}
+            instanceId={instance.id}
+            instanceName={instance.instance_name}
+            currentUserId={currentGhlUserId || null}
+            embedToken={embedToken}
+            locationId={locationId}
+            onAssigned={handleUserAssigned}
+          />
+        )}
+        {webhookDialogOpen && (
+          <WebhookConfigDialog
+            open={webhookDialogOpen}
+            onOpenChange={setWebhookDialogOpen}
+            instance={{
+              id: instance.id,
+              user_id: "",
+              subaccount_id: null,
+              instance_name: instance.instance_name,
+              uazapi_instance_token: instance.uazapi_instance_token,
+              instance_status: currentStatus,
+              webhook_url: null,
+              ignore_groups: ignoreGroups,
+              ghl_user_id: instance.ghl_user_id || null,
+              phone: connectedPhone,
+              profile_pic_url: profilePicUrl,
+              uazapi_base_url: instance.uazapi_base_url || null,
+              is_official_api: false,
+            }}
+            onSave={handleSaveWebhook}
+            isSaving={webhookSaving}
+            ignoreGroups={ignoreGroups}
+            onIgnoreGroupsChange={setIgnoreGroups}
+          />
+        )}
+        {messagesDialogOpen && (
+          <ManageMessagesDialog
+            open={messagesDialogOpen}
+            onOpenChange={setMessagesDialogOpen}
+            instance={{
+              id: instance.id,
+              user_id: "",
+              subaccount_id: null,
+              instance_name: instance.instance_name,
+              uazapi_instance_token: instance.uazapi_instance_token,
+              instance_status: currentStatus,
+              webhook_url: null,
+              ignore_groups: ignoreGroups,
+              ghl_user_id: instance.ghl_user_id || null,
+              phone: connectedPhone,
+              profile_pic_url: profilePicUrl,
+              uazapi_base_url: instance.uazapi_base_url || null,
+              is_official_api: false,
+            }}
+          />
+        )}
+        {groupManagerOpen && (
+          <GroupManagerDialog
+            open={groupManagerOpen}
+            onOpenChange={setGroupManagerOpen}
+            instance={{
+              id: instance.id,
+              user_id: "",
+              subaccount_id: null,
+              instance_name: instance.instance_name,
+              uazapi_instance_token: instance.uazapi_instance_token,
+              instance_status: currentStatus,
+              webhook_url: null,
+              ignore_groups: ignoreGroups,
+              ghl_user_id: instance.ghl_user_id || null,
+              phone: connectedPhone,
+              profile_pic_url: profilePicUrl,
+              uazapi_base_url: instance.uazapi_base_url || null,
+              is_official_api: false,
+            }}
+          />
+        )}
+      </Suspense>
     </>
   );
 }
