@@ -315,6 +315,30 @@ export type Database = {
         }
         Relationships: []
       }
+      message_send_order: {
+        Row: {
+          conversation_key: string
+          created_at: string
+          id: number
+          original_ts: number
+          status: string
+        }
+        Insert: {
+          conversation_key: string
+          created_at?: string
+          id?: number
+          original_ts?: number
+          status?: string
+        }
+        Update: {
+          conversation_key?: string
+          created_at?: string
+          id?: number
+          original_ts?: number
+          status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -645,6 +669,7 @@ export type Database = {
       cleanup_old_message_mappings: { Args: never; Returns: undefined }
       cleanup_old_phone_mappings: { Args: never; Returns: undefined }
       cleanup_old_processed_messages: { Args: never; Returns: undefined }
+      cleanup_old_send_order: { Args: never; Returns: undefined }
       cleanup_old_webhook_metrics: { Args: never; Returns: undefined }
       generate_embed_token: { Args: never; Returns: string }
       get_admin_oauth_credentials: {
