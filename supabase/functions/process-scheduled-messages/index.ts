@@ -71,8 +71,12 @@ serve(async (req: Request) => {
           number: msg.group_jid,
         };
 
-        // If mention_all, prepend @todos
+        // If mention_all, prepend @todos and flag mentionsEveryOne
         const text = msg.mention_all ? `@todos\n${msg.message_text}` : msg.message_text;
+
+        if (msg.mention_all) {
+          sendBody.mentionsEveryOne = true;
+        }
 
         if (msg.media_url && msg.media_type) {
           // Send media message
