@@ -955,7 +955,7 @@ async function processCommand(
         const isMentionAll = messageText.startsWith("@todos\n") || messageText.startsWith("@todos ");
         const cleanText = isMentionAll ? messageText.replace(/^@todos[\n ]?/, "").trim() : messageText;
         
-        const sendBody: Record<string, unknown> = { number: groupJid, text: isMentionAll ? `@todos ${cleanText}` : messageText };
+        const sendBody: Record<string, unknown> = { number: groupJid, text: cleanText || messageText };
         
         // If mentioning all, fetch participants and add mentions
         if (isMentionAll) {
