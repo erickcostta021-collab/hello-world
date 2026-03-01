@@ -14,6 +14,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +45,9 @@ import {
   FileText,
   History,
   Filter,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 
 interface ScheduledMessage {
@@ -80,12 +85,80 @@ interface ScheduledMessagesDialogProps {
 function MessageCard({
   msg,
   onDelete,
+  onEdit,
   deletingId,
+  editingId,
 }: {
   msg: ScheduledMessage;
   onDelete?: (id: string) => void;
+  onEdit?: (id: string, updates: { message_text: string; scheduled_for: string; mention_all: boolean }) => void;
   deletingId?: string | null;
+  editingId?: string | null;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(msg.message_text);
+  const [editDate, setEditDate] = useState(msg.scheduled_for.slice(0, 16));
+  const [editMentionAll, setEditMentionAll] = useState(msg.mention_all);
+
+  const handleSave = () => {
+    if (!editText.trim()) return;
+    onEdit?.(msg.id, {
+      message_text: editText,
+      scheduled_for: new Date(editDate).toISOString(),
+      mention_all: editMentionAll,
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditText(msg.message_text);
+    setEditDate(msg.scheduled_for.slice(0, 16));
+    setEditMentionAll(msg.mention_all);
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <Card className="bg-card/60 border-primary/30">
+        <CardContent className="p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-sm text-card-foreground">Editando</span>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleCancel}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={handleSave} disabled={editingId === msg.id}>
+                {editingId === msg.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          </div>
+          <Textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            className="text-xs min-h-[60px]"
+            placeholder="Mensagem..."
+          />
+          <Input
+            type="datetime-local"
+            value={editDate}
+            onChange={(e) => setEditDate(e.target.value)}
+            className="text-xs"
+          />
+          <div className="flex items-center gap-2">
+            <Switch
+              id={`edit-mention-${msg.id}`}
+              checked={editMentionAll}
+              onCheckedChange={setEditMentionAll}
+            />
+            <Label htmlFor={`edit-mention-${msg.id}`} className="text-xs text-muted-foreground cursor-pointer">
+              @todos
+            </Label>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="bg-card/60 border-border/50">
       <CardContent className="p-4">
@@ -151,36 +224,48 @@ function MessageCard({
               </p>
             )}
           </div>
-          {onDelete && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  disabled={deletingId === msg.id}
-                >
-                  {deletingId === msg.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Excluir mensagem?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação não pode ser desfeita. A mensagem será removida permanentemente.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => onDelete(msg.id)}>Excluir</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
+          <div className="flex flex-col gap-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={() => setIsEditing(true)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+            {onDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    disabled={deletingId === msg.id}
+                  >
+                    {deletingId === msg.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir mensagem?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. A mensagem será removida permanentemente.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(msg.id)}>Excluir</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -191,6 +276,7 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
   const [messages, setMessages] = useState<ScheduledMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [clearingHistory, setClearingHistory] = useState(false);
   const [onlyRecurring, setOnlyRecurring] = useState(false);
   const isMobile = useIsMobile();
@@ -199,7 +285,6 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
     setLoading(true);
     try {
       if (instanceId) {
-        // Use edge function proxy (works in embed context without auth)
         const { data, error } = await supabase.functions.invoke("scheduled-messages-proxy", {
           body: { action: "list", instanceId },
         });
@@ -252,6 +337,32 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
     }
   };
 
+  const editMessage = async (id: string, updates: { message_text: string; scheduled_for: string; mention_all: boolean }) => {
+    setEditingId(id);
+    try {
+      if (instanceId) {
+        const { data, error } = await supabase.functions.invoke("scheduled-messages-proxy", {
+          body: { action: "update", instanceId, messageId: id, updates },
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("scheduled_group_messages")
+          .update(updates)
+          .eq("id", id);
+        if (error) throw error;
+      }
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
+      );
+      toast.success("Mensagem atualizada!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar");
+    } finally {
+      setEditingId(null);
+    }
+  };
+
   const clearHistory = async () => {
     setClearingHistory(true);
     try {
@@ -261,13 +372,15 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
         });
         if (error) throw error;
       } else {
+        // Only clear non-recurring sent messages + failed/cancelled
         const { error } = await supabase
           .from("scheduled_group_messages")
           .delete()
-          .in("status", ["sent", "failed", "cancelled"]);
+          .in("status", ["sent", "failed", "cancelled"])
+          .eq("is_recurring", false);
         if (error) throw error;
       }
-      setMessages((prev) => prev.filter((m) => m.status === "pending"));
+      setMessages((prev) => prev.filter((m) => m.status === "pending" || (m.is_recurring && m.status === "sent")));
       toast.success("Histórico limpo!");
     } catch (err: any) {
       toast.error(err.message || "Erro ao limpar histórico");
@@ -276,8 +389,13 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
     }
   };
 
-  const pendingMessages = messages.filter((m) => m.status === "pending");
-  const historyMessages = messages.filter((m) => m.status !== "pending");
+  // Recurring messages with "sent" status (finished) stay in pending tab
+  const pendingMessages = messages.filter(
+    (m) => m.status === "pending" || (m.is_recurring && m.status === "sent")
+  );
+  const historyMessages = messages.filter(
+    (m) => !pendingMessages.includes(m) && m.status !== "pending"
+  );
 
   const filterByRecurring = (list: ScheduledMessage[]) =>
     onlyRecurring ? list.filter((m) => m.is_recurring) : list;
@@ -286,9 +404,9 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
   const filteredHistory = filterByRecurring(historyMessages);
 
   const pendingCount = pendingMessages.length;
-  const recurringCount = messages.filter((m) => m.is_recurring && m.status === "pending").length;
+  const recurringCount = messages.filter((m) => m.is_recurring && (m.status === "pending" || m.status === "sent")).length;
 
-  const renderList = (list: ScheduledMessage[], allowDelete: boolean) => {
+  const renderList = (list: ScheduledMessage[], allowActions: boolean) => {
     if (list.length === 0) {
       return (
         <div className="text-center py-12">
@@ -303,8 +421,10 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
           <MessageCard
             key={msg.id}
             msg={msg}
-            onDelete={allowDelete ? deleteMessage : undefined}
+            onDelete={allowActions ? deleteMessage : undefined}
+            onEdit={allowActions ? editMessage : undefined}
             deletingId={deletingId}
+            editingId={editingId}
           />
         ))}
       </div>
