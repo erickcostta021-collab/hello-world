@@ -455,7 +455,7 @@ serve(async (req) => {
         success: true,
         instanceName: instanceData.instance_name,
         groupName: data.subject || data.Subject || data.data?.subject || data.data?.Subject || data.Topic || data.topic || data.groupName || data.GroupName || groupjid,
-        groupDescription: data.desc || data.Desc || data.description || data.Description || data.Topic || "",
+        groupDescription: data.desc || data.Desc || data.description || data.Description || data.data?.desc || data.data?.description || "",
         participantCount: participants.length,
         participants,
         isAnnounce: data.IsAnnounce ?? data.isAnnounce ?? data.announce ?? false,
