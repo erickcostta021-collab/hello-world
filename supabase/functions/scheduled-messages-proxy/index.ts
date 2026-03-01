@@ -55,6 +55,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "update" && messageId) {
+      const { updates } = body;
+      if (!updates) {
+        return new Response(JSON.stringify({ error: "updates required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { error } = await supabase
+        .from("scheduled_group_messages")
+        .update(updates)
+        .eq("id", messageId)
+        .eq("instance_id", instanceId);
+
+      if (error) throw error;
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "delete" && messageId) {
       const { error } = await supabase
         .from("scheduled_group_messages")

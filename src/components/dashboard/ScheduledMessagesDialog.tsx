@@ -76,6 +76,14 @@ function toSuperscript(n: number): string {
   return String(n).split("").map((d) => superscriptDigits[d] || d).join("");
 }
 
+function formatGroupName(name: string, jid: string): string {
+  const isJid = (s: string) => s.includes("@g.us") || s.includes("@s.whatsapp.net");
+  if (name && !isJid(name)) return name;
+  // Fallback: "Grupo" + last 6 digits
+  const digits = jid.replace(/@.*$/, "");
+  return `Grupo ...${digits.slice(-6)}`;
+}
+
 interface ScheduledMessagesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -166,7 +174,7 @@ function MessageCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="font-medium text-sm text-card-foreground truncate">
-                {msg.group_name || msg.group_jid}
+                {formatGroupName(msg.group_name, msg.group_jid)}
               </span>
               {msg.is_recurring ? (
                 <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-400">
