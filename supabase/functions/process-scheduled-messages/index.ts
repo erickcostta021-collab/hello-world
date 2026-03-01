@@ -76,20 +76,30 @@ serve(async (req: Request) => {
 
         if (msg.mention_all) {
           try {
-            const groupRes = await fetch(`${baseUrl}/group/list?groupjid=${msg.group_jid}`, {
-              headers: { "token": inst.uazapi_instance_token },
+            // Use /group/info POST endpoint which returns participants
+            const groupRes = await fetch(`${baseUrl}/group/info`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "token": inst.uazapi_instance_token },
+              body: JSON.stringify({ groupjid: msg.group_jid, getInviteLink: false, force: false }),
             });
             if (groupRes.ok) {
               const groupData = await groupRes.json();
-              const group = Array.isArray(groupData) ? groupData[0] : groupData;
-              const participants = group?.Participants || group?.participants || [];
-              const phones = participants
-                .map((p: any) => (p.ID || p.id || p.phone || "").replace(/@.*$/, ""))
-                .filter((p: string) => p.length > 0);
+              const rawParticipants = groupData?.participants || groupData?.Participants || groupData?.members || groupData?.Members || [];
+              const phones = rawParticipants
+                .map((p: any) => {
+                  // Extract phone number from various formats
+                  const jid = p.PhoneNumber || p.phoneNumber || p.id || p.JID || p.jid || p.participant || "";
+                  return jid.replace(/@.*$/, "");
+                })
+                .filter((p: string) => p.length > 5);
               if (phones.length > 0) {
                 sendBody.mentions = phones.join(",");
                 console.log(`[process-scheduled] Mentioning ${phones.length} participants`);
+              } else {
+                console.log("[process-scheduled] No participants found for mention");
               }
+            } else {
+              console.error(`[process-scheduled] group/info failed: ${groupRes.status}`);
             }
           } catch (mentionErr) {
             console.error("[process-scheduled] Failed to fetch participants for mention:", mentionErr);
