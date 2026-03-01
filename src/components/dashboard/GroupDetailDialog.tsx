@@ -773,54 +773,6 @@ export function GroupDetailDialog({
       {/* Group Info Card */}
       <Card className="bg-card/80 border-border/50">
         <CardContent className="p-4">
-          {/* Link buttons top-right */}
-          <div className="flex justify-end gap-2 mb-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={copyInviteLink}
-              disabled={copyingLink}
-              className="shrink-0 border-primary/50 text-primary hover:bg-primary/10"
-            >
-              {copyingLink ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <Link className="h-4 w-4 mr-1" />
-              )}
-              Link Convite
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={resettingLink}
-                  className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
-                >
-                  {resettingLink ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                  )}
-                  Resetar Link
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Resetar código de convite?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    O link de convite atual será invalidado e um novo será gerado.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={resetInviteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Resetar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
           <div className="flex items-start gap-4">
             {/* Group avatar with hover to change photo */}
             <div
@@ -853,24 +805,58 @@ export function GroupDetailDialog({
               }}
             />
             <div className="flex-1 min-w-0">
-              {/* Group name with edit */}
+              {/* Group name row with link buttons on the right */}
               <div className="flex items-center gap-2">
                 {editingName ? (
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
                     <Input
                       value={newGroupName}
                       onChange={(e) => setNewGroupName(e.target.value)}
-                      className="h-8 text-sm"
+                      className="h-8 text-sm flex-1 min-w-0"
                       placeholder="Novo nome do grupo"
                       autoFocus
                       onKeyDown={(e) => e.key === "Enter" && saveGroupName()}
                     />
-                    <Button size="sm" variant="outline" onClick={saveGroupName} disabled={savingName}>
+                    <Button size="sm" variant="outline" onClick={saveGroupName} disabled={savingName} className="shrink-0">
                       {savingName ? <Loader2 className="h-3 w-3 animate-spin" /> : "Salvar"}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingName(false)} className="shrink-0">
                       ✕
                     </Button>
+                    {/* Link buttons next to edit field */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={copyInviteLink}
+                      disabled={copyingLink}
+                      className="shrink-0 border-primary/50 text-primary hover:bg-primary/10"
+                    >
+                      {copyingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Link className="h-4 w-4 mr-1" />}
+                      Link Convite
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={resettingLink}
+                          className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
+                        >
+                          {resettingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                          Resetar Link
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Resetar código de convite?</AlertDialogTitle>
+                          <AlertDialogDescription>O link de convite atual será invalidado e um novo será gerado.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={resetInviteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Resetar</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 ) : (
                   <>
@@ -880,7 +866,7 @@ export function GroupDetailDialog({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6"
+                      className="h-6 w-6 shrink-0"
                       onClick={() => {
                         setNewGroupName(currentGroupName);
                         setEditingName(true);
@@ -889,6 +875,41 @@ export function GroupDetailDialog({
                     >
                       <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
+                    <div className="flex items-center gap-2 ml-auto shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={copyInviteLink}
+                        disabled={copyingLink}
+                        className="shrink-0 border-primary/50 text-primary hover:bg-primary/10"
+                      >
+                        {copyingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Link className="h-4 w-4 mr-1" />}
+                        Link Convite
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={resettingLink}
+                            className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
+                          >
+                            {resettingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+                            Resetar Link
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Resetar código de convite?</AlertDialogTitle>
+                            <AlertDialogDescription>O link de convite atual será invalidado e um novo será gerado.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={resetInviteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Resetar</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </>
                 )}
               </div>
