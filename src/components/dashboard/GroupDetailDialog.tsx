@@ -1013,7 +1013,7 @@ export function GroupDetailDialog({
       {/* Add Participant Section */}
       <Card className="bg-card/80 border-border/50">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-4 mb-3">
             <div className="flex items-center gap-2 text-primary">
               <UserPlus className="h-4 w-4" />
               <span className="text-sm font-semibold">Adicionar participante</span>
