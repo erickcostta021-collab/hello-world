@@ -151,14 +151,17 @@ serve(async (req: Request) => {
             if (phones.length > 0) {
               // UAZAPI format: mentions as comma-separated phone numbers
               sendBody.mentions = phones.join(",");
-              // Also try mentionsEveryOne flag
               sendBody.mentionsEveryOne = true;
+              sendBody.mentionsEveryone = true;
+              sendBody.mentionsAll = true;
               // Prepend @todos to text for visual display  
               text = `@todos\n${text}`;
               console.log(`[process-scheduled] ✅ Mentioning ${phones.length} participants`);
             } else {
               // No participants found - still send with mentionsEveryOne flag as fallback
               sendBody.mentionsEveryOne = true;
+              sendBody.mentionsEveryone = true;
+              sendBody.mentionsAll = true;
               text = `@todos\n${text}`;
               console.log("[process-scheduled] ⚠️ No participants found, using mentionsEveryOne flag");
             }
@@ -166,6 +169,8 @@ serve(async (req: Request) => {
             console.error("[process-scheduled] Failed to fetch participants for mention:", mentionErr);
             // Still try mentionsEveryOne flag
             sendBody.mentionsEveryOne = true;
+            sendBody.mentionsEveryone = true;
+            sendBody.mentionsAll = true;
             text = `@todos\n${text}`;
           }
         }

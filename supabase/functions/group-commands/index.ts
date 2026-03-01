@@ -960,6 +960,8 @@ async function processCommand(
         // If mentioning all, fetch participants and add mentions
         if (isMentionAll) {
           sendBody.mentionsEveryOne = true;
+          sendBody.mentionsEveryone = true;
+          sendBody.mentionsAll = true;
           try {
             // Fetch participants for proper mentions
             const groupRes = await fetch(`${baseUrl}/group/info`, {
