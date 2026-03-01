@@ -66,6 +66,7 @@ import {
   Upload,
   CalendarRange,
   Camera,
+  LogOut,
 } from "lucide-react";
 
 interface GroupDetailDialogProps {
@@ -144,6 +145,7 @@ export function GroupDetailDialog({
   const [demotingPhone, setDemotingPhone] = useState<string | null>(null);
   const [currentGroupName, setCurrentGroupName] = useState(groupName);
   const [changingPhoto, setChangingPhoto] = useState(false);
+  const [leavingGroup, setLeavingGroup] = useState(false);
   const [mediaInputMode, setMediaInputMode] = useState<string | null>(null);
   const [mediaLinkInput, setMediaLinkInput] = useState("");
   const [groupProfilePic, setGroupProfilePic] = useState<string | null>(null);
@@ -300,6 +302,24 @@ export function GroupDetailDialog({
       toast.error(err.message || "Erro ao alterar configuração");
     } finally {
       setTogglingLocked(false);
+    }
+  };
+
+  const leaveGroup = async () => {
+    setLeavingGroup(true);
+    try {
+      const msgText = `#sairgrupo ${groupId}`;
+      const { data, error } = await supabase.functions.invoke("group-commands", {
+        body: { instanceId: instance.id, messageText: msgText },
+      });
+      if (error) throw error;
+      if (data?.result && !data.result.success) throw new Error(data.result.message);
+      toast.success("Você saiu do grupo com sucesso!");
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao sair do grupo");
+    } finally {
+      setLeavingGroup(false);
     }
   };
 
@@ -1006,6 +1026,33 @@ export function GroupDetailDialog({
               )}
               {isLocked ? "Só Admins Editam" : "Todos Editam"}
             </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                  disabled={leavingGroup}
+                >
+                  {leavingGroup ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <LogOut className="h-4 w-4 mr-1" />}
+                  Sair do Grupo
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sair do grupo?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Você será removido do grupo <strong>{currentGroupName}</strong>. Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={leaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Sair do Grupo
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </CardContent>
       </Card>
