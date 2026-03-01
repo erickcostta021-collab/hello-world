@@ -934,9 +934,60 @@ async function processCommand(
       const [targetGroup, ...msgParts] = params;
       const groupJid = targetGroup.includes("@g.us") ? targetGroup : `${targetGroup}@g.us`;
       try {
-        const sendBody: Record<string, unknown> = { number: groupJid, text: msgParts.join("|") };
-        // Support scheduling via scheduledFor ISO string
-        // UAZAPI may use "scheduled_for" or "Delay" (seconds from now)
+        const messageText = msgParts.join("|");
+        const isMentionAll = messageText.startsWith("@todos\n") || messageText.startsWith("@todos ");
+        const cleanText = isMentionAll ? messageText.replace(/^@todos\n?/, "") : messageText;
+        
+        const sendBody: Record<string, unknown> = { number: groupJid, text: isMentionAll ? `@todos\n${cleanText}` : messageText };
+        
+        // If mentioning all, fetch participants and add mentions
+        if (isMentionAll) {
+          sendBody.mentionsEveryOne = true;
+          try {
+            // Fetch participants for proper mentions
+            const groupRes = await fetch(`${baseUrl}/group/info`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "token": instanceToken },
+              body: JSON.stringify({ groupjid: groupJid, getInviteLink: false, force: false }),
+            });
+            if (groupRes.ok) {
+              const groupData = await groupRes.json();
+              const rawParticipants = groupData?.Participants || groupData?.participants || [];
+              const phones = rawParticipants
+                .map((p: any) => {
+                  const jid = p.ID || p.id || p.JID || p.jid || p.PhoneNumber || p.phoneNumber || "";
+                  return jid.replace(/@.*$/, "");
+                })
+                .filter((p: string) => p.length > 5);
+              if (phones.length > 0) {
+                sendBody.mentions = phones.join(",");
+                console.log(`[group-commands] Mentioning ${phones.length} participants`);
+              }
+            }
+            // Also try /group/list fallback
+            if (!sendBody.mentions) {
+              const listRes = await fetch(`${baseUrl}/group/list?groupjid=${groupJid}`, {
+                headers: { "token": instanceToken },
+              });
+              if (listRes.ok) {
+                const listData = await listRes.json();
+                const group = Array.isArray(listData) ? listData[0] : listData;
+                const parts = group?.Participants || group?.participants || [];
+                const phones = parts
+                  .map((p: any) => (p.ID || p.id || p.JID || p.jid || "").replace(/@.*$/, ""))
+                  .filter((p: string) => p.length > 5);
+                if (phones.length > 0) {
+                  sendBody.mentions = phones.join(",");
+                  console.log(`[group-commands] Mentioning ${phones.length} participants via /group/list`);
+                }
+              }
+            }
+          } catch (mentionErr) {
+            console.error("[group-commands] Failed to fetch participants:", mentionErr);
+          }
+        }
+
+        // Support scheduling
         if (scheduledFor) {
           const scheduledDate = new Date(scheduledFor);
           const delaySeconds = Math.max(0, Math.floor((scheduledDate.getTime() - Date.now()) / 1000));
