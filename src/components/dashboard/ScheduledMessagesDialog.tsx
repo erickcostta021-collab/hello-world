@@ -378,12 +378,15 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
         });
         if (error) throw error;
       } else {
-        // Only clear non-recurring sent messages + failed/cancelled
+        // Only clear non-recurring sent messages + failed/cancelled for current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Não autenticado");
         const { error } = await supabase
           .from("scheduled_group_messages")
           .delete()
-          .in("status", ["sent", "failed", "cancelled"])
-          .eq("is_recurring", false);
+          .eq("user_id", user.id)
+          .eq("is_recurring", false)
+          .in("status", ["sent", "failed", "cancelled"]);
         if (error) throw error;
       }
       setMessages((prev) => prev.filter((m) => m.status === "pending" || (m.is_recurring && m.status === "sent")));
