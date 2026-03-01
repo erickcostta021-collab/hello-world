@@ -162,49 +162,18 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
           <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
           Buscar Grupos
         </Button>
-      </div>
-
-      {/* Ignore Groups Toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/60 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <EyeOff className="h-4 w-4 text-muted-foreground" />
-          <Label htmlFor="ignore-groups-toggle" className="text-sm cursor-pointer">
-            Ignorar grupos no webhook
+        <div className="flex items-center gap-2 ml-auto">
+          <Switch
+            id="ignore-groups-toggle"
+            checked={ignoreGroups}
+            onCheckedChange={handleIgnoreGroupsChange}
+            disabled={savingIgnore}
+          />
+          <Label htmlFor="ignore-groups-toggle" className="text-sm cursor-pointer whitespace-nowrap">
+            Ignorar grupos
           </Label>
         </div>
-        <Switch
-          id="ignore-groups-toggle"
-          checked={ignoreGroups}
-          onCheckedChange={handleIgnoreGroupsChange}
-          disabled={savingIgnore}
-        />
       </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Pesquisar grupos..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-
-      {/* Stats */}
-      {groups.length > 0 && (
-        <div className="flex items-center gap-3">
-          <Users className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="text-sm font-medium text-card-foreground">
-              {groups.length} Grupos Encontrados
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {adminCount} como administrador
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Loading */}
       {loading && (
