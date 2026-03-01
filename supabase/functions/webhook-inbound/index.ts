@@ -459,15 +459,7 @@ async function assignContactToUser(contactId: string, userId: string, token: str
 
 // Helper to send text message to GHL (inbound = from lead)
 // Returns the GHL messageId if available
-async function sendMessageToGHL(contactId: string, message: string, token: string, channelType: string = "SMS", dateAdded?: string): Promise<string | null> {
-  const payload: Record<string, unknown> = {
-    type: channelType,
-    contactId,
-    message,
-  };
-  if (dateAdded) {
-    payload.dateAdded = dateAdded;
-  }
+async function sendMessageToGHL(contactId: string, message: string, token: string, channelType: string = "SMS"): Promise<string | null> {
   const response = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages/inbound", {
     method: "POST",
     headers: {
@@ -476,7 +468,11 @@ async function sendMessageToGHL(contactId: string, message: string, token: strin
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      type: channelType,
+      contactId,
+      message,
+    }),
   });
 
   const responseText = await response.text();
@@ -497,7 +493,7 @@ async function sendMessageToGHL(contactId: string, message: string, token: strin
 // Helper to send outbound text message to GHL (render what WE sent)
 // Uses the INBOUND endpoint with direction=outbound to avoid triggering GHL webhooks
 // This matches the n8n workflow approach that doesn't cause webhook loops
-async function sendOutboundMessageToGHL(contactId: string, message: string, token: string, dateAdded?: string): Promise<void> {
+async function sendOutboundMessageToGHL(contactId: string, message: string, token: string): Promise<void> {
   const payload: Record<string, unknown> = {
     type: "SMS",
     contactId,
@@ -505,9 +501,6 @@ async function sendOutboundMessageToGHL(contactId: string, message: string, toke
     status: "delivered",
     direction: "outbound",
   };
-  if (dateAdded) {
-    payload.dateAdded = dateAdded;
-  }
 
   console.log("Sending outbound message to GHL API (inbound endpoint):", {
     contactId,
@@ -583,16 +576,7 @@ async function getOrCreateConversation(contactId: string, locationId: string, to
 
 // Helper to send media message to GHL with attachments (inbound = from lead)
 // Returns the GHL messageId if available
-async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string, channelType: string = "SMS", dateAdded?: string): Promise<string | null> {
-  const payload: Record<string, unknown> = {
-    type: channelType,
-    contactId,
-    message: caption || "",
-    attachments: attachmentUrls,
-  };
-  if (dateAdded) {
-    payload.dateAdded = dateAdded;
-  }
+async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string, channelType: string = "SMS"): Promise<string | null> {
   const response = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages/inbound", {
     method: "POST",
     headers: {
@@ -601,7 +585,12 @@ async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      type: channelType,
+      contactId,
+      message: caption || "",
+      attachments: attachmentUrls,
+    }),
   });
 
   const responseText = await response.text();
@@ -620,7 +609,7 @@ async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token
 }
 
 // Helper to send outbound media message to GHL (render what WE sent)
-async function sendOutboundMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string, dateAdded?: string): Promise<void> {
+async function sendOutboundMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string): Promise<void> {
   const payload: Record<string, unknown> = {
     type: "SMS",
     contactId,
@@ -628,9 +617,6 @@ async function sendOutboundMediaToGHL(contactId: string, attachmentUrls: string[
     attachments: attachmentUrls,
     status: "delivered",
   };
-  if (dateAdded) {
-    payload.dateAdded = dateAdded;
-  }
 
   console.log("Sending outbound media to GHL API:", {
     contactId,
@@ -2746,56 +2732,10 @@ serve(async (req) => {
         // Also capture and save message mapping for edit/react/delete
         const uazapiMsgId = messageData.messageid || messageData.id || "";
         
-        // Extract original message timestamp for GHL ordering
-        const origTsMs = toEpochMs(messageData.messageTimestamp) || toEpochMs(messageData.timestamp) || toEpochMs(messageData.ts) || 0;
-        const dateAdded = origTsMs > 0 ? new Date(origTsMs).toISOString() : undefined;
-
-        // === MESSAGE QUEUE: Ensure messages are sent to GHL in order ===
-        // 1. Insert into queue table (atomic bigserial gives unique ordered ID)
-        // 2. Poll: wait until all earlier messages for same contact are marked 'sent'
-        // 3. Send to GHL
-        // 4. Mark as 'sent' so the next message can proceed
-        let queueId: number | null = null;
-        const conversationKey = `${subaccount.location_id}:${contact.id}`;
-        try {
-          const origTsSec = origTsMs > 0 ? Math.floor(origTsMs / 1000) : 0;
-          const { data: inserted } = await supabase
-            .from("message_send_order")
-            .insert({ conversation_key: conversationKey, original_ts: origTsSec, status: "pending" })
-            .select("id")
-            .single();
-          queueId = inserted?.id ?? null;
-
-          if (queueId) {
-            // Poll: wait until all messages with lower id for this conversation are 'sent'
-            const maxWaitMs = 15000; // 15 second timeout
-            const pollIntervalMs = 150;
-            const startWait = Date.now();
-            while (Date.now() - startWait < maxWaitMs) {
-              const { count } = await supabase
-                .from("message_send_order")
-                .select("id", { count: "exact", head: true })
-                .eq("conversation_key", conversationKey)
-                .neq("status", "sent")
-                .lt("id", queueId);
-              
-              if ((count ?? 0) === 0) break; // Our turn!
-              
-              await new Promise((r) => setTimeout(r, pollIntervalMs));
-            }
-            const waited = Date.now() - startWait;
-            if (waited > 50) {
-              console.log(`⏳ Queue wait: ${waited}ms for contact ${contact.id} (queueId=${queueId})`);
-            }
-          }
-        } catch (seqErr) {
-          console.warn("Queue insert failed (non-fatal), proceeding without ordering:", seqErr);
-        }
-
         if (isMediaMessage && publicMediaUrl) {
           const mediaCaption = formattedCaption || (memberPrefix ? memberPrefix.trim() : undefined);
           console.log("Sending inbound media to GHL:", { publicMediaUrl, mediaCaption, memberName, memberPhone });
-          const ghlMessageId = await sendMediaToGHL(contact.id, [publicMediaUrl], token, mediaCaption, undefined, dateAdded);
+          const ghlMessageId = await sendMediaToGHL(contact.id, [publicMediaUrl], token, mediaCaption);
           
           // Save message mapping for inbound media
           if (ghlMessageId && uazapiMsgId) {
@@ -2817,7 +2757,7 @@ serve(async (req) => {
           }
         } else {
           console.log("Sending inbound text to GHL:", { formattedMessage: formattedMessage?.substring(0, 50) });
-          const ghlMessageId = await sendMessageToGHL(contact.id, formattedMessage, token, undefined, dateAdded);
+          const ghlMessageId = await sendMessageToGHL(contact.id, formattedMessage, token);
           
           // Save message mapping for inbound text
           if (ghlMessageId && uazapiMsgId) {
@@ -2836,18 +2776,6 @@ serve(async (req) => {
             } else {
               console.log("Inbound message mapping saved:", { ghl: ghlMessageId, uazapi: uazapiMsgId });
             }
-          }
-        }
-        
-        // Mark queue entry as sent so the next message can proceed
-        if (queueId) {
-          try {
-            await supabase
-              .from("message_send_order")
-              .update({ status: "sent" })
-              .eq("id", queueId);
-          } catch {
-            // Non-fatal - cleanup will handle it
           }
         }
         
