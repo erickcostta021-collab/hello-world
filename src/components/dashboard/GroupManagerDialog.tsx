@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Instance } from "@/hooks/useInstances";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +28,7 @@ import {
   Copy,
   Plus,
   CalendarClock,
+  EyeOff,
 } from "lucide-react";
 import { GroupDetailDialog } from "./GroupDetailDialog";
 import { CreateGroupDialog } from "./CreateGroupDialog";
@@ -53,7 +56,27 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [scheduledOpen, setScheduledOpen] = useState(false);
+  const [ignoreGroups, setIgnoreGroups] = useState(instance.ignore_groups || false);
+  const [savingIgnore, setSavingIgnore] = useState(false);
   const isMobile = useIsMobile();
+
+  const handleIgnoreGroupsChange = async (checked: boolean) => {
+    setIgnoreGroups(checked);
+    setSavingIgnore(true);
+    try {
+      const { error } = await supabase
+        .from("instances")
+        .update({ ignore_groups: checked })
+        .eq("id", instance.id);
+      if (error) throw error;
+      toast.success(checked ? "Grupos serão ignorados no webhook" : "Grupos não serão mais ignorados");
+    } catch (err: any) {
+      setIgnoreGroups(!checked);
+      toast.error("Erro ao salvar configuração");
+    } finally {
+      setSavingIgnore(false);
+    }
+  };
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -139,6 +162,22 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
           <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
           Buscar Grupos
         </Button>
+      </div>
+
+      {/* Ignore Groups Toggle */}
+      <div className="flex items-center justify-between rounded-lg border border-border/50 bg-card/60 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <EyeOff className="h-4 w-4 text-muted-foreground" />
+          <Label htmlFor="ignore-groups-toggle" className="text-sm cursor-pointer">
+            Ignorar grupos no webhook
+          </Label>
+        </div>
+        <Switch
+          id="ignore-groups-toggle"
+          checked={ignoreGroups}
+          onCheckedChange={handleIgnoreGroupsChange}
+          disabled={savingIgnore}
+        />
       </div>
 
       {/* Search */}
