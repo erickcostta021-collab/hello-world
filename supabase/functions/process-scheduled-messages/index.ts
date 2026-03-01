@@ -40,6 +40,19 @@ serve(async (req: Request) => {
 
     console.log(`[process-scheduled] Found ${pendingMessages.length} pending messages`);
 
+    // Helper: clean up scheduled media file when campaign is done
+    const cleanupScheduledMedia = async (msgId: string, mediaUrl: string | null) => {
+      if (mediaUrl && mediaUrl.includes("media.bridgeapi.chat/scheduled/")) {
+        try {
+          const path = mediaUrl.replace("https://media.bridgeapi.chat/", "");
+          await supabase.storage.from("command-uploads").remove([path]);
+          console.log(`[process-scheduled] 🗑️ Cleaned up scheduled media: ${path}`);
+        } catch (e) {
+          console.error("[process-scheduled] Failed to cleanup scheduled media:", e);
+        }
+      }
+    };
+
     let processed = 0;
     let failed = 0;
 
@@ -157,17 +170,49 @@ serve(async (req: Request) => {
           }
         }
 
-        if (msg.media_url && msg.media_type) {
+        // Handle media persistence for recurring messages
+        let effectiveMediaUrl = msg.media_url;
+        if (msg.media_url && msg.is_recurring && msg.media_url.includes("media.bridgeapi.chat/uploads/")) {
+          try {
+            // Extract the original file path from the URL
+            const originalPath = msg.media_url.replace("https://media.bridgeapi.chat/", "");
+            const ext = originalPath.split(".").pop() || "bin";
+            const scheduledPath = `scheduled/${msg.id}.${ext}`;
+
+            // Copy the file from uploads/ to scheduled/ so the 24h cleanup won't delete it
+            const { data: fileData } = await supabase.storage
+              .from("command-uploads")
+              .download(originalPath);
+
+            if (fileData) {
+              const arrayBuffer = await fileData.arrayBuffer();
+              await supabase.storage
+                .from("command-uploads")
+                .upload(scheduledPath, arrayBuffer, { contentType: fileData.type || "application/octet-stream", upsert: true });
+
+              const newMediaUrl = `https://media.bridgeapi.chat/${scheduledPath}`;
+              // Update the record so future executions use the persistent URL
+              await supabase.from("scheduled_group_messages").update({ media_url: newMediaUrl }).eq("id", msg.id);
+              effectiveMediaUrl = newMediaUrl;
+              console.log(`[process-scheduled] ✅ Copied media to persistent path: ${scheduledPath}`);
+            }
+          } catch (copyErr) {
+            console.error("[process-scheduled] Failed to copy media to scheduled/:", copyErr);
+            // Continue with original URL - it may still work if not yet cleaned
+          }
+        }
+
+        if (effectiveMediaUrl && msg.media_type) {
           // Send media message
           if (msg.media_type === "audio") {
             endpoint = "/send/audio";
-            sendBody.url = msg.media_url;
-            sendBody.file = msg.media_url;
+            sendBody.url = effectiveMediaUrl;
+            sendBody.file = effectiveMediaUrl;
             if (text) sendBody.text = text;
           } else {
           endpoint = "/send/media";
-          sendBody.url = msg.media_url;
-          sendBody.file = msg.media_url;
+          sendBody.url = effectiveMediaUrl;
+          sendBody.file = effectiveMediaUrl;
           sendBody.type = msg.media_type === "document" ? "document" : msg.media_type;
           if (text) {
             sendBody.caption = text;
@@ -257,6 +302,7 @@ serve(async (req: Request) => {
                 sent_at: new Date().toISOString(),
                 execution_count: newCount,
               }).eq("id", msg.id);
+              await cleanupScheduledMedia(msg.id, effectiveMediaUrl);
             }
           } else {
             // Reached limits, mark as sent (finished)
@@ -265,6 +311,7 @@ serve(async (req: Request) => {
               sent_at: new Date().toISOString(),
               execution_count: newCount,
             }).eq("id", msg.id);
+            await cleanupScheduledMedia(msg.id, effectiveMediaUrl);
           }
         } else {
           // Non-recurring: just mark as sent
@@ -273,6 +320,7 @@ serve(async (req: Request) => {
             sent_at: new Date().toISOString(),
             execution_count: newCount,
           }).eq("id", msg.id);
+          await cleanupScheduledMedia(msg.id, effectiveMediaUrl);
         }
 
         processed++;
