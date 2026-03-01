@@ -71,11 +71,29 @@ serve(async (req: Request) => {
           number: msg.group_jid,
         };
 
-        // If mention_all, prepend @todos and flag mentionsEveryOne
+        // If mention_all, fetch group participants and build mentions string
         const text = msg.mention_all ? `@todos\n${msg.message_text}` : msg.message_text;
 
         if (msg.mention_all) {
-          sendBody.mentionsEveryOne = true;
+          try {
+            const groupRes = await fetch(`${baseUrl}/group/list?groupjid=${msg.group_jid}`, {
+              headers: { "token": inst.uazapi_instance_token },
+            });
+            if (groupRes.ok) {
+              const groupData = await groupRes.json();
+              const group = Array.isArray(groupData) ? groupData[0] : groupData;
+              const participants = group?.Participants || group?.participants || [];
+              const phones = participants
+                .map((p: any) => (p.ID || p.id || p.phone || "").replace(/@.*$/, ""))
+                .filter((p: string) => p.length > 0);
+              if (phones.length > 0) {
+                sendBody.mentions = phones.join(",");
+                console.log(`[process-scheduled] Mentioning ${phones.length} participants`);
+              }
+            }
+          } catch (mentionErr) {
+            console.error("[process-scheduled] Failed to fetch participants for mention:", mentionErr);
+          }
         }
 
         if (msg.media_url && msg.media_type) {
