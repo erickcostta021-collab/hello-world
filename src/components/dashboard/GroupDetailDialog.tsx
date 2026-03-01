@@ -1026,33 +1026,6 @@ export function GroupDetailDialog({
               )}
               {isLocked ? "Só Admins Editam" : "Todos Editam"}
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
-                  disabled={leavingGroup}
-                >
-                  {leavingGroup ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <LogOut className="h-4 w-4 mr-1" />}
-                  Sair do Grupo
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Sair do grupo?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Você será removido do grupo <strong>{currentGroupName}</strong>. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={leaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                    Sair do Grupo
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </div>
         </CardContent>
       </Card>
@@ -1236,8 +1209,43 @@ export function GroupDetailDialog({
                     </Button>
                   )}
 
+                  {/* Leave group button - shown on instance's own phone */}
+                  {instance.phone && p.phone.includes(instance.phone.replace(/\D/g, "")) && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                          disabled={leavingGroup}
+                          title="Sair do grupo"
+                        >
+                          {leavingGroup ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <LogOut className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Sair do grupo?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Você será removido do grupo <strong>{currentGroupName}</strong>. Esta ação não pode ser desfeita.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction onClick={leaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Sair do Grupo
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+
                   {/* Remove button */}
-                  {!p.isSuperAdmin && (
+                  {!p.isSuperAdmin && !(instance.phone && p.phone.includes(instance.phone.replace(/\D/g, ""))) && (
                     <Button
                       variant="ghost"
                       size="icon"
