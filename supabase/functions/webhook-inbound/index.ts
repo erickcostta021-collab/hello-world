@@ -459,7 +459,15 @@ async function assignContactToUser(contactId: string, userId: string, token: str
 
 // Helper to send text message to GHL (inbound = from lead)
 // Returns the GHL messageId if available
-async function sendMessageToGHL(contactId: string, message: string, token: string, channelType: string = "SMS"): Promise<string | null> {
+async function sendMessageToGHL(contactId: string, message: string, token: string, channelType: string = "SMS", dateAdded?: string): Promise<string | null> {
+  const payload: Record<string, unknown> = {
+    type: channelType,
+    contactId,
+    message,
+  };
+  if (dateAdded) {
+    payload.dateAdded = dateAdded;
+  }
   const response = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages/inbound", {
     method: "POST",
     headers: {
@@ -468,11 +476,7 @@ async function sendMessageToGHL(contactId: string, message: string, token: strin
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
-    body: JSON.stringify({
-      type: channelType,
-      contactId,
-      message,
-    }),
+    body: JSON.stringify(payload),
   });
 
   const responseText = await response.text();
@@ -493,7 +497,7 @@ async function sendMessageToGHL(contactId: string, message: string, token: strin
 // Helper to send outbound text message to GHL (render what WE sent)
 // Uses the INBOUND endpoint with direction=outbound to avoid triggering GHL webhooks
 // This matches the n8n workflow approach that doesn't cause webhook loops
-async function sendOutboundMessageToGHL(contactId: string, message: string, token: string): Promise<void> {
+async function sendOutboundMessageToGHL(contactId: string, message: string, token: string, dateAdded?: string): Promise<void> {
   const payload: Record<string, unknown> = {
     type: "SMS",
     contactId,
@@ -501,6 +505,9 @@ async function sendOutboundMessageToGHL(contactId: string, message: string, toke
     status: "delivered",
     direction: "outbound",
   };
+  if (dateAdded) {
+    payload.dateAdded = dateAdded;
+  }
 
   console.log("Sending outbound message to GHL API (inbound endpoint):", {
     contactId,
@@ -576,7 +583,16 @@ async function getOrCreateConversation(contactId: string, locationId: string, to
 
 // Helper to send media message to GHL with attachments (inbound = from lead)
 // Returns the GHL messageId if available
-async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string, channelType: string = "SMS"): Promise<string | null> {
+async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string, channelType: string = "SMS", dateAdded?: string): Promise<string | null> {
+  const payload: Record<string, unknown> = {
+    type: channelType,
+    contactId,
+    message: caption || "",
+    attachments: attachmentUrls,
+  };
+  if (dateAdded) {
+    payload.dateAdded = dateAdded;
+  }
   const response = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages/inbound", {
     method: "POST",
     headers: {
@@ -585,12 +601,7 @@ async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
-    body: JSON.stringify({
-      type: channelType,
-      contactId,
-      message: caption || "",
-      attachments: attachmentUrls,
-    }),
+    body: JSON.stringify(payload),
   });
 
   const responseText = await response.text();
@@ -609,7 +620,7 @@ async function sendMediaToGHL(contactId: string, attachmentUrls: string[], token
 }
 
 // Helper to send outbound media message to GHL (render what WE sent)
-async function sendOutboundMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string): Promise<void> {
+async function sendOutboundMediaToGHL(contactId: string, attachmentUrls: string[], token: string, caption?: string, dateAdded?: string): Promise<void> {
   const payload: Record<string, unknown> = {
     type: "SMS",
     contactId,
@@ -617,6 +628,9 @@ async function sendOutboundMediaToGHL(contactId: string, attachmentUrls: string[
     attachments: attachmentUrls,
     status: "delivered",
   };
+  if (dateAdded) {
+    payload.dateAdded = dateAdded;
+  }
 
   console.log("Sending outbound media to GHL API:", {
     contactId,
@@ -2732,10 +2746,14 @@ serve(async (req) => {
         // Also capture and save message mapping for edit/react/delete
         const uazapiMsgId = messageData.messageid || messageData.id || "";
         
+        // Extract original message timestamp for GHL ordering
+        const origTsMs = toEpochMs(messageData.messageTimestamp) || toEpochMs(messageData.timestamp) || toEpochMs(messageData.ts) || 0;
+        const dateAdded = origTsMs > 0 ? new Date(origTsMs).toISOString() : undefined;
+
         if (isMediaMessage && publicMediaUrl) {
           const mediaCaption = formattedCaption || (memberPrefix ? memberPrefix.trim() : undefined);
           console.log("Sending inbound media to GHL:", { publicMediaUrl, mediaCaption, memberName, memberPhone });
-          const ghlMessageId = await sendMediaToGHL(contact.id, [publicMediaUrl], token, mediaCaption);
+          const ghlMessageId = await sendMediaToGHL(contact.id, [publicMediaUrl], token, mediaCaption, undefined, dateAdded);
           
           // Save message mapping for inbound media
           if (ghlMessageId && uazapiMsgId) {
@@ -2757,7 +2775,7 @@ serve(async (req) => {
           }
         } else {
           console.log("Sending inbound text to GHL:", { formattedMessage: formattedMessage?.substring(0, 50) });
-          const ghlMessageId = await sendMessageToGHL(contact.id, formattedMessage, token);
+          const ghlMessageId = await sendMessageToGHL(contact.id, formattedMessage, token, undefined, dateAdded);
           
           // Save message mapping for inbound text
           if (ghlMessageId && uazapiMsgId) {
