@@ -321,18 +321,21 @@ export type Database = {
           created_at: string
           id: number
           original_ts: number
+          status: string
         }
         Insert: {
           conversation_key: string
           created_at?: string
           id?: number
           original_ts?: number
+          status?: string
         }
         Update: {
           conversation_key?: string
           created_at?: string
           id?: number
           original_ts?: number
+          status?: string
         }
         Relationships: []
       }
@@ -685,10 +688,6 @@ export type Database = {
       }
       get_admin_webhook_url: { Args: never; Returns: string }
       get_effective_user_id: { Args: { p_user_id: string }; Returns: string }
-      get_send_position: {
-        Args: { p_conversation_key: string; p_original_ts?: number }
-        Returns: number
-      }
       get_token_owner: { Args: { p_agency_token: string }; Returns: string }
       has_role: {
         Args: {
