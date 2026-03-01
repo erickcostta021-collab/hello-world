@@ -59,6 +59,16 @@ interface ScheduledMessage {
   media_url?: string;
   media_type?: string;
   sent_at?: string;
+  execution_count?: number;
+}
+
+const superscriptDigits: Record<string, string> = {
+  "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+  "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹",
+};
+
+function toSuperscript(n: number): string {
+  return String(n).split("").map((d) => superscriptDigits[d] || d).join("");
 }
 
 interface ScheduledMessagesDialogProps {
@@ -108,7 +118,13 @@ function MessageCard({
                     : "border-destructive/30 text-destructive"
                 }`}
               >
-                {msg.status === "pending" ? "Pendente" : msg.status === "sent" ? "Enviada" : msg.status === "cancelled" ? "Cancelada" : "Falhou"}
+                {msg.status === "pending"
+                  ? `Pendente${msg.execution_count && msg.execution_count > 0 ? ` (${msg.execution_count}x enviada)` : ""}`
+                  : msg.status === "sent"
+                  ? `Enviada${msg.execution_count && msg.execution_count > 0 ? toSuperscript(msg.execution_count) : ""}`
+                  : msg.status === "cancelled"
+                  ? "Cancelada"
+                  : "Falhou"}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground line-clamp-2">
@@ -260,27 +276,8 @@ export function ScheduledMessagesDialog({ open, onOpenChange, instanceId }: Sche
     }
   };
 
-  // Recurring messages stay in "pending" tab even if sent, as long as the campaign is still active
-  const isActiveCampaign = (m: ScheduledMessage) => {
-    if (!m.is_recurring) return false;
-    // Check if there's a pending sibling for this same group+interval (next occurrence created)
-    const hasPendingSibling = messages.some(
-      (other) =>
-        other.id !== m.id &&
-        other.group_jid === m.group_jid &&
-        other.is_recurring &&
-        other.recurring_interval === m.recurring_interval &&
-        other.status === "pending"
-    );
-    return hasPendingSibling;
-  };
-
-  const pendingMessages = messages.filter(
-    (m) => m.status === "pending" || (m.status === "sent" && isActiveCampaign(m))
-  );
-  const historyMessages = messages.filter(
-    (m) => m.status !== "pending" && !(m.status === "sent" && isActiveCampaign(m))
-  );
+  const pendingMessages = messages.filter((m) => m.status === "pending");
+  const historyMessages = messages.filter((m) => m.status !== "pending");
 
   const filterByRecurring = (list: ScheduledMessage[]) =>
     onlyRecurring ? list.filter((m) => m.is_recurring) : list;

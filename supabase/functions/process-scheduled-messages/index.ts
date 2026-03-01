@@ -113,16 +113,10 @@ serve(async (req: Request) => {
           continue;
         }
 
-        // Mark as sent
-        await supabase.from("scheduled_group_messages").update({
-          status: "sent", sent_at: new Date().toISOString(),
-          execution_count: (msg.execution_count || 0) + 1,
-        }).eq("id", msg.id);
+        const newCount = (msg.execution_count || 0) + 1;
 
-        // If recurring, create next occurrence
+        // If recurring, check if we should schedule the next occurrence on the same row
         if (msg.is_recurring && msg.recurring_interval) {
-          // Check limits
-          const newCount = (msg.execution_count || 0) + 1;
           const reachedMaxExec = msg.max_executions && newCount >= msg.max_executions;
           const pastEndDate = msg.end_date && new Date(msg.end_date) <= new Date();
 
@@ -135,7 +129,6 @@ serve(async (req: Request) => {
                 nextDate.setDate(nextDate.getDate() + 1);
                 break;
               case "weekly": {
-                // Find next weekday from the weekdays array
                 const weekdays: number[] = msg.weekdays || [];
                 if (weekdays.length > 0) {
                   const currentDay = nextDate.getDay();
@@ -160,36 +153,43 @@ serve(async (req: Request) => {
                 break;
             }
 
-            // Preserve send_time
             if (sendTime) {
               const [h, m] = sendTime.split(":").map(Number);
               nextDate.setHours(h, m, 0, 0);
             }
 
-            // Check if next date is past end_date
             if (!msg.end_date || nextDate <= new Date(msg.end_date)) {
-              await supabase.from("scheduled_group_messages").insert({
-                user_id: msg.user_id,
-                instance_id: msg.instance_id,
-                group_jid: msg.group_jid,
-                group_name: msg.group_name,
-                message_text: msg.message_text,
-                mention_all: msg.mention_all,
-                media_url: msg.media_url,
-                media_type: msg.media_type,
-                scheduled_for: nextDate.toISOString(),
-                is_recurring: true,
-                recurring_interval: msg.recurring_interval,
-                send_time: msg.send_time,
-                weekdays: msg.weekdays,
-                day_of_month: msg.day_of_month,
-                end_date: msg.end_date,
-                max_executions: msg.max_executions,
-                execution_count: newCount,
+              // Reuse the same row: update to pending with next scheduled_for
+              await supabase.from("scheduled_group_messages").update({
                 status: "pending",
-              });
+                scheduled_for: nextDate.toISOString(),
+                execution_count: newCount,
+                sent_at: new Date().toISOString(),
+                last_error: null,
+              }).eq("id", msg.id);
+            } else {
+              // No more occurrences, mark as sent (finished)
+              await supabase.from("scheduled_group_messages").update({
+                status: "sent",
+                sent_at: new Date().toISOString(),
+                execution_count: newCount,
+              }).eq("id", msg.id);
             }
+          } else {
+            // Reached limits, mark as sent (finished)
+            await supabase.from("scheduled_group_messages").update({
+              status: "sent",
+              sent_at: new Date().toISOString(),
+              execution_count: newCount,
+            }).eq("id", msg.id);
           }
+        } else {
+          // Non-recurring: just mark as sent
+          await supabase.from("scheduled_group_messages").update({
+            status: "sent",
+            sent_at: new Date().toISOString(),
+            execution_count: newCount,
+          }).eq("id", msg.id);
         }
 
         processed++;
