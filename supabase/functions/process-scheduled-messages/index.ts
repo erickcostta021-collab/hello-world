@@ -89,7 +89,7 @@ serve(async (req: Request) => {
         // If mention_all, fetch group participants and add mentions
         if (msg.mention_all) {
           sendBody.mentions = "all";
-          text = `@todos ${text}`;
+          // mentions=all handles notification, no need for @todos prefix
           console.log(`[process-scheduled] ✅ Using mentions=all for @todos`);
         }
 
