@@ -315,6 +315,27 @@ export type Database = {
         }
         Relationships: []
       }
+      message_send_order: {
+        Row: {
+          conversation_key: string
+          created_at: string
+          id: number
+          original_ts: number
+        }
+        Insert: {
+          conversation_key: string
+          created_at?: string
+          id?: number
+          original_ts?: number
+        }
+        Update: {
+          conversation_key?: string
+          created_at?: string
+          id?: number
+          original_ts?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -645,6 +666,7 @@ export type Database = {
       cleanup_old_message_mappings: { Args: never; Returns: undefined }
       cleanup_old_phone_mappings: { Args: never; Returns: undefined }
       cleanup_old_processed_messages: { Args: never; Returns: undefined }
+      cleanup_old_send_order: { Args: never; Returns: undefined }
       cleanup_old_webhook_metrics: { Args: never; Returns: undefined }
       generate_embed_token: { Args: never; Returns: string }
       get_admin_oauth_credentials: {
@@ -663,6 +685,10 @@ export type Database = {
       }
       get_admin_webhook_url: { Args: never; Returns: string }
       get_effective_user_id: { Args: { p_user_id: string }; Returns: string }
+      get_send_position: {
+        Args: { p_conversation_key: string; p_original_ts?: number }
+        Returns: number
+      }
       get_token_owner: { Args: { p_agency_token: string }; Returns: string }
       has_role: {
         Args: {
