@@ -84,7 +84,7 @@ serve(async (req: Request) => {
           number: msg.group_jid,
         };
 
-        let text = msg.message_text.replace(/^@todos\n?/, "").trim();
+        let text = msg.message_text.replace(/^@todos[\n ]?/, "").trim();
 
         // If mention_all, fetch group participants and add mentions
         if (msg.mention_all) {
@@ -154,14 +154,14 @@ serve(async (req: Request) => {
               sendBody.mentionsEveryOne = true;
               sendBody.mentionsEveryone = true;
               sendBody.mentionsAll = true;
-              // Remove @todos prefix - mentions metadata handles it
+              text = `@todos ${text}`;
               console.log(`[process-scheduled] ✅ Mentioning ${phones.length} participants`);
             } else {
               // No participants found - still send with mentionsEveryOne flag as fallback
               sendBody.mentionsEveryOne = true;
               sendBody.mentionsEveryone = true;
               sendBody.mentionsAll = true;
-              // No @todos prefix needed
+              text = `@todos ${text}`;
               console.log("[process-scheduled] ⚠️ No participants found, using mentionsEveryOne flag");
             }
           } catch (mentionErr) {
@@ -170,7 +170,7 @@ serve(async (req: Request) => {
             sendBody.mentionsEveryOne = true;
             sendBody.mentionsEveryone = true;
             sendBody.mentionsAll = true;
-            // No @todos prefix needed
+            text = `@todos ${text}`;
           }
         }
 
