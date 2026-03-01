@@ -1,0 +1,1 @@
+UPDATE scheduled_group_messages SET group_name = 'Trocar' WHERE group_jid = '120363405470850997@g.us' AND (group_name LIKE '%@g.us%' OR group_name = '' OR group_name IS NULL);
