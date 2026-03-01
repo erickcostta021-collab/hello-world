@@ -2750,24 +2750,46 @@ serve(async (req) => {
         const origTsMs = toEpochMs(messageData.messageTimestamp) || toEpochMs(messageData.timestamp) || toEpochMs(messageData.ts) || 0;
         const dateAdded = origTsMs > 0 ? new Date(origTsMs).toISOString() : undefined;
 
-        // === SEQUENCING: Ensure messages are sent to GHL in order ===
-        // Each concurrent edge function instance gets an atomic position via DB sequence.
-        // We then delay by position * 400ms so message #0 sends immediately, #1 waits 400ms, etc.
+        // === MESSAGE QUEUE: Ensure messages are sent to GHL in order ===
+        // 1. Insert into queue table (atomic bigserial gives unique ordered ID)
+        // 2. Poll: wait until all earlier messages for same contact are marked 'sent'
+        // 3. Send to GHL
+        // 4. Mark as 'sent' so the next message can proceed
+        let queueId: number | null = null;
+        const conversationKey = `${subaccount.location_id}:${contact.id}`;
         try {
-          const conversationKey = `${subaccount.location_id}:${contact.id}`;
           const origTsSec = origTsMs > 0 ? Math.floor(origTsMs / 1000) : 0;
-          const { data: sendPosition } = await supabase.rpc("get_send_position", {
-            p_conversation_key: conversationKey,
-            p_original_ts: origTsSec,
-          });
-          const pos = sendPosition ?? 0;
-          if (pos > 0) {
-            const delayMs = pos * 400;
-            console.log(`⏳ Sequencing delay: position=${pos}, delay=${delayMs}ms for contact ${contact.id}`);
-            await new Promise((r) => setTimeout(r, delayMs));
+          const { data: inserted } = await supabase
+            .from("message_send_order")
+            .insert({ conversation_key: conversationKey, original_ts: origTsSec, status: "pending" })
+            .select("id")
+            .single();
+          queueId = inserted?.id ?? null;
+
+          if (queueId) {
+            // Poll: wait until all messages with lower id for this conversation are 'sent'
+            const maxWaitMs = 15000; // 15 second timeout
+            const pollIntervalMs = 150;
+            const startWait = Date.now();
+            while (Date.now() - startWait < maxWaitMs) {
+              const { count } = await supabase
+                .from("message_send_order")
+                .select("id", { count: "exact", head: true })
+                .eq("conversation_key", conversationKey)
+                .neq("status", "sent")
+                .lt("id", queueId);
+              
+              if ((count ?? 0) === 0) break; // Our turn!
+              
+              await new Promise((r) => setTimeout(r, pollIntervalMs));
+            }
+            const waited = Date.now() - startWait;
+            if (waited > 50) {
+              console.log(`⏳ Queue wait: ${waited}ms for contact ${contact.id} (queueId=${queueId})`);
+            }
           }
         } catch (seqErr) {
-          console.warn("Sequencing failed (non-fatal), proceeding without delay:", seqErr);
+          console.warn("Queue insert failed (non-fatal), proceeding without ordering:", seqErr);
         }
 
         if (isMediaMessage && publicMediaUrl) {
@@ -2814,6 +2836,18 @@ serve(async (req) => {
             } else {
               console.log("Inbound message mapping saved:", { ghl: ghlMessageId, uazapi: uazapiMsgId });
             }
+          }
+        }
+        
+        // Mark queue entry as sent so the next message can proceed
+        if (queueId) {
+          try {
+            await supabase
+              .from("message_send_order")
+              .update({ status: "sent" })
+              .eq("id", queueId);
+          } catch {
+            // Non-fatal - cleanup will handle it
           }
         }
         
