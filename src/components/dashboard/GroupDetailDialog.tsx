@@ -771,7 +771,7 @@ export function GroupDetailDialog({
   const content = (
     <div className="flex flex-col gap-4">
       {/* Group Info Card */}
-      <Card className="bg-card/80 border-border/50">
+      <Card className="bg-card/80 border-border">
         <CardContent className="p-4">
           <div className="flex items-start gap-4">
             {/* Group avatar with hover to change photo */}
@@ -1011,7 +1011,7 @@ export function GroupDetailDialog({
       </Card>
 
       {/* Add Participant Section */}
-      <Card className="bg-card/80 border-border/50">
+      <Card className="bg-card/80 border-border">
         <CardContent className="p-4">
           <div className="flex items-center gap-4 mb-3">
             <div className="flex items-center gap-2 text-primary">
@@ -1120,7 +1120,7 @@ export function GroupDetailDialog({
           {filteredParticipants.map((p, idx) => (
             <Card
               key={p.id || idx}
-              className="bg-card/60 border-border/50 hover:border-primary/40 transition-all"
+              className="bg-card/60 border-border hover:border-primary/40 transition-all"
             >
               <CardContent className="p-3 flex items-center gap-3">
                 <div
