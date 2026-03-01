@@ -1,13 +1,11 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSettings } from "@/hooks/useSettings";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { GroupCommandsDialog } from "@/components/dashboard/GroupCommandsDialog";
-import { InstanceOverrideDialog } from "@/components/dashboard/InstanceOverrideDialog";
 import {
   LayoutDashboard,
   Settings,
@@ -26,13 +24,17 @@ import {
   Code,
   KeyRound,
 } from "lucide-react";
-import { CustomizeSmsDialog } from "@/components/dashboard/CustomizeSmsDialog";
-import { ConfigureCredentialsDialog } from "@/components/dashboard/ConfigureCredentialsDialog";
-import { WhatsAppThemeDialog } from "@/components/dashboard/WhatsAppThemeDialog";
-import { SendButtonsDialog } from "@/components/dashboard/SendButtonsDialog";
-import { ScriptsDialog } from "@/components/dashboard/ScriptsDialog";
 
 import { useSidebarState } from "@/hooks/useSidebarState";
+
+const GroupCommandsDialog = lazy(() => import("@/components/dashboard/GroupCommandsDialog").then(m => ({ default: m.GroupCommandsDialog })));
+const InstanceOverrideDialog = lazy(() => import("@/components/dashboard/InstanceOverrideDialog").then(m => ({ default: m.InstanceOverrideDialog })));
+const CustomizeSmsDialog = lazy(() => import("@/components/dashboard/CustomizeSmsDialog").then(m => ({ default: m.CustomizeSmsDialog })));
+const ConfigureCredentialsDialog = lazy(() => import("@/components/dashboard/ConfigureCredentialsDialog").then(m => ({ default: m.ConfigureCredentialsDialog })));
+const WhatsAppThemeDialog = lazy(() => import("@/components/dashboard/WhatsAppThemeDialog").then(m => ({ default: m.WhatsAppThemeDialog })));
+const SendButtonsDialog = lazy(() => import("@/components/dashboard/SendButtonsDialog").then(m => ({ default: m.SendButtonsDialog })));
+const ScriptsDialog = lazy(() => import("@/components/dashboard/ScriptsDialog").then(m => ({ default: m.ScriptsDialog })));
+
 
 const adminNavItems = [
   { to: "/admin/health", icon: Activity, label: "Saúde do Sistema" },
@@ -365,26 +367,15 @@ export function Sidebar() {
         </div>
       </aside>
 
-      {/* Group Commands Dialog */}
-      <GroupCommandsDialog open={groupCommandsOpen} onOpenChange={setGroupCommandsOpen} />
-
-      {/* Customize SMS Dialog */}
-      <CustomizeSmsDialog open={customizeSmsOpen} onOpenChange={setCustomizeSmsOpen} />
-
-      {/* WhatsApp Theme Dialog */}
-      <WhatsAppThemeDialog open={whatsappThemeOpen} onOpenChange={setWhatsappThemeOpen} />
-
-      {/* Send Buttons Dialog */}
-      <SendButtonsDialog open={sendButtonsOpen} onOpenChange={setSendButtonsOpen} />
-
-      {/* Instance Override Dialog */}
-      <InstanceOverrideDialog open={instanceOverrideOpen} onOpenChange={setInstanceOverrideOpen} />
-
-      {/* Scripts Dialog */}
-      <ScriptsDialog open={scriptsOpen} onOpenChange={setScriptsOpen} />
-
-      {/* Configure Credentials Dialog */}
-      <ConfigureCredentialsDialog open={credentialsOpen} onOpenChange={setCredentialsOpen} />
+      <Suspense fallback={null}>
+        {groupCommandsOpen && <GroupCommandsDialog open={groupCommandsOpen} onOpenChange={setGroupCommandsOpen} />}
+        {customizeSmsOpen && <CustomizeSmsDialog open={customizeSmsOpen} onOpenChange={setCustomizeSmsOpen} />}
+        {whatsappThemeOpen && <WhatsAppThemeDialog open={whatsappThemeOpen} onOpenChange={setWhatsappThemeOpen} />}
+        {sendButtonsOpen && <SendButtonsDialog open={sendButtonsOpen} onOpenChange={setSendButtonsOpen} />}
+        {instanceOverrideOpen && <InstanceOverrideDialog open={instanceOverrideOpen} onOpenChange={setInstanceOverrideOpen} />}
+        {scriptsOpen && <ScriptsDialog open={scriptsOpen} onOpenChange={setScriptsOpen} />}
+        {credentialsOpen && <ConfigureCredentialsDialog open={credentialsOpen} onOpenChange={setCredentialsOpen} />}
+      </Suspense>
     </>
   );
 }
