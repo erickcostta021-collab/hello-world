@@ -896,8 +896,53 @@ export function GroupDetailDialog({
             )}
           </div>
 
-          {/* Action Buttons Row (was link buttons) */}
+          {/* Action Buttons Row */}
           <div className="flex flex-wrap gap-2 mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-primary/50 text-primary hover:bg-primary/10"
+              onClick={copyInviteLink}
+              disabled={copyingLink}
+            >
+              {copyingLink ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Link className="h-4 w-4 mr-1" />
+              )}
+              Link Convite
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={resettingLink}
+                  className="border-destructive/50 text-destructive hover:bg-destructive/10"
+                >
+                  {resettingLink ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Resetar Link
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Resetar código de convite?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    O link de convite atual será invalidado e um novo será gerado.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={resetInviteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Resetar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button
               size="sm"
               variant="outline"
@@ -1527,49 +1572,10 @@ export function GroupDetailDialog({
         <Drawer open={open} onOpenChange={onOpenChange}>
           <DrawerContent>
             <DrawerHeader>
-              <div className="flex items-center justify-between gap-2">
-                <DrawerTitle className="flex items-center gap-2">
-                  <ArrowLeft className="h-5 w-5 cursor-pointer" onClick={() => onOpenChange(false)} />
-                  Detalhes do Grupo
-                </DrawerTitle>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={copyInviteLink}
-                    disabled={copyingLink}
-                    className="shrink-0 border-primary/50 text-primary hover:bg-primary/10 text-xs px-2"
-                  >
-                    {copyingLink ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={resettingLink}
-                        className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10 text-xs px-2"
-                      >
-                        {resettingLink ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Resetar código de convite?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          O link de convite atual será invalidado e um novo será gerado.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction onClick={resetInviteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                          Resetar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
+              <DrawerTitle className="flex items-center gap-2">
+                <ArrowLeft className="h-5 w-5 cursor-pointer" onClick={() => onOpenChange(false)} />
+                Detalhes do Grupo
+              </DrawerTitle>
             </DrawerHeader>
             <div className="p-4 pb-6 overflow-y-auto max-h-[70vh]">{content}</div>
           </DrawerContent>
@@ -1586,61 +1592,12 @@ export function GroupDetailDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-2xl max-h-[85vh]">
           <DialogHeader>
-            <div className="flex items-center justify-between gap-2">
-              <DialogTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                Detalhes do Grupo
-              </DialogTitle>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={copyInviteLink}
-                  disabled={copyingLink}
-                  className="shrink-0 border-primary/50 text-primary hover:bg-primary/10"
-                >
-                  {copyingLink ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <Link className="h-4 w-4 mr-1" />
-                  )}
-                  Link Convite
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={resettingLink}
-                      className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
-                    >
-                      {resettingLink ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                      )}
-                      Resetar Link
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Resetar código de convite?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        O link de convite atual será invalidado e um novo será gerado.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={resetInviteLink} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Resetar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </div>
-            <DialogDescription>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
               Detalhes do Grupo
+            </DialogTitle>
+            <DialogDescription>
+              Gerencie os detalhes do grupo
             </DialogDescription>
           </DialogHeader>
           <DialogBody>{content}</DialogBody>
