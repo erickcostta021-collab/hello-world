@@ -88,90 +88,9 @@ serve(async (req: Request) => {
 
         // If mention_all, fetch group participants and add mentions
         if (msg.mention_all) {
-          try {
-            console.log(`[process-scheduled] Fetching participants for mention_all, group: ${msg.group_jid}`);
-            
-            // Try multiple endpoints to get participants
-            let phones: string[] = [];
-            
-            // Attempt 1: /group/info POST
-            const groupRes = await fetch(`${baseUrl}/group/info`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "token": inst.uazapi_instance_token },
-              body: JSON.stringify({ groupjid: msg.group_jid, getInviteLink: false, force: false }),
-            });
-            
-            console.log(`[process-scheduled] /group/info response status: ${groupRes.status}`);
-            
-            if (groupRes.ok) {
-              const groupData = await groupRes.json();
-              console.log(`[process-scheduled] /group/info keys: ${Object.keys(groupData).join(", ")}`);
-              
-              // Try all possible participant field names
-              const rawParticipants = groupData?.Participants || groupData?.participants 
-                || groupData?.members || groupData?.Members || [];
-              
-              console.log(`[process-scheduled] Raw participants count: ${rawParticipants.length}`);
-              if (rawParticipants.length > 0) {
-                console.log(`[process-scheduled] First participant sample: ${JSON.stringify(rawParticipants[0])}`);
-              }
-              
-              phones = rawParticipants
-                .map((p: any) => {
-                  // UAZAPI participant format: { ID: "55...@s.whatsapp.net", ... } or { JID: "..." }
-                  const jid = p.ID || p.id || p.JID || p.jid || p.PhoneNumber || p.phoneNumber || p.participant || "";
-                  return jid.replace(/@.*$/, "");
-                })
-                .filter((p: string) => p.length > 5);
-            }
-            
-            // Attempt 2: If no participants found, try GET /group/list with the specific group
-            if (phones.length === 0) {
-              console.log(`[process-scheduled] Trying /group/list fallback`);
-              const listRes = await fetch(`${baseUrl}/group/list?groupjid=${msg.group_jid}`, {
-                headers: { "token": inst.uazapi_instance_token },
-              });
-              if (listRes.ok) {
-                const listData = await listRes.json();
-                const group = Array.isArray(listData) ? listData[0] : listData;
-                const parts = group?.Participants || group?.participants || [];
-                console.log(`[process-scheduled] /group/list participants: ${parts.length}`);
-                if (parts.length > 0) {
-                  console.log(`[process-scheduled] /group/list first participant: ${JSON.stringify(parts[0])}`);
-                }
-                phones = parts
-                  .map((p: any) => {
-                    const jid = p.ID || p.id || p.JID || p.jid || p.PhoneNumber || p.phoneNumber || "";
-                    return jid.replace(/@.*$/, "");
-                  })
-                  .filter((p: string) => p.length > 5);
-              }
-            }
-            
-            if (phones.length > 0) {
-              // UAZAPI format: mentions as comma-separated phone numbers
-              sendBody.mentions = phones.join(",");
-              sendBody.mentionsEveryOne = true;
-              sendBody.mentionsEveryone = true;
-              sendBody.mentionsAll = true;
-              text = `@todos ${text}`;
-              console.log(`[process-scheduled] ✅ Mentioning ${phones.length} participants`);
-            } else {
-              // No participants found - still send with mentionsEveryOne flag as fallback
-              sendBody.mentionsEveryOne = true;
-              sendBody.mentionsEveryone = true;
-              sendBody.mentionsAll = true;
-              text = `@todos ${text}`;
-              console.log("[process-scheduled] ⚠️ No participants found, using mentionsEveryOne flag");
-            }
-          } catch (mentionErr) {
-            console.error("[process-scheduled] Failed to fetch participants for mention:", mentionErr);
-            // Still try mentionsEveryOne flag
-            sendBody.mentionsEveryOne = true;
-            sendBody.mentionsEveryone = true;
-            sendBody.mentionsAll = true;
-            text = `@todos ${text}`;
-          }
+          sendBody.mentions = "all";
+          text = `@todos ${text}`;
+          console.log(`[process-scheduled] ✅ Using mentions=all for @todos`);
         }
 
         // Handle media persistence for recurring messages
