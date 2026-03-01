@@ -77,11 +77,9 @@ function toSuperscript(n: number): string {
 }
 
 function formatGroupName(name: string, jid: string): string {
-  const isJid = (s: string) => s.includes("@g.us") || s.includes("@s.whatsapp.net");
-  if (name && !isJid(name)) return name;
-  // Fallback: "Grupo" + last 6 digits
+  if (name && !name.includes("@g.us") && !name.includes("@s.whatsapp.net")) return name;
   const digits = jid.replace(/@.*$/, "");
-  return `Grupo ...${digits.slice(-6)}`;
+  return `Grupo ${digits.slice(-6)}`;
 }
 
 interface ScheduledMessagesDialogProps {
