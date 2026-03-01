@@ -926,6 +926,23 @@ async function processCommand(
       return getGroupLink(baseUrl, instanceToken, params[0], params[1]);
     }
     
+    case "#sairgrupo": {
+      // #sairgrupo groupJid
+      if (params.length < 1) {
+        return { success: false, command: "sairgrupo", message: "❌ Formato: #sairgrupo jid_grupo" };
+      }
+      const leaveJid = params[0].includes("@g.us") ? params[0] : `${params[0]}@g.us`;
+      try {
+        const leaveRes = await postJson(`${baseUrl}/group/leave`, instanceToken, { groupjid: leaveJid });
+        if (leaveRes.ok) {
+          return { success: true, command: "sairgrupo", message: "✅ Saí do grupo com sucesso" };
+        }
+        return { success: false, command: "sairgrupo", message: `❌ Falha ao sair do grupo (${leaveRes.status})` };
+      } catch (e) {
+        return { success: false, command: "sairgrupo", message: `Erro: ${e instanceof Error ? e.message : "Falha"}` };
+      }
+    }
+
     case "#enviargrupo": {
       // #enviargrupo groupJid|mensagem
       if (params.length < 2) {
