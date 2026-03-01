@@ -71,38 +71,89 @@ serve(async (req: Request) => {
           number: msg.group_jid,
         };
 
-        // If mention_all, fetch group participants and build mentions string
-        const text = msg.mention_all ? `@todos\n${msg.message_text}` : msg.message_text;
+        let text = msg.message_text;
 
+        // If mention_all, fetch group participants and add mentions
         if (msg.mention_all) {
           try {
-            // Use /group/info POST endpoint which returns participants
+            console.log(`[process-scheduled] Fetching participants for mention_all, group: ${msg.group_jid}`);
+            
+            // Try multiple endpoints to get participants
+            let phones: string[] = [];
+            
+            // Attempt 1: /group/info POST
             const groupRes = await fetch(`${baseUrl}/group/info`, {
               method: "POST",
               headers: { "Content-Type": "application/json", "token": inst.uazapi_instance_token },
               body: JSON.stringify({ groupjid: msg.group_jid, getInviteLink: false, force: false }),
             });
+            
+            console.log(`[process-scheduled] /group/info response status: ${groupRes.status}`);
+            
             if (groupRes.ok) {
               const groupData = await groupRes.json();
-              const rawParticipants = groupData?.participants || groupData?.Participants || groupData?.members || groupData?.Members || [];
-              const phones = rawParticipants
+              console.log(`[process-scheduled] /group/info keys: ${Object.keys(groupData).join(", ")}`);
+              
+              // Try all possible participant field names
+              const rawParticipants = groupData?.Participants || groupData?.participants 
+                || groupData?.members || groupData?.Members || [];
+              
+              console.log(`[process-scheduled] Raw participants count: ${rawParticipants.length}`);
+              if (rawParticipants.length > 0) {
+                console.log(`[process-scheduled] First participant sample: ${JSON.stringify(rawParticipants[0])}`);
+              }
+              
+              phones = rawParticipants
                 .map((p: any) => {
-                  // Extract phone number from various formats
-                  const jid = p.PhoneNumber || p.phoneNumber || p.id || p.JID || p.jid || p.participant || "";
+                  // UAZAPI participant format: { ID: "55...@s.whatsapp.net", ... } or { JID: "..." }
+                  const jid = p.ID || p.id || p.JID || p.jid || p.PhoneNumber || p.phoneNumber || p.participant || "";
                   return jid.replace(/@.*$/, "");
                 })
                 .filter((p: string) => p.length > 5);
-              if (phones.length > 0) {
-                sendBody.mentions = phones.join(",");
-                console.log(`[process-scheduled] Mentioning ${phones.length} participants`);
-              } else {
-                console.log("[process-scheduled] No participants found for mention");
+            }
+            
+            // Attempt 2: If no participants found, try GET /group/list with the specific group
+            if (phones.length === 0) {
+              console.log(`[process-scheduled] Trying /group/list fallback`);
+              const listRes = await fetch(`${baseUrl}/group/list?groupjid=${msg.group_jid}`, {
+                headers: { "token": inst.uazapi_instance_token },
+              });
+              if (listRes.ok) {
+                const listData = await listRes.json();
+                const group = Array.isArray(listData) ? listData[0] : listData;
+                const parts = group?.Participants || group?.participants || [];
+                console.log(`[process-scheduled] /group/list participants: ${parts.length}`);
+                if (parts.length > 0) {
+                  console.log(`[process-scheduled] /group/list first participant: ${JSON.stringify(parts[0])}`);
+                }
+                phones = parts
+                  .map((p: any) => {
+                    const jid = p.ID || p.id || p.JID || p.jid || p.PhoneNumber || p.phoneNumber || "";
+                    return jid.replace(/@.*$/, "");
+                  })
+                  .filter((p: string) => p.length > 5);
               }
+            }
+            
+            if (phones.length > 0) {
+              // UAZAPI format: mentions as comma-separated phone numbers
+              sendBody.mentions = phones.join(",");
+              // Also try mentionsEveryOne flag
+              sendBody.mentionsEveryOne = true;
+              // Prepend @todos to text for visual display  
+              text = `@todos\n${text}`;
+              console.log(`[process-scheduled] ✅ Mentioning ${phones.length} participants`);
             } else {
-              console.error(`[process-scheduled] group/info failed: ${groupRes.status}`);
+              // No participants found - still send with mentionsEveryOne flag as fallback
+              sendBody.mentionsEveryOne = true;
+              text = `@todos\n${text}`;
+              console.log("[process-scheduled] ⚠️ No participants found, using mentionsEveryOne flag");
             }
           } catch (mentionErr) {
             console.error("[process-scheduled] Failed to fetch participants for mention:", mentionErr);
+            // Still try mentionsEveryOne flag
+            sendBody.mentionsEveryOne = true;
+            text = `@todos\n${text}`;
           }
         }
 
