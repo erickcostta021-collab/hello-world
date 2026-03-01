@@ -2750,6 +2750,26 @@ serve(async (req) => {
         const origTsMs = toEpochMs(messageData.messageTimestamp) || toEpochMs(messageData.timestamp) || toEpochMs(messageData.ts) || 0;
         const dateAdded = origTsMs > 0 ? new Date(origTsMs).toISOString() : undefined;
 
+        // === SEQUENCING: Ensure messages are sent to GHL in order ===
+        // Each concurrent edge function instance gets an atomic position via DB sequence.
+        // We then delay by position * 400ms so message #0 sends immediately, #1 waits 400ms, etc.
+        try {
+          const conversationKey = `${subaccount.location_id}:${contact.id}`;
+          const origTsSec = origTsMs > 0 ? Math.floor(origTsMs / 1000) : 0;
+          const { data: sendPosition } = await supabase.rpc("get_send_position", {
+            p_conversation_key: conversationKey,
+            p_original_ts: origTsSec,
+          });
+          const pos = sendPosition ?? 0;
+          if (pos > 0) {
+            const delayMs = pos * 400;
+            console.log(`⏳ Sequencing delay: position=${pos}, delay=${delayMs}ms for contact ${contact.id}`);
+            await new Promise((r) => setTimeout(r, delayMs));
+          }
+        } catch (seqErr) {
+          console.warn("Sequencing failed (non-fatal), proceeding without delay:", seqErr);
+        }
+
         if (isMediaMessage && publicMediaUrl) {
           const mediaCaption = formattedCaption || (memberPrefix ? memberPrefix.trim() : undefined);
           console.log("Sending inbound media to GHL:", { publicMediaUrl, mediaCaption, memberName, memberPhone });
