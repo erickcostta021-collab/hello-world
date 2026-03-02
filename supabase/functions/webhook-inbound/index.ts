@@ -698,71 +698,34 @@ async function enqueueAndWaitForTurn(
   }
 
   const myId = data.id as number;
-  const myTs = originalTsMs;
-  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${myTs}`);
+  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${originalTsMs}`);
 
-  // Adaptive batch window: wait 300ms first, then check if alone.
-  // If no other pending messages exist for this conversation, skip ahead.
-  // Otherwise, wait the remaining 700ms to capture out-of-order arrivals (~809ms max observed).
-  await new Promise((r) => setTimeout(r, 300));
+  // Batch window: wait 1 second so all rapid-fire webhooks register
+  await new Promise((r) => setTimeout(r, 1000));
 
-  const { data: earlyPeers } = await supabase
-    .from("message_send_order")
-    .select("id")
-    .eq("conversation_key", conversationKey)
-    .eq("status", "pending")
-    .neq("id", myId)
-    .limit(1);
-
-  if (earlyPeers && earlyPeers.length > 0) {
-    // Other messages in flight — wait remaining 700ms for stragglers
-    console.log(`[QUEUE] Burst detected for id=${myId}, waiting full window`);
-    await new Promise((r) => setTimeout(r, 700));
-  } else {
-    console.log(`[QUEUE] Solo message id=${myId}, skipping batch window`);
-  }
-
-  // Poll until all entries that should go BEFORE us (by timestamp, then id) are done.
-  // ORDER BY (original_ts, id) ensures correct chronological order even when
-  // a message with an earlier timestamp arrives later (getting a higher id).
-  const maxWaitMs = 15000;
+  // Poll until all earlier entries in same conversation are done
+  const maxWaitMs = 15000; // max 15s total wait
   const pollIntervalMs = 300;
   const deadline = Date.now() + maxWaitMs;
 
   while (Date.now() < deadline) {
-    // Find any pending message that should be sent before us:
-    // - earlier timestamp, OR
-    // - same timestamp but lower id (tie-breaker)
     const { data: pending } = await supabase
       .from("message_send_order")
-      .select("id, original_ts")
+      .select("id")
       .eq("conversation_key", conversationKey)
       .eq("status", "pending")
-      .neq("id", myId)
-      .order("original_ts", { ascending: true })
-      .order("id", { ascending: true })
+      .lt("id", myId)
       .limit(1);
 
     if (!pending || pending.length === 0) {
-      // No other pending entries - it's our turn!
+      // No earlier pending entries - it's our turn!
       break;
     }
 
-    const first = pending[0];
-    const firstTs = Number(first.original_ts);
-    const firstId = Number(first.id);
-
-    // If the first pending message should go before us, wait
-    if (firstTs < myTs || (firstTs === myTs && firstId < myId)) {
-      await new Promise((r) => setTimeout(r, pollIntervalMs));
-      continue;
-    }
-
-    // Otherwise, we are the first in line
-    break;
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
   }
 
-  console.log(`[QUEUE] Turn reached for id=${myId}, ts=${myTs}`);
+  console.log(`[QUEUE] Turn reached for id=${myId}`);
   return myId;
 }
 
