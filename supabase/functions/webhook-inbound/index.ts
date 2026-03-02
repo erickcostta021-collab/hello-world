@@ -701,9 +701,26 @@ async function enqueueAndWaitForTurn(
   const myTs = originalTsMs;
   console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${myTs}`);
 
-  // Batch window: wait 1 second so all rapid-fire webhooks register
-  // Data shows out-of-order arrivals up to ~809ms apart
-  await new Promise((r) => setTimeout(r, 1000));
+  // Adaptive batch window: wait 300ms first, then check if alone.
+  // If no other pending messages exist for this conversation, skip ahead.
+  // Otherwise, wait the remaining 700ms to capture out-of-order arrivals (~809ms max observed).
+  await new Promise((r) => setTimeout(r, 300));
+
+  const { data: earlyPeers } = await supabase
+    .from("message_send_order")
+    .select("id")
+    .eq("conversation_key", conversationKey)
+    .eq("status", "pending")
+    .neq("id", myId)
+    .limit(1);
+
+  if (earlyPeers && earlyPeers.length > 0) {
+    // Other messages in flight — wait remaining 700ms for stragglers
+    console.log(`[QUEUE] Burst detected for id=${myId}, waiting full window`);
+    await new Promise((r) => setTimeout(r, 700));
+  } else {
+    console.log(`[QUEUE] Solo message id=${myId}, skipping batch window`);
+  }
 
   // Poll until all entries that should go BEFORE us (by timestamp, then id) are done.
   // ORDER BY (original_ts, id) ensures correct chronological order even when
