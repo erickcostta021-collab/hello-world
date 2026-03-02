@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { CANONICAL_APP_ORIGIN, getOAuthRedirectUri } from "@/lib/canonicalOrigin";
@@ -56,6 +57,8 @@ export default function Settings() {
     uazapi_admin_token: "",
     uazapi_base_url: "",
     global_webhook_url: "",
+    queue_enabled: true,
+    queue_batch_ms: 1000,
   });
 
   useEffect(() => {
@@ -68,6 +71,8 @@ export default function Settings() {
         uazapi_admin_token: settings.uazapi_admin_token || "",
         uazapi_base_url: settings.uazapi_base_url || "",
         global_webhook_url: settings.global_webhook_url || "",
+        queue_enabled: (settings as any).queue_enabled ?? true,
+        queue_batch_ms: (settings as any).queue_batch_ms ?? 1000,
       });
     }
   }, [settings]);
@@ -378,6 +383,50 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+
+            {isAdmin && (
+            <Card className="bg-card border-border">
+              <CardHeader>
+                <CardTitle className="text-card-foreground">Fila de Mensagens (Anti-Rajada)</CardTitle>
+                <CardDescription>
+                  Controla o acúmulo de mensagens rápidas para envio na ordem correta ao GHL
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Fila ativada</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Quando ativada, mensagens em rajada são ordenadas antes do envio
+                    </p>
+                  </div>
+                  <Switch
+                    checked={formData.queue_enabled}
+                    onCheckedChange={(checked) => setFormData({ ...formData, queue_enabled: checked })}
+                  />
+                </div>
+
+                {formData.queue_enabled && (
+                  <div className="space-y-2">
+                    <Label htmlFor="queue-batch-ms">Janela de acúmulo (ms)</Label>
+                    <Input
+                      id="queue-batch-ms"
+                      type="number"
+                      min={100}
+                      max={5000}
+                      step={100}
+                      value={formData.queue_batch_ms}
+                      onChange={(e) => setFormData({ ...formData, queue_batch_ms: parseInt(e.target.value) || 1000 })}
+                      className="bg-secondary border-border w-32"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tempo de espera para acumular mensagens rápidas antes de ordenar. Padrão: 1000ms. Recomendado: 500-1000ms.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            )}
 
             {/* Track ID - Installation Identifier */}
             <Card className="bg-card border-border">

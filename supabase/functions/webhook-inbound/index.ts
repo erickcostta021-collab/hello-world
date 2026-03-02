@@ -668,6 +668,123 @@ function toEpochMs(ts: unknown): number {
   return Math.floor(n);
 }
 
+// ================================================================
+// SEQUENTIAL QUEUE: ensures rapid-fire messages are sent to GHL
+// in the correct order by using message_send_order as a FIFO queue.
+// 1. Insert into queue with conversation_key and original timestamp
+// 2. Wait a batch window (~1s) so concurrent messages all register
+// 3. Poll until all earlier entries (lower id) are marked 'done'
+// 4. Send to GHL, then mark own entry as 'done'
+// ================================================================
+// Cache for admin queue settings (refreshed every 5s for fast admin response)
+let _queueSettingsCache: { enabled: boolean; batchMs: number; fetchedAt: number } | null = null;
+
+async function getQueueSettings(supabase: any): Promise<{ enabled: boolean; batchMs: number }> {
+  const now = Date.now();
+  if (_queueSettingsCache && now - _queueSettingsCache.fetchedAt < 5000) {
+    return _queueSettingsCache;
+  }
+  try {
+    // Fetch from admin user_settings (first admin)
+    const { data } = await supabase
+      .from("user_settings")
+      .select("queue_enabled, queue_batch_ms, user_id")
+      .order("created_at", { ascending: true })
+      .limit(10);
+    
+    // Find admin's settings
+    if (data && data.length > 0) {
+      // Check which user is admin
+      for (const row of data) {
+        const { data: isAdm } = await supabase.rpc("has_role", { _user_id: row.user_id, _role: "admin" });
+        if (isAdm) {
+          _queueSettingsCache = { enabled: row.queue_enabled, batchMs: row.queue_batch_ms, fetchedAt: now };
+          console.log(`[QUEUE] Settings from admin: enabled=${row.queue_enabled}, batchMs=${row.queue_batch_ms}`);
+          return _queueSettingsCache;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[QUEUE] Error fetching queue settings:", e);
+  }
+  // Defaults
+  _queueSettingsCache = { enabled: true, batchMs: 1000, fetchedAt: now };
+  return _queueSettingsCache;
+}
+
+async function enqueueAndWaitForTurn(
+  supabase: any,
+  conversationKey: string,
+  originalTsMs: number,
+): Promise<number> {
+  // Check if queue is enabled
+  const queueSettings = await getQueueSettings(supabase);
+  if (!queueSettings.enabled) {
+    console.log("[QUEUE] Queue disabled by admin, skipping ordering");
+    return 0;
+  }
+
+  // Insert into queue
+  const { data, error } = await supabase
+    .from("message_send_order")
+    .insert({
+      conversation_key: conversationKey,
+      original_ts: originalTsMs,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("Failed to insert into message_send_order:", error);
+    return 0; // fallback: don't block
+  }
+
+  const myId = data.id as number;
+  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${originalTsMs}, batchMs=${queueSettings.batchMs}`);
+
+  // Batch window: wait configured ms so all rapid-fire webhooks register
+  await new Promise((r) => setTimeout(r, queueSettings.batchMs));
+
+  // Poll until all earlier entries in same conversation are done
+  const maxWaitMs = 15000; // max 15s total wait
+  const pollIntervalMs = 300;
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    const { data: pending } = await supabase
+      .from("message_send_order")
+      .select("id")
+      .eq("conversation_key", conversationKey)
+      .eq("status", "pending")
+      .lt("id", myId)
+      .limit(1);
+
+    if (!pending || pending.length === 0) {
+      // No earlier pending entries - it's our turn!
+      break;
+    }
+
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+
+  console.log(`[QUEUE] Turn reached for id=${myId}`);
+  return myId;
+}
+
+async function markSendOrderDone(supabase: any, orderId: number): Promise<void> {
+  if (!orderId) return;
+  const { error } = await supabase
+    .from("message_send_order")
+    .update({ status: "done" })
+    .eq("id", orderId);
+  if (error) {
+    console.error(`[QUEUE] Failed to mark id=${orderId} as done:`, error);
+  } else {
+    console.log(`[QUEUE] Marked id=${orderId} as done`);
+  }
+}
+
 // Opportunistic cleanup: 1% chance to run cleanup on each request
 async function maybeCleanupOldMappings(supabase: any): Promise<void> {
   // 1% chance to run cleanup
@@ -1780,8 +1897,8 @@ serve(async (req) => {
     // Get user settings for OAuth credentials AND uazapi_base_url AND track_id
     const { data: settings } = await supabase
       .from("user_settings")
-      .select("ghl_client_id, ghl_client_secret, uazapi_base_url, track_id")
-      .eq("user_id", subaccount.user_id)
+    .select("ghl_client_id, ghl_client_secret, uazapi_base_url, track_id, queue_enabled, queue_batch_ms")
+    .eq("user_id", subaccount.user_id)
       .single();
 
     // Fallback to admin OAuth credentials if user doesn't have their own
@@ -2461,9 +2578,29 @@ serve(async (req) => {
       );
     }
 
+    // ================================================================
+    // SEQUENTIAL QUEUE: ensure rapid-fire messages are sent in order
+    // ================================================================
+    const queueConversationKey = `${subaccount?.location_id || "unknown"}:${contact?.id || phoneNumber}`;
+    const queueOriginalTs =
+      toEpochMs((messageData as any)?.timestamp) ||
+      toEpochMs((messageData as any)?.ts) ||
+      toEpochMs((body as any)?.event?.Timestamp) ||
+      Date.now();
+    
+    let sendOrderId = 0;
+    try {
+      sendOrderId = await enqueueAndWaitForTurn(supabase, queueConversationKey, queueOriginalTs);
+    } catch (qErr) {
+      console.error("[QUEUE] Error in enqueue (proceeding without queue):", qErr);
+    }
+
     // Send message to GHL - differentiate between inbound (from lead) and outbound (from us/agent)
     // isAgentIaMessage: message sent by API with track_id="agente_ia" - render as outbound (attendant message)
     const shouldSyncAsOutbound = isFromMe || isAgentIaMessage;
+    
+    // Wrap GHL send in try/finally to ensure queue entry is always marked done
+    try {
     
     if (shouldSyncAsOutbound) {
       // This is a message WE sent via WhatsApp OR from AI agent - render as outbound in GHL
@@ -2793,6 +2930,11 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
+    } finally {
+      // Always mark queue entry as done to prevent deadlocks
+      await markSendOrderDone(supabase, sendOrderId);
+    }
 
   } catch (error: unknown) {
     console.error("Webhook error:", error);
