@@ -668,6 +668,80 @@ function toEpochMs(ts: unknown): number {
   return Math.floor(n);
 }
 
+// ================================================================
+// SEQUENTIAL QUEUE: ensures rapid-fire messages are sent to GHL
+// in the correct order by using message_send_order as a FIFO queue.
+// 1. Insert into queue with conversation_key and original timestamp
+// 2. Wait a batch window (~1s) so concurrent messages all register
+// 3. Poll until all earlier entries (lower id) are marked 'done'
+// 4. Send to GHL, then mark own entry as 'done'
+// ================================================================
+async function enqueueAndWaitForTurn(
+  supabase: any,
+  conversationKey: string,
+  originalTsMs: number,
+): Promise<number> {
+  // Insert into queue
+  const { data, error } = await supabase
+    .from("message_send_order")
+    .insert({
+      conversation_key: conversationKey,
+      original_ts: originalTsMs,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("Failed to insert into message_send_order:", error);
+    return 0; // fallback: don't block
+  }
+
+  const myId = data.id as number;
+  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${originalTsMs}`);
+
+  // Batch window: wait 1 second so all rapid-fire webhooks register
+  await new Promise((r) => setTimeout(r, 1000));
+
+  // Poll until all earlier entries in same conversation are done
+  const maxWaitMs = 15000; // max 15s total wait
+  const pollIntervalMs = 300;
+  const deadline = Date.now() + maxWaitMs;
+
+  while (Date.now() < deadline) {
+    const { data: pending } = await supabase
+      .from("message_send_order")
+      .select("id")
+      .eq("conversation_key", conversationKey)
+      .eq("status", "pending")
+      .lt("id", myId)
+      .limit(1);
+
+    if (!pending || pending.length === 0) {
+      // No earlier pending entries - it's our turn!
+      break;
+    }
+
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+
+  console.log(`[QUEUE] Turn reached for id=${myId}`);
+  return myId;
+}
+
+async function markSendOrderDone(supabase: any, orderId: number): Promise<void> {
+  if (!orderId) return;
+  const { error } = await supabase
+    .from("message_send_order")
+    .update({ status: "done" })
+    .eq("id", orderId);
+  if (error) {
+    console.error(`[QUEUE] Failed to mark id=${orderId} as done:`, error);
+  } else {
+    console.log(`[QUEUE] Marked id=${orderId} as done`);
+  }
+}
+
 // Opportunistic cleanup: 1% chance to run cleanup on each request
 async function maybeCleanupOldMappings(supabase: any): Promise<void> {
   // 1% chance to run cleanup
@@ -2461,9 +2535,29 @@ serve(async (req) => {
       );
     }
 
+    // ================================================================
+    // SEQUENTIAL QUEUE: ensure rapid-fire messages are sent in order
+    // ================================================================
+    const queueConversationKey = `${subaccount?.location_id || "unknown"}:${contact?.id || phoneNumber}`;
+    const queueOriginalTs =
+      toEpochMs((messageData as any)?.timestamp) ||
+      toEpochMs((messageData as any)?.ts) ||
+      toEpochMs((body as any)?.event?.Timestamp) ||
+      Date.now();
+    
+    let sendOrderId = 0;
+    try {
+      sendOrderId = await enqueueAndWaitForTurn(supabase, queueConversationKey, queueOriginalTs);
+    } catch (qErr) {
+      console.error("[QUEUE] Error in enqueue (proceeding without queue):", qErr);
+    }
+
     // Send message to GHL - differentiate between inbound (from lead) and outbound (from us/agent)
     // isAgentIaMessage: message sent by API with track_id="agente_ia" - render as outbound (attendant message)
     const shouldSyncAsOutbound = isFromMe || isAgentIaMessage;
+    
+    // Wrap GHL send in try/finally to ensure queue entry is always marked done
+    try {
     
     if (shouldSyncAsOutbound) {
       // This is a message WE sent via WhatsApp OR from AI agent - render as outbound in GHL
@@ -2793,6 +2887,11 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
+    } finally {
+      // Always mark queue entry as done to prevent deadlocks
+      await markSendOrderDone(supabase, sendOrderId);
+    }
 
   } catch (error: unknown) {
     console.error("Webhook error:", error);
