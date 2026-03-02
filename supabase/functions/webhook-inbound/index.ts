@@ -6,6 +6,32 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ================================================================
+// GHL TOKEN CACHE: avoids DB lookups + token refresh on every request
+// when the Edge Function instance is warm (reused across invocations).
+// Cache key = subaccount.id, value = { token, expiresAt }
+// ================================================================
+const _tokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+function getCachedToken(subaccountId: string): string | null {
+  const entry = _tokenCache.get(subaccountId);
+  if (!entry) return null;
+  // 5 min buffer before expiry
+  if (Date.now() >= entry.expiresAt - 5 * 60 * 1000) return null;
+  return entry.token;
+}
+
+function setCachedToken(subaccountId: string, token: string, expiresAt: Date) {
+  _tokenCache.set(subaccountId, { token, expiresAt: expiresAt.getTime() });
+  // Evict old entries if cache grows too large
+  if (_tokenCache.size > 200) {
+    const now = Date.now();
+    for (const [key, val] of _tokenCache) {
+      if (now >= val.expiresAt) _tokenCache.delete(key);
+    }
+  }
+}
+
 // Metrics logger (fire-and-forget)
 let _metricsSupabase: any = null;
 function logMetric(functionName: string, statusCode: number, errorType: string | null, processingTimeMs?: number) {
@@ -122,8 +148,15 @@ async function getPublicMediaUrl(
   return null;
 }
 
-// Helper to get valid access token (refresh if needed)
+// Helper to get valid access token (refresh if needed) - with in-memory cache
 async function getValidToken(supabase: any, integration: any, settings: any): Promise<string> {
+  // Check in-memory cache first (avoids DB hit when instance is warm)
+  const cached = getCachedToken(integration.id);
+  if (cached) {
+    console.log("[TOKEN] Using cached token for", integration.id?.substring(0, 8));
+    return cached;
+  }
+
   const now = new Date();
   const expiresAt = new Date(integration.ghl_token_expires_at);
   const expiresIn1Hour = (expiresAt.getTime() - now.getTime()) < 3600000;
@@ -173,9 +206,13 @@ async function getValidToken(supabase: any, integration: any, settings: any): Pr
       })
       .eq("id", integration.id);
 
+    // Cache the new token
+    setCachedToken(integration.id, tokenData.access_token, newExpiresAt);
     return tokenData.access_token;
   }
 
+  // Token still valid - cache it
+  setCachedToken(integration.id, integration.ghl_access_token, expiresAt);
   return integration.ghl_access_token;
 }
 
@@ -1798,73 +1835,74 @@ serve(async (req) => {
     // Opportunistic cleanup (1% chance) - runs in background without blocking
     maybeCleanupOldMappings(supabase);
 
-    // UAZAPI may fire the same 'fromMe' message multiple times; dedupe by instance + UAZAPI messageid.
-    // IMPORTANT: Include instanceToken in the key so that different instances can each process
-    // the same physical WhatsApp message independently. Example: message "1" is sent from phone A
-    // to phone B. Both Teste-CK (phone A's instance) and teste2323 (phone B's instance) receive
-    // a webhook with the same messageid. Without the token in the key, the first to arrive would
-    // block the second, causing message loss in the CRM.
-    // This prevents creating the same outbound message repeatedly in GHL (which then triggers outbound webhooks and loops).
+    // ================================================================
+    // OPTIMIZED: Run dedup + instance lookup IN PARALLEL
+    // These are independent DB operations that previously ran sequentially (~200ms saved)
+    // ================================================================
     const uazapiMessageId = String(messageData.messageid || messageData.id || "");
-    if (uazapiMessageId) {
-      const dedupKey = `uazapi:${instanceToken}:${uazapiMessageId}`;
-      const isNew = await markIfNew(supabase, dedupKey);
-      if (!isNew) {
-        console.log("Duplicate UAZAPI message ignored:", { uazapiMessageId, instanceToken: instanceToken?.substring(0, 8) });
-        return new Response(
-          JSON.stringify({ received: true, ignored: true, reason: "duplicate_uazapi_message", uazapiMessageId, instanceToken: instanceToken?.substring(0, 8) }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    
+    // Start both operations simultaneously
+    const dedupPromise = (async () => {
+      if (uazapiMessageId) {
+        const dedupKey = `uazapi:${instanceToken}:${uazapiMessageId}`;
+        const isNew = await markIfNew(supabase, dedupKey);
+        if (!isNew) {
+          return { isDuplicate: true, reason: "duplicate_uazapi_message" };
+        }
       }
-    }
-
-    // Secondary dedupe: sometimes the provider replays the same message with a different ID (or no ID).
-    // We compute a content signature bucketed by minute to avoid blocking legitimate repeated messages later.
-    // CRITICAL: Only apply signature-based dedup when there's no message ID - if we have a unique ID, trust it.
-    if (!uazapiMessageId) {
-    try {
-      const tsMs =
-        toEpochMs((messageData as any)?.timestamp) ||
-        toEpochMs((messageData as any)?.ts) ||
-        toEpochMs((body as any)?.event?.Timestamp) ||
-        Date.now();
-      const minuteBucket = Math.floor(tsMs / 60000);
-
-      const signaturePayload = {
-        instanceToken: String(instanceToken ?? ""),
-        from: String(from ?? ""),
-        isFromMe: Boolean(isFromMe),
-        isGroup: Boolean(isGroup),
-        phoneNumber: String(phoneNumber ?? ""),
-        textMessage: String(textMessage ?? ""),
-        mediaUrl: String(mediaUrl ?? ""),
-        mediaType: String(mediaType ?? ""),
-        minuteBucket,
-      };
-
-      const sig = await sha256Hex(JSON.stringify(signaturePayload));
-      const sigKey = `uazapi_sig:${sig.slice(0, 32)}`;
-
-      const isNewSig = await markIfNew(supabase, sigKey);
-      if (!isNewSig) {
-        console.log("Duplicate UAZAPI message ignored (signature):", { sigKey, minuteBucket });
-        return new Response(
-          JSON.stringify({ received: true, ignored: true, reason: "duplicate_uazapi_signature", sigKey }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      // Secondary dedupe (signature) only when no message ID
+      if (!uazapiMessageId) {
+        try {
+          const tsMs =
+            toEpochMs((messageData as any)?.timestamp) ||
+            toEpochMs((messageData as any)?.ts) ||
+            toEpochMs((body as any)?.event?.Timestamp) ||
+            Date.now();
+          const minuteBucket = Math.floor(tsMs / 60000);
+          const signaturePayload = {
+            instanceToken: String(instanceToken ?? ""),
+            from: String(from ?? ""),
+            isFromMe: Boolean(isFromMe),
+            isGroup: Boolean(isGroup),
+            phoneNumber: String(phoneNumber ?? ""),
+            textMessage: String(textMessage ?? ""),
+            mediaUrl: String(mediaUrl ?? ""),
+            mediaType: String(mediaType ?? ""),
+            minuteBucket,
+          };
+          const sig = await sha256Hex(JSON.stringify(signaturePayload));
+          const sigKey = `uazapi_sig:${sig.slice(0, 32)}`;
+          const isNewSig = await markIfNew(supabase, sigKey);
+          if (!isNewSig) {
+            return { isDuplicate: true, reason: "duplicate_uazapi_signature" };
+          }
+        } catch (e) {
+          console.error("Secondary dedupe (signature) failed (allowing processing):", e);
+        }
       }
-    } catch (e) {
-      console.error("Secondary dedupe (signature) failed (allowing processing):", e);
-      // fail-open
-    }
-    }
+      return { isDuplicate: false };
+    })();
 
-    // Find the instance by token
-    const { data: instance, error: instanceError } = await supabase
+    const instancePromise = supabase
       .from("instances")
       .select("*, ghl_subaccounts!inner(*)")
       .eq("uazapi_instance_token", instanceToken)
       .single();
+
+    // Await both in parallel
+    const [dedupResult, { data: instance, error: instanceError }] = await Promise.all([
+      dedupPromise,
+      instancePromise,
+    ]);
+
+    // Check dedup result
+    if (dedupResult.isDuplicate) {
+      console.log("Duplicate message ignored:", { uazapiMessageId, reason: dedupResult.reason });
+      return new Response(
+        JSON.stringify({ received: true, ignored: true, reason: dedupResult.reason, uazapiMessageId }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (instanceError || !instance) {
       console.log("Instance not found for token:", instanceToken);
@@ -1974,68 +2012,67 @@ serve(async (req) => {
         .catch((e: unknown) => console.error("[Inbound] Phone mapping error:", e));
     }
 
-    // Upsert contact_instance_preferences to track the last instance used by this lead
-    // OPTIMIZED: Use contact.id directly (already the primary from findOrCreateContact)
-    // Removed redundant getPrimaryContactId call that duplicated the GHL search
-    if (contact.id && instance.id && from) {
-      try {
-        const rawPhone = from.split("@")[0].replace(/\D/g, "");
-        const normalizedPhone = rawPhone.startsWith("55") ? rawPhone.slice(2) : rawPhone;
-        const last8Digits = normalizedPhone.slice(-8);
-        const contactIdToUse = contact.id;
+    // ================================================================
+    // OPTIMIZED: Use EdgeRuntime.waitUntil() for all background tasks
+    // This ensures they complete even after the HTTP response is sent,
+    // freeing the response time from ~500-1000ms of background work
+    // ================================================================
+    const backgroundTasks = async () => {
+      // 1. Upsert contact_instance_preferences
+      if (contact.id && instance.id && from) {
+        try {
+          const rawPhone = from.split("@")[0].replace(/\D/g, "");
+          const normalizedPhone = rawPhone.startsWith("55") ? rawPhone.slice(2) : rawPhone;
+          const last8Digits = normalizedPhone.slice(-8);
+          const contactIdToUse = contact.id;
 
-        // Simplified: single upsert by phone match or contact_id
-        const { data: existingByPhone } = await supabase
-          .from("contact_instance_preferences")
-          .select("id, instance_id")
-          .eq("location_id", subaccount.location_id)
-          .like("lead_phone", `%${last8Digits}`)
-          .limit(1);
+          const { data: existingByPhone } = await supabase
+            .from("contact_instance_preferences")
+            .select("id, instance_id")
+            .eq("location_id", subaccount.location_id)
+            .like("lead_phone", `%${last8Digits}`)
+            .limit(1);
 
-        let previousInstanceId: string | null = null;
-        let previousInstanceName: string | null = null;
-        let instanceChanged = false;
+          let previousInstanceId: string | null = null;
+          let previousInstanceName: string | null = null;
+          let instanceChanged = false;
 
-        if (existingByPhone && existingByPhone.length > 0) {
-          previousInstanceId = existingByPhone[0].instance_id;
-          instanceChanged = previousInstanceId !== instance.id;
+          if (existingByPhone && existingByPhone.length > 0) {
+            previousInstanceId = existingByPhone[0].instance_id;
+            instanceChanged = previousInstanceId !== instance.id;
 
-          if (instanceChanged) {
-            const { data: prevInst } = await supabase
-              .from("instances")
-              .select("instance_name")
-              .eq("id", previousInstanceId)
-              .limit(1);
-            previousInstanceName = prevInst?.[0]?.instance_name || null;
+            if (instanceChanged) {
+              const { data: prevInst } = await supabase
+                .from("instances")
+                .select("instance_name")
+                .eq("id", previousInstanceId)
+                .limit(1);
+              previousInstanceName = prevInst?.[0]?.instance_name || null;
+            }
+
+            await supabase
+              .from("contact_instance_preferences")
+              .update({
+                contact_id: contactIdToUse,
+                instance_id: instance.id,
+                lead_phone: normalizedPhone,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", existingByPhone[0].id);
+          } else {
+            await supabase
+              .from("contact_instance_preferences")
+              .upsert({
+                contact_id: contactIdToUse,
+                location_id: subaccount.location_id,
+                instance_id: instance.id,
+                lead_phone: normalizedPhone,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "contact_id,location_id" });
           }
 
-          await supabase
-            .from("contact_instance_preferences")
-            .update({
-              contact_id: contactIdToUse,
-              instance_id: instance.id,
-              lead_phone: normalizedPhone,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingByPhone[0].id);
-        } else {
-          await supabase
-            .from("contact_instance_preferences")
-            .upsert({
-              contact_id: contactIdToUse,
-              location_id: subaccount.location_id,
-              instance_id: instance.id,
-              lead_phone: normalizedPhone,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "contact_id,location_id" });
-        }
-
-        // Instance change notification (fire-and-forget)
-        if (instanceChanged && previousInstanceName && instance.instance_name) {
-          const commentContent = `🔄 Instância alterada automaticamente: ${previousInstanceName} → ${instance.instance_name}`;
-          
-          // Fire-and-forget: don't block message flow
-          (async () => {
+          if (instanceChanged && previousInstanceName && instance.instance_name) {
+            const commentContent = `🔄 Instância alterada automaticamente: ${previousInstanceName} → ${instance.instance_name}`;
             try {
               const convRes = await fetch(
                 `https://services.leadconnectorhq.com/conversations/search?locationId=${subaccount.location_id}&contactId=${contactIdToUse}`,
@@ -2053,74 +2090,61 @@ serve(async (req) => {
                 }
               }
             } catch (e) { console.error("[Inbound] InternalComment error:", e); }
-          })();
 
-          // Broadcast instance switch
-          supabase.channel("ghl_updates").send({
-            type: "broadcast",
-            event: "instance_switch",
-            payload: {
-              location_id: subaccount.location_id,
-              lead_phone: rawPhone,
-              new_instance_id: instance.id,
-              new_instance_name: instance.instance_name,
-              previous_instance_name: previousInstanceName,
-            },
-          }).catch(() => {});
+            supabase.channel("ghl_updates").send({
+              type: "broadcast",
+              event: "instance_switch",
+              payload: {
+                location_id: subaccount.location_id,
+                lead_phone: rawPhone,
+                new_instance_id: instance.id,
+                new_instance_name: instance.instance_name,
+                previous_instance_name: previousInstanceName,
+              },
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.error("[Inbound] Preference update error:", e);
         }
-      } catch (e) {
-        console.error("[Inbound] Preference update error:", e);
       }
-    }
 
-    // ================================================================
-    // OPTIMIZED: Combine photo + source + assignment into ONE PUT call
-    // Previously this was 3 separate GHL API calls (~1.5s total)
-    // Now it's 1 call (~500ms) - runs in background without blocking
-    // ================================================================
-    if (contact.id) {
-      const contactUpdatePayload: Record<string, unknown> = {};
-      
-      // Profile photo
-      const profilePhoto = chatData.imagePreview || chatData.image || "";
-      if (profilePhoto) {
-        contactUpdatePayload.profilePhoto = profilePhoto;
-      }
-      
-      // Contact source (instance phone)
-      if (instance.phone) {
-        const formattedPhone = instance.phone.replace(/\D/g, '');
-        let phoneSource = `WA: +${formattedPhone}`;
-        if (formattedPhone.length >= 12) {
-          phoneSource = `WA: +${formattedPhone.slice(0, 2)} ${formattedPhone.slice(2, 4)} ${formattedPhone.slice(4, 9)}-${formattedPhone.slice(9)}`;
-        } else if (formattedPhone.length >= 10) {
-          phoneSource = `WA: +${formattedPhone.slice(0, 2)} ${formattedPhone.slice(2)}`;
+      // 2. Combined contact update (photo + source + assignment)
+      if (contact.id) {
+        const contactUpdatePayload: Record<string, unknown> = {};
+        const profilePhoto = chatData.imagePreview || chatData.image || "";
+        if (profilePhoto) contactUpdatePayload.profilePhoto = profilePhoto;
+        if (instance.phone) {
+          const formattedPhone = instance.phone.replace(/\D/g, '');
+          let phoneSource = `WA: +${formattedPhone}`;
+          if (formattedPhone.length >= 12) {
+            phoneSource = `WA: +${formattedPhone.slice(0, 2)} ${formattedPhone.slice(2, 4)} ${formattedPhone.slice(4, 9)}-${formattedPhone.slice(9)}`;
+          } else if (formattedPhone.length >= 10) {
+            phoneSource = `WA: +${formattedPhone.slice(0, 2)} ${formattedPhone.slice(2)}`;
+          }
+          contactUpdatePayload.source = phoneSource;
         }
-        contactUpdatePayload.source = phoneSource;
+        if (instance.ghl_user_id) contactUpdatePayload.assignedTo = instance.ghl_user_id;
+        if (Object.keys(contactUpdatePayload).length > 0) {
+          try {
+            const r = await fetchGHL(`https://services.leadconnectorhq.com/contacts/${contact.id}`, {
+              method: "PUT",
+              headers: { "Authorization": `Bearer ${token}`, "Version": "2021-07-28", "Content-Type": "application/json", "Accept": "application/json" },
+              body: JSON.stringify(contactUpdatePayload),
+            });
+            if (!r.ok) console.error("Contact update failed:", await r.text().catch(() => ""));
+            else console.log("✅ Contact updated (photo+source+assign) in single call");
+          } catch (e) {
+            console.error("Contact update error:", e);
+          }
+        }
       }
-      
-      // Auto-assign to GHL user
-      if (instance.ghl_user_id) {
-        contactUpdatePayload.assignedTo = instance.ghl_user_id;
-      }
-      
-      // Single PUT call for all contact updates (fire-and-forget, don't block message flow)
-      if (Object.keys(contactUpdatePayload).length > 0) {
-        console.log("Updating contact (combined photo+source+assign):", { contactId: contact.id, fields: Object.keys(contactUpdatePayload) });
-        fetchGHL(`https://services.leadconnectorhq.com/contacts/${contact.id}`, {
-          method: "PUT",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Version": "2021-07-28",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-          },
-          body: JSON.stringify(contactUpdatePayload),
-        }).then(async (r) => {
-          if (!r.ok) console.error("Contact update failed:", await r.text().catch(() => ""));
-          else console.log("✅ Contact updated (photo+source+assign) in single call");
-        }).catch((e) => console.error("Contact update error:", e));
-      }
+    };
+
+    // Schedule background tasks via EdgeRuntime.waitUntil (runs after response is sent)
+    try {
+      (globalThis as any).EdgeRuntime?.waitUntil?.(backgroundTasks());
+    } catch {
+      backgroundTasks().catch((e) => console.error("Background tasks error:", e));
     }
     // Prepare media URL if needed
     let publicMediaUrl = mediaUrl;
