@@ -7,6 +7,19 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
+// In-memory GHL token cache (per isolate, safe for Edge Functions)
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+function getCachedToken(subaccountId: string): string | null {
+  const entry = tokenCache.get(subaccountId);
+  if (entry && entry.expiresAt > Date.now() + 300_000) return entry.token; // 5min buffer
+  return null;
+}
+
+function setCachedToken(subaccountId: string, token: string, expiresAtMs: number) {
+  tokenCache.set(subaccountId, { token, expiresAt: expiresAtMs });
+}
+
 // Retry wrapper for GHL API calls with exponential backoff
 async function fetchGHL(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -78,14 +91,17 @@ async function tryUazapiEndpoints(
   return { success: false, status: lastStatus, body: lastBody };
 }
 
-// Helper to get valid access token (refresh if needed)
+// Helper to get valid access token (refresh if needed) with in-memory cache
 async function getValidToken(supabase: any, subaccount: any, settings: any): Promise<string> {
+  // Check in-memory cache first
+  const cached = getCachedToken(subaccount.id);
+  if (cached) return cached;
+
   const now = new Date();
   const expiresAt = new Date(subaccount.ghl_token_expires_at);
   const expiresIn1Hour = (expiresAt.getTime() - now.getTime()) < 3600000;
 
   if (now >= expiresAt || expiresIn1Hour) {
-    // Refresh token
     const tokenParams = new URLSearchParams({
       client_id: settings.ghl_client_id,
       client_secret: settings.ghl_client_secret,
@@ -112,6 +128,9 @@ async function getValidToken(supabase: any, subaccount: any, settings: any): Pro
     const tokenData = await tokenResponse.json();
     const newExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
 
+    // Cache the new token
+    setCachedToken(subaccount.id, tokenData.access_token, newExpiresAt.getTime());
+
     await supabase
       .from("ghl_subaccounts")
       .update({
@@ -126,6 +145,8 @@ async function getValidToken(supabase: any, subaccount: any, settings: any): Pro
     return tokenData.access_token;
   }
 
+  // Token still valid, cache it
+  setCachedToken(subaccount.id, subaccount.ghl_access_token, expiresAt.getTime());
   return subaccount.ghl_access_token;
 }
 

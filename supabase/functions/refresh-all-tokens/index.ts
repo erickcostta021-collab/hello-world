@@ -82,58 +82,71 @@ Deno.serve(async (req) => {
 
     const results: Array<{ account: string; status: string }> = [];
 
-    for (const sub of subaccounts) {
-      const creds = await getCredentials(sub.user_id);
-      if (!creds) {
-        console.error(`[refresh-all-tokens] No OAuth creds for ${sub.account_name}`);
-        results.push({ account: sub.account_name, status: "no_credentials" });
-        continue;
-      }
+    // Pre-fetch all credentials in parallel (grouped by user_id)
+    const uniqueUserIds = [...new Set(subaccounts.map((s) => s.user_id))];
+    await Promise.all(uniqueUserIds.map((uid) => getCredentials(uid)));
 
-      try {
-        const tokenParams = new URLSearchParams({
-          client_id: creds.client_id,
-          client_secret: creds.client_secret,
-          grant_type: "refresh_token",
-          refresh_token: sub.ghl_refresh_token!,
-          user_type: "Location",
-        });
-
-        const tokenResponse = await fetch("https://services.leadconnectorhq.com/oauth/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
-          body: tokenParams.toString(),
-        });
-
-        if (!tokenResponse.ok) {
-          const errText = await tokenResponse.text();
-          console.error(`[refresh-all-tokens] Failed for ${sub.account_name}:`, errText);
-          results.push({ account: sub.account_name, status: `error_${tokenResponse.status}` });
-          continue;
+    // Process in parallel batches of 3 to avoid GHL rate limiting
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < subaccounts.length; i += BATCH_SIZE) {
+      const batch = subaccounts.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(batch.map(async (sub) => {
+        const creds = await getCredentials(sub.user_id);
+        if (!creds) {
+          console.error(`[refresh-all-tokens] No OAuth creds for ${sub.account_name}`);
+          return { account: sub.account_name, status: "no_credentials" };
         }
 
-        const tokenData = await tokenResponse.json();
-        const newExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+        try {
+          const tokenParams = new URLSearchParams({
+            client_id: creds.client_id,
+            client_secret: creds.client_secret,
+            grant_type: "refresh_token",
+            refresh_token: sub.ghl_refresh_token!,
+            user_type: "Location",
+          });
 
-        await supabase
-          .from("ghl_subaccounts")
-          .update({
-            ghl_access_token: tokenData.access_token,
-            ghl_refresh_token: tokenData.refresh_token,
-            ghl_token_expires_at: newExpiresAt.toISOString(),
-            ghl_subaccount_token: tokenData.access_token,
-            oauth_last_refresh: new Date().toISOString(),
-          })
-          .eq("id", sub.id);
+          const tokenResponse = await fetch("https://services.leadconnectorhq.com/oauth/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+            body: tokenParams.toString(),
+          });
 
-        console.log(`[refresh-all-tokens] ✅ Refreshed ${sub.account_name} (expires: ${newExpiresAt.toISOString()})`);
-        results.push({ account: sub.account_name, status: "refreshed" });
+          if (!tokenResponse.ok) {
+            const errText = await tokenResponse.text();
+            console.error(`[refresh-all-tokens] Failed for ${sub.account_name}:`, errText);
+            return { account: sub.account_name, status: `error_${tokenResponse.status}` };
+          }
 
-        // Small delay to avoid rate limiting
-        await new Promise((r) => setTimeout(r, 500));
-      } catch (err) {
-        console.error(`[refresh-all-tokens] Error for ${sub.account_name}:`, err);
-        results.push({ account: sub.account_name, status: "exception" });
+          const tokenData = await tokenResponse.json();
+          const newExpiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
+
+          await supabase
+            .from("ghl_subaccounts")
+            .update({
+              ghl_access_token: tokenData.access_token,
+              ghl_refresh_token: tokenData.refresh_token,
+              ghl_token_expires_at: newExpiresAt.toISOString(),
+              ghl_subaccount_token: tokenData.access_token,
+              oauth_last_refresh: new Date().toISOString(),
+            })
+            .eq("id", sub.id);
+
+          console.log(`[refresh-all-tokens] ✅ Refreshed ${sub.account_name} (expires: ${newExpiresAt.toISOString()})`);
+          return { account: sub.account_name, status: "refreshed" };
+        } catch (err) {
+          console.error(`[refresh-all-tokens] Error for ${sub.account_name}:`, err);
+          return { account: sub.account_name, status: "exception" };
+        }
+      }));
+
+      for (const r of batchResults) {
+        results.push(r.status === "fulfilled" ? r.value : { account: "unknown", status: "exception" });
+      }
+
+      // Small delay between batches to avoid rate limiting
+      if (i + BATCH_SIZE < subaccounts.length) {
+        await new Promise((r) => setTimeout(r, 300));
       }
     }
 
