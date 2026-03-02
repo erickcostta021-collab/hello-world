@@ -980,6 +980,27 @@ serve(async (req) => {
           } else {
             console.log("✅ Reply InternalComment sent to GHL:", responseText.substring(0, 200));
             ghlInternalCommentSent = true;
+
+            // Save InternalComment mapping so it can be reacted to, edited, or deleted later
+            try {
+              const icData = JSON.parse(responseText);
+              const icGhlId = icData.id || icData.messageId;
+              if (icGhlId && newMessageId) {
+                await supabase.from("message_map").upsert({
+                  ghl_message_id: icGhlId,
+                  uazapi_message_id: newMessageId,
+                  location_id: mapping.location_id,
+                  contact_id: mapping.contact_id,
+                  message_text: text,
+                  message_type: "text",
+                  from_me: true,
+                  original_timestamp: new Date().toISOString(),
+                }, { onConflict: "ghl_message_id" });
+                console.log("📌 Reply InternalComment mapped:", { ghl: icGhlId, uazapi: newMessageId });
+              }
+            } catch (parseErr) {
+              console.log("⚠️ Could not parse InternalComment response for mapping:", parseErr);
+            }
           }
         } catch (e) {
           console.error("Error sending reply InternalComment:", e);
