@@ -568,8 +568,6 @@ export type Database = {
           ghl_conversation_provider_id: string | null
           global_webhook_url: string | null
           id: string
-          queue_batch_ms: number
-          queue_enabled: boolean
           shared_from_user_id: string | null
           track_id: string | null
           uazapi_admin_token: string | null
@@ -590,8 +588,6 @@ export type Database = {
           ghl_conversation_provider_id?: string | null
           global_webhook_url?: string | null
           id?: string
-          queue_batch_ms?: number
-          queue_enabled?: boolean
           shared_from_user_id?: string | null
           track_id?: string | null
           uazapi_admin_token?: string | null
@@ -612,8 +608,6 @@ export type Database = {
           ghl_conversation_provider_id?: string | null
           global_webhook_url?: string | null
           id?: string
-          queue_batch_ms?: number
-          queue_enabled?: boolean
           shared_from_user_id?: string | null
           track_id?: string | null
           uazapi_admin_token?: string | null

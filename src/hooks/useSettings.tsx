@@ -19,8 +19,6 @@ export interface UserSettings {
   external_supabase_key: string | null;
   external_supabase_pat: string | null;
   shared_from_user_id: string | null;
-  queue_enabled: boolean;
-  queue_batch_ms: number;
 }
 
 // Get the effective user ID (for shared accounts, returns the original owner's ID)
