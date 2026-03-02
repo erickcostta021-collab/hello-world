@@ -536,10 +536,19 @@ serve(async (req) => {
             contact_id: mapping.contact_id, instance: config.instance.instance_name
           });
 
-          const result = await tryUazapiEndpoints(config.baseUrl, config.token, [
-            { path: "/message/react", body: { number: whatsappJid, text: emoji, id: mapping.uazapi_message_id } },
-            { path: "/message/react", body: { number: contactPhone, text: emoji, id: mapping.uazapi_message_id } },
-          ]);
+          // Build attempts: try without number first (UAZAPI can resolve from msg ID),
+          // then with @s.whatsapp.net, then raw phone - this ensures groups work too
+          const reactAttempts = [
+            { path: "/message/react", body: { text: emoji, id: mapping.uazapi_message_id } },
+            ...(whatsappJid ? [
+              { path: "/message/react", body: { number: whatsappJid, text: emoji, id: mapping.uazapi_message_id } },
+            ] : []),
+            ...(contactPhone ? [
+              { path: "/message/react", body: { number: contactPhone, text: emoji, id: mapping.uazapi_message_id } },
+            ] : []),
+          ];
+
+          const result = await tryUazapiEndpoints(config.baseUrl, config.token, reactAttempts);
 
           if (result.success) {
             uazapiSuccess = true;
@@ -567,10 +576,16 @@ serve(async (req) => {
                 if (!instBaseUrl) continue;
 
                 console.log("🔄 Trying fallback instance:", { name: inst.instance_name, id: inst.id });
-                const fallbackResult = await tryUazapiEndpoints(instBaseUrl, inst.uazapi_instance_token, [
-                  { path: "/message/react", body: { number: whatsappJid, text: emoji, id: mapping.uazapi_message_id } },
-                  { path: "/message/react", body: { number: contactPhone, text: emoji, id: mapping.uazapi_message_id } },
-                ]);
+                const fallbackAttempts = [
+                  { path: "/message/react", body: { text: emoji, id: mapping.uazapi_message_id } },
+                  ...(whatsappJid ? [
+                    { path: "/message/react", body: { number: whatsappJid, text: emoji, id: mapping.uazapi_message_id } },
+                  ] : []),
+                  ...(contactPhone ? [
+                    { path: "/message/react", body: { number: contactPhone, text: emoji, id: mapping.uazapi_message_id } },
+                  ] : []),
+                ];
+                const fallbackResult = await tryUazapiEndpoints(instBaseUrl, inst.uazapi_instance_token, fallbackAttempts);
 
                 if (fallbackResult.success) {
                   uazapiSuccess = true;
