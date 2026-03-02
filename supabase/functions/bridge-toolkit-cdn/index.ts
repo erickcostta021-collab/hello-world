@@ -904,18 +904,8 @@ const BRIDGE_TOOLKIT_SCRIPT = `
             btn.onclick = async () => {
                 const emoji = btn.innerText;
                 menu.remove();
-                // Optimistically render the reaction immediately
-                handleRealtimeUpdate({ ghl_id: ghlId, type: 'react', emoji });
                 const result = await sendAction('react', ghlId, { emoji });
-                if (result) {
-                    showToast(\`Reagiu com \${emoji}\`);
-                } else {
-                    // If failed, remove the optimistic reaction
-                    const msgEl = document.querySelector(\`[data-message-id="\${ghlId}"]\`);
-                    const badge = msgEl?.querySelector('.bridge-reaction-badge');
-                    if (badge) badge.remove();
-                    showToast('Erro ao reagir');
-                }
+                if (result) showToast(\`Reagiu com \${emoji}\`);
             };
         });
 
