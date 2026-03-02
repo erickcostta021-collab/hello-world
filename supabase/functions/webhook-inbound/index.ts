@@ -676,11 +676,54 @@ function toEpochMs(ts: unknown): number {
 // 3. Poll until all earlier entries (lower id) are marked 'done'
 // 4. Send to GHL, then mark own entry as 'done'
 // ================================================================
+// Cache for admin queue settings (refreshed every 60s)
+let _queueSettingsCache: { enabled: boolean; batchMs: number; fetchedAt: number } | null = null;
+
+async function getQueueSettings(supabase: any): Promise<{ enabled: boolean; batchMs: number }> {
+  const now = Date.now();
+  if (_queueSettingsCache && now - _queueSettingsCache.fetchedAt < 60000) {
+    return _queueSettingsCache;
+  }
+  try {
+    // Fetch from admin user_settings (first admin)
+    const { data } = await supabase
+      .from("user_settings")
+      .select("queue_enabled, queue_batch_ms, user_id")
+      .order("created_at", { ascending: true })
+      .limit(10);
+    
+    // Find admin's settings
+    if (data && data.length > 0) {
+      // Check which user is admin
+      for (const row of data) {
+        const { data: isAdm } = await supabase.rpc("has_role", { _user_id: row.user_id, _role: "admin" });
+        if (isAdm) {
+          _queueSettingsCache = { enabled: row.queue_enabled, batchMs: row.queue_batch_ms, fetchedAt: now };
+          console.log(`[QUEUE] Settings from admin: enabled=${row.queue_enabled}, batchMs=${row.queue_batch_ms}`);
+          return _queueSettingsCache;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[QUEUE] Error fetching queue settings:", e);
+  }
+  // Defaults
+  _queueSettingsCache = { enabled: true, batchMs: 1000, fetchedAt: now };
+  return _queueSettingsCache;
+}
+
 async function enqueueAndWaitForTurn(
   supabase: any,
   conversationKey: string,
   originalTsMs: number,
 ): Promise<number> {
+  // Check if queue is enabled
+  const queueSettings = await getQueueSettings(supabase);
+  if (!queueSettings.enabled) {
+    console.log("[QUEUE] Queue disabled by admin, skipping ordering");
+    return 0;
+  }
+
   // Insert into queue
   const { data, error } = await supabase
     .from("message_send_order")
@@ -698,10 +741,10 @@ async function enqueueAndWaitForTurn(
   }
 
   const myId = data.id as number;
-  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${originalTsMs}`);
+  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${originalTsMs}, batchMs=${queueSettings.batchMs}`);
 
-  // Batch window: wait 1 second so all rapid-fire webhooks register
-  await new Promise((r) => setTimeout(r, 1000));
+  // Batch window: wait configured ms so all rapid-fire webhooks register
+  await new Promise((r) => setTimeout(r, queueSettings.batchMs));
 
   // Poll until all earlier entries in same conversation are done
   const maxWaitMs = 15000; // max 15s total wait
@@ -1854,8 +1897,8 @@ serve(async (req) => {
     // Get user settings for OAuth credentials AND uazapi_base_url AND track_id
     const { data: settings } = await supabase
       .from("user_settings")
-      .select("ghl_client_id, ghl_client_secret, uazapi_base_url, track_id")
-      .eq("user_id", subaccount.user_id)
+    .select("ghl_client_id, ghl_client_secret, uazapi_base_url, track_id, queue_enabled, queue_batch_ms")
+    .eq("user_id", subaccount.user_id)
       .single();
 
     // Fallback to admin OAuth credentials if user doesn't have their own
