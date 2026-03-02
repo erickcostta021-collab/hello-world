@@ -676,12 +676,12 @@ function toEpochMs(ts: unknown): number {
 // 3. Poll until all earlier entries (lower id) are marked 'done'
 // 4. Send to GHL, then mark own entry as 'done'
 // ================================================================
-// Cache for admin queue settings (refreshed every 60s)
+// Cache for admin queue settings (refreshed every 5s for fast admin response)
 let _queueSettingsCache: { enabled: boolean; batchMs: number; fetchedAt: number } | null = null;
 
 async function getQueueSettings(supabase: any): Promise<{ enabled: boolean; batchMs: number }> {
   const now = Date.now();
-  if (_queueSettingsCache && now - _queueSettingsCache.fetchedAt < 60000) {
+  if (_queueSettingsCache && now - _queueSettingsCache.fetchedAt < 5000) {
     return _queueSettingsCache;
   }
   try {
