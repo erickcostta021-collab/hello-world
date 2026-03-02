@@ -157,8 +157,16 @@ function normalizeTextForSig(text: string): string {
   return String(text ?? "").replace(/\s+/g, " ").trim();
 }
 
-// Helper to get valid access token (refresh if needed)
+// In-memory token cache (survives across warm invocations)
+const _tokenCache = new Map<string, { token: string; expiresAt: number }>();
+
+// Helper to get valid access token (refresh if needed) — with in-memory cache
 async function getValidToken(supabase: any, subaccount: any, settings: any): Promise<string> {
+  const cacheKey = subaccount.id;
+  const cached = _tokenCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now() + 5 * 60 * 1000) {
+    return cached.token;
+  }
   const accessToken: string | null = subaccount.ghl_access_token ?? null;
   const refreshToken: string | null = subaccount.ghl_refresh_token ?? null;
   const expiresAtIso: string | null = subaccount.ghl_token_expires_at ?? null;
@@ -207,9 +215,12 @@ async function getValidToken(supabase: any, subaccount: any, settings: any): Pro
       })
       .eq("id", subaccount.id);
 
+    _tokenCache.set(cacheKey, { token: tokenData.access_token, expiresAt: newExpiresAt.getTime() });
     return tokenData.access_token;
   }
 
+  // Cache even non-refreshed tokens
+  _tokenCache.set(cacheKey, { token: accessToken, expiresAt: expiresAt.getTime() });
   return accessToken;
 }
 
@@ -2440,29 +2451,22 @@ serve(async (req: Request) => {
       return; // Already responded
     }
 
-    // Buscar todas as instâncias da subconta
-    const { data: instances, error: instErr } = await supabase
-      .from("instances")
-      .select("id, instance_name, uazapi_instance_token, uazapi_base_url, phone")
-      .eq("subaccount_id", subaccount.id)
-      .order("created_at", { ascending: true });
+    // Parallelize instances + settings queries (both depend on subaccount but are independent)
+    const [instancesResult, settingsResult] = await Promise.all([
+      supabase
+        .from("instances")
+        .select("id, instance_name, uazapi_instance_token, uazapi_base_url, phone")
+        .eq("subaccount_id", subaccount.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("user_settings")
+        .select("uazapi_base_url, uazapi_admin_token, ghl_client_id, ghl_client_secret")
+        .eq("user_id", subaccount.user_id)
+        .single(),
+    ]);
 
-    if (instErr || !instances || instances.length === 0) {
-      console.error("No instance found for subaccount");
-      return; // Already responded
-    }
-
-    // Escolha de instância:
-    // 1) Preferência mais recente por lead_phone (resolve "espelhamento" quando há múltiplas instâncias)
-    // 2) Fallback por contact_id
-    // 3) Fallback primeira instância
-    let instance = instances[0]; // fallback
-
-    const { data: settings, error: settingsErr } = await supabase
-      .from("user_settings")
-      .select("uazapi_base_url, uazapi_admin_token, ghl_client_id, ghl_client_secret")
-      .eq("user_id", subaccount.user_id)
-      .single();
+    const { data: instances, error: instErr } = instancesResult;
+    const { data: settings, error: settingsErr } = settingsResult;
 
     // Fallback to admin OAuth credentials if user doesn't have their own
     if (settings && (!settings.ghl_client_id || !settings.ghl_client_secret)) {
@@ -2781,12 +2785,10 @@ serve(async (req: Request) => {
     // IMPORTANTE: Atualizar/criar preferência com lead_phone para bridge-switcher
     // Isso garante que o dropdown no GHL saiba qual instância usar para este contato
     // =======================================================================
-    if (contactId && targetPhone && locationId && !isGroup) {
+    // Fire-and-forget: preference update is non-critical for message delivery
+    const prefUpdatePromise = (async () => {
       try {
-        // Normalizar telefone para armazenamento (remover caracteres especiais)
         const normalizedPhone = targetPhone.replace(/\D/g, "");
-        
-        // Verificar se já existe preferência para este contactId
         const { data: existingPref } = await supabase
           .from("contact_instance_preferences")
           .select("id, lead_phone, instance_id")
@@ -2795,30 +2797,13 @@ serve(async (req: Request) => {
           .maybeSingle();
         
         if (existingPref) {
-          // Atualizar lead_phone se estiver NULL ou diferente
           if (!existingPref.lead_phone || existingPref.lead_phone !== normalizedPhone) {
-            console.log("[Outbound] 📱 Atualizando lead_phone na preferência existente:", { 
-              contactId: contactId.slice(0, 10), 
-              oldPhone: existingPref.lead_phone || "NULL", 
-              newPhone: normalizedPhone.slice(0, 10)
-            });
-            
             await supabase
               .from("contact_instance_preferences")
-              .update({ 
-                lead_phone: normalizedPhone,
-                updated_at: new Date().toISOString()
-              })
+              .update({ lead_phone: normalizedPhone, updated_at: new Date().toISOString() })
               .eq("id", existingPref.id);
           }
         } else {
-          // Criar novo registro de preferência com a instância padrão
-          console.log("[Outbound] 📱 Criando nova preferência com lead_phone:", { 
-            contactId: contactId.slice(0, 10), 
-            phone: normalizedPhone.slice(0, 10),
-            instanceId: instance.id
-          });
-          
           await supabase
             .from("contact_instance_preferences")
             .insert({
@@ -2830,8 +2815,14 @@ serve(async (req: Request) => {
         }
       } catch (prefError) {
         console.error("[Outbound] ❌ Erro ao atualizar preferência:", prefError);
-        // Não falhar o envio por causa disso
       }
+    })();
+
+    // Use waitUntil so pref update runs after response
+    try {
+      (globalThis as any).EdgeRuntime?.waitUntil?.(prefUpdatePromise);
+    } catch {
+      // fallback: just let it run in background
     }
 
     // Check if we have content to send

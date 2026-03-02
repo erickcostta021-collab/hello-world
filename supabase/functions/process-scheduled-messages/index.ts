@@ -56,97 +56,73 @@ serve(async (req: Request) => {
     let processed = 0;
     let failed = 0;
 
-    for (const msg of pendingMessages) {
-      const inst = (msg as any).instances;
-      let baseUrl = inst.uazapi_base_url?.replace(/\/+$/, "");
+    // Process in parallel batches of 5 for better throughput
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < pendingMessages.length; i += BATCH_SIZE) {
+      const batch = pendingMessages.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map(async (msg) => {
+        const inst = (msg as any).instances;
+        let baseUrl = inst.uazapi_base_url?.replace(/\/+$/, "");
 
-      if (!baseUrl) {
-        // Fallback to user settings
-        const { data: settings } = await supabase
-          .from("user_settings")
-          .select("uazapi_base_url")
-          .eq("user_id", inst.user_id)
-          .limit(1);
-        baseUrl = settings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
-      }
-
-      if (!baseUrl) {
-        await supabase.from("scheduled_group_messages").update({
-          status: "failed", last_error: "Base URL não configurada",
-        }).eq("id", msg.id);
-        failed++;
-        continue;
-      }
-
-      try {
-        let endpoint = "/send/text";
-        let sendBody: Record<string, unknown> = {
-          number: msg.group_jid,
-        };
-
-        let text = msg.message_text.replace(/^@todos[\n ]?/, "").trim();
-
-        // If mention_all, fetch group participants and add mentions
-        if (msg.mention_all) {
-          sendBody.mentions = "all";
-          // mentions=all handles notification, no need for @todos prefix
-          console.log(`[process-scheduled] ✅ Using mentions=all for @todos`);
+        if (!baseUrl) {
+          const { data: settings } = await supabase
+            .from("user_settings")
+            .select("uazapi_base_url")
+            .eq("user_id", inst.user_id)
+            .limit(1);
+          baseUrl = settings?.[0]?.uazapi_base_url?.replace(/\/+$/, "");
         }
 
-        // Handle media persistence for recurring messages
+        if (!baseUrl) {
+          await supabase.from("scheduled_group_messages").update({
+            status: "failed", last_error: "Base URL não configurada",
+          }).eq("id", msg.id);
+          return "failed";
+        }
+
+        let endpoint = "/send/text";
+        let sendBody: Record<string, unknown> = { number: msg.group_jid };
+        let text = msg.message_text.replace(/^@todos[\n ]?/, "").trim();
+
+        if (msg.mention_all) {
+          sendBody.mentions = "all";
+        }
+
         let effectiveMediaUrl = msg.media_url;
         if (msg.media_url && msg.is_recurring && msg.media_url.includes("media.bridgeapi.chat/uploads/")) {
           try {
-            // Extract the original file path from the URL
             const originalPath = msg.media_url.replace("https://media.bridgeapi.chat/", "");
             const ext = originalPath.split(".").pop() || "bin";
             const scheduledPath = `scheduled/${msg.id}.${ext}`;
-
-            // Copy the file from uploads/ to scheduled/ so the 24h cleanup won't delete it
-            const { data: fileData } = await supabase.storage
-              .from("command-uploads")
-              .download(originalPath);
-
+            const { data: fileData } = await supabase.storage.from("command-uploads").download(originalPath);
             if (fileData) {
               const arrayBuffer = await fileData.arrayBuffer();
-              await supabase.storage
-                .from("command-uploads")
-                .upload(scheduledPath, arrayBuffer, { contentType: fileData.type || "application/octet-stream", upsert: true });
-
+              await supabase.storage.from("command-uploads").upload(scheduledPath, arrayBuffer, { contentType: fileData.type || "application/octet-stream", upsert: true });
               const newMediaUrl = `https://media.bridgeapi.chat/${scheduledPath}`;
-              // Update the record so future executions use the persistent URL
               await supabase.from("scheduled_group_messages").update({ media_url: newMediaUrl }).eq("id", msg.id);
               effectiveMediaUrl = newMediaUrl;
-              console.log(`[process-scheduled] ✅ Copied media to persistent path: ${scheduledPath}`);
             }
           } catch (copyErr) {
             console.error("[process-scheduled] Failed to copy media to scheduled/:", copyErr);
-            // Continue with original URL - it may still work if not yet cleaned
           }
         }
 
         if (effectiveMediaUrl && msg.media_type) {
-          // Send media message
           if (msg.media_type === "audio") {
             endpoint = "/send/audio";
             sendBody.url = effectiveMediaUrl;
             sendBody.file = effectiveMediaUrl;
             if (text) sendBody.text = text;
           } else {
-          endpoint = "/send/media";
-          sendBody.url = effectiveMediaUrl;
-          sendBody.file = effectiveMediaUrl;
-          sendBody.type = msg.media_type === "document" ? "document" : msg.media_type;
-          if (text) {
-            sendBody.caption = text;
-            sendBody.text = text;
-          }
+            endpoint = "/send/media";
+            sendBody.url = effectiveMediaUrl;
+            sendBody.file = effectiveMediaUrl;
+            sendBody.type = msg.media_type === "document" ? "document" : msg.media_type;
+            if (text) { sendBody.caption = text; sendBody.text = text; }
           }
         } else {
           sendBody.text = text;
         }
-
-        console.log(`[process-scheduled] Sending to ${msg.group_jid} via ${endpoint}`);
 
         const response = await fetch(`${baseUrl}${endpoint}`, {
           method: "POST",
@@ -160,13 +136,11 @@ serve(async (req: Request) => {
           await supabase.from("scheduled_group_messages").update({
             status: "failed", last_error: `HTTP ${response.status}: ${errText.substring(0, 200)}`,
           }).eq("id", msg.id);
-          failed++;
-          continue;
+          return "failed";
         }
 
         const newCount = (msg.execution_count || 0) + 1;
 
-        // If recurring, check if we should schedule the next occurrence on the same row
         if (msg.is_recurring && msg.recurring_interval) {
           const reachedMaxExec = msg.max_executions && newCount >= msg.max_executions;
           const pastEndDate = msg.end_date && new Date(msg.end_date) <= new Date();
@@ -198,9 +172,7 @@ serve(async (req: Request) => {
               }
               case "monthly":
                 nextDate.setMonth(nextDate.getMonth() + 1);
-                if (msg.day_of_month) {
-                  nextDate.setDate(msg.day_of_month);
-                }
+                if (msg.day_of_month) nextDate.setDate(msg.day_of_month);
                 break;
             }
 
@@ -210,49 +182,35 @@ serve(async (req: Request) => {
             }
 
             if (!msg.end_date || nextDate <= new Date(msg.end_date)) {
-              // Reuse the same row: update to pending with next scheduled_for
               await supabase.from("scheduled_group_messages").update({
-                status: "pending",
-                scheduled_for: nextDate.toISOString(),
-                execution_count: newCount,
-                sent_at: new Date().toISOString(),
-                last_error: null,
+                status: "pending", scheduled_for: nextDate.toISOString(),
+                execution_count: newCount, sent_at: new Date().toISOString(), last_error: null,
               }).eq("id", msg.id);
             } else {
-              // No more occurrences, mark as sent (finished)
               await supabase.from("scheduled_group_messages").update({
-                status: "sent",
-                sent_at: new Date().toISOString(),
-                execution_count: newCount,
+                status: "sent", sent_at: new Date().toISOString(), execution_count: newCount,
               }).eq("id", msg.id);
               await cleanupScheduledMedia(msg.id, effectiveMediaUrl);
             }
           } else {
-            // Reached limits, mark as sent (finished)
             await supabase.from("scheduled_group_messages").update({
-              status: "sent",
-              sent_at: new Date().toISOString(),
-              execution_count: newCount,
+              status: "sent", sent_at: new Date().toISOString(), execution_count: newCount,
             }).eq("id", msg.id);
             await cleanupScheduledMedia(msg.id, effectiveMediaUrl);
           }
         } else {
-          // Non-recurring: just mark as sent
           await supabase.from("scheduled_group_messages").update({
-            status: "sent",
-            sent_at: new Date().toISOString(),
-            execution_count: newCount,
+            status: "sent", sent_at: new Date().toISOString(), execution_count: newCount,
           }).eq("id", msg.id);
           await cleanupScheduledMedia(msg.id, effectiveMediaUrl);
         }
 
-        processed++;
-      } catch (e) {
-        console.error(`[process-scheduled] Error processing message ${msg.id}:`, e);
-        await supabase.from("scheduled_group_messages").update({
-          status: "failed", last_error: e instanceof Error ? e.message : "Unknown error",
-        }).eq("id", msg.id);
-        failed++;
+        return "sent";
+      }));
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value === "sent") processed++;
+        else failed++;
       }
     }
 
