@@ -614,6 +614,41 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
         </CardContent>
       </Card>
 
+      {/* Delete/Unlink Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">
+              {deleteFromUazapi ? "Excluir permanentemente?" : "Desvincular instância?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteFromUazapi ? (
+                <>
+                  A instância <strong>{instance.instance_name}</strong> será excluída permanentemente do sistema e do servidor UAZAPI.
+                  <br /><br />
+                  <span className="text-destructive font-medium">Esta ação não pode ser desfeita.</span>
+                </>
+              ) : (
+                <>
+                  A instância <strong>{instance.instance_name}</strong> será removida do sistema, mas continuará disponível no servidor para uma nova importação.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className={deleteFromUazapi ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-orange-500 hover:bg-orange-600 text-white"}
+              disabled={deleteInstance.isPending}
+            >
+              {deleteInstance.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {deleteFromUazapi ? "Excluir" : "Desvincular"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* QR Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={(open) => {
         setQrDialogOpen(open);
