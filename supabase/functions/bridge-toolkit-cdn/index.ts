@@ -1352,14 +1352,21 @@ const BRIDGE_TOOLKIT_SCRIPT = `
         ws.onopen = () => {
             console.log("✅ Bridge Realtime: Connected");
             
-            // Join the ghl_updates channel
+            // Join the ghl_updates channel with broadcast config
             const joinMsg = {
                 topic: 'realtime:ghl_updates',
                 event: 'phx_join',
-                payload: {},
+                payload: {
+                    config: {
+                        broadcast: { self: true, ack: false }
+                    }
+                },
                 ref: '1'
             };
             ws.send(JSON.stringify(joinMsg));
+            
+            // Also listen for phx_reply to confirm join
+            console.log("📤 Bridge: Sent join request for ghl_updates channel");
             
             // Heartbeat to keep connection alive
             setInterval(() => {
@@ -1373,19 +1380,26 @@ const BRIDGE_TOOLKIT_SCRIPT = `
             try {
                 const msg = JSON.parse(event.data);
                 
+                // Log join confirmation
+                if (msg.topic === 'realtime:ghl_updates' && msg.event === 'phx_reply') {
+                    console.log("📡 Bridge Realtime: Channel join reply:", msg.payload?.status);
+                }
+                
                 // Handle broadcast messages on ghl_updates channel
                 if (msg.topic === 'realtime:ghl_updates' && msg.event === 'broadcast') {
+                    console.log("📡 Bridge Realtime: Broadcast received:", JSON.stringify(msg.payload).substring(0, 200));
                     if (msg.payload?.payload) {
-                    // Debounced update for rapid events
-                    const payload = msg.payload.payload;
-                    const ghlId = payload.ghl_id;
-                    
-                    // Log if message not currently visible
-                    if (ghlId && !visibleMessages.has(ghlId)) {
-                        console.log("⏳ Bridge: Update for non-visible message", ghlId);
-                    }
-                    
-                    handleRealtimeUpdate(payload);
+                        const payload = msg.payload.payload;
+                        const ghlId = payload.ghl_id;
+                        
+                        if (ghlId && !visibleMessages.has(ghlId)) {
+                            console.log("⏳ Bridge: Update for non-visible message", ghlId);
+                        }
+                        
+                        handleRealtimeUpdate(payload);
+                    } else if (msg.payload?.event === 'msg_update' && msg.payload?.payload) {
+                        // Alternative payload structure
+                        handleRealtimeUpdate(msg.payload.payload);
                     }
                 }
             } catch (e) {
