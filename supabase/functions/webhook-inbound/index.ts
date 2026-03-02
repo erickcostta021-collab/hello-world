@@ -698,34 +698,54 @@ async function enqueueAndWaitForTurn(
   }
 
   const myId = data.id as number;
-  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${originalTsMs}`);
+  const myTs = originalTsMs;
+  console.log(`[QUEUE] Enqueued id=${myId} for ${conversationKey}, ts=${myTs}`);
 
   // Batch window: wait 1 second so all rapid-fire webhooks register
+  // Data shows out-of-order arrivals up to ~809ms apart
   await new Promise((r) => setTimeout(r, 1000));
 
-  // Poll until all earlier entries in same conversation are done
-  const maxWaitMs = 15000; // max 15s total wait
+  // Poll until all entries that should go BEFORE us (by timestamp, then id) are done.
+  // ORDER BY (original_ts, id) ensures correct chronological order even when
+  // a message with an earlier timestamp arrives later (getting a higher id).
+  const maxWaitMs = 15000;
   const pollIntervalMs = 300;
   const deadline = Date.now() + maxWaitMs;
 
   while (Date.now() < deadline) {
+    // Find any pending message that should be sent before us:
+    // - earlier timestamp, OR
+    // - same timestamp but lower id (tie-breaker)
     const { data: pending } = await supabase
       .from("message_send_order")
-      .select("id")
+      .select("id, original_ts")
       .eq("conversation_key", conversationKey)
       .eq("status", "pending")
-      .lt("id", myId)
+      .neq("id", myId)
+      .order("original_ts", { ascending: true })
+      .order("id", { ascending: true })
       .limit(1);
 
     if (!pending || pending.length === 0) {
-      // No earlier pending entries - it's our turn!
+      // No other pending entries - it's our turn!
       break;
     }
 
-    await new Promise((r) => setTimeout(r, pollIntervalMs));
+    const first = pending[0];
+    const firstTs = Number(first.original_ts);
+    const firstId = Number(first.id);
+
+    // If the first pending message should go before us, wait
+    if (firstTs < myTs || (firstTs === myTs && firstId < myId)) {
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+      continue;
+    }
+
+    // Otherwise, we are the first in line
+    break;
   }
 
-  console.log(`[QUEUE] Turn reached for id=${myId}`);
+  console.log(`[QUEUE] Turn reached for id=${myId}, ts=${myTs}`);
   return myId;
 }
 
