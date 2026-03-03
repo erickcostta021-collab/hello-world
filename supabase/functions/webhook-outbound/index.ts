@@ -2350,14 +2350,11 @@ serve(async (req: Request) => {
       return;
     }
 
-    if (source === "api" && !isHashCommand) {
-      console.log("🛑 [BLOCKED] Ignoring API-synced message to prevent loop:", { 
-        source, 
-        messageId,
-        messagePreview: messageText.substring(0, 50) 
-      });
-      return; // Exit immediately - this message was synced FROM WhatsApp
-    }
+    // NOTE: We no longer block source==="api" here because ALL messages sent via
+    // GHL Conversation Provider arrive with source="api", including user-typed messages.
+    // Loop prevention is handled by the dedup check below (ghl_processed_messages table):
+    // webhook-inbound stores `ghl:<messageId>` when forwarding WhatsApp→GHL,
+    // so when GHL echoes it back here, the dedup catches it.
 
     // Check for duplicate webhook calls (GHL sometimes sends the same intent twice)
     // Primary key: messageId
