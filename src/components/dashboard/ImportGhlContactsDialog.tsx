@@ -93,7 +93,8 @@ export function ImportGhlContactsDialog({
       startAfterId = data?.startAfterId || null;
       page = 1;
 
-      if (!startAfterId) {
+      // Only continue if the first page was full (100 contacts) and there's a next page
+      if (!startAfterId || firstBatch.length < 100) {
         if (unique.length === 0) toast.info("Nenhum contato com telefone encontrado.");
         return;
       }
@@ -114,6 +115,8 @@ export function ImportGhlContactsDialog({
         allContacts = dedup([...allContacts, ...batch]);
         setContacts(allContacts);
 
+        // Stop if this page returned fewer than 100
+        if (batch.length < 100) break;
         startAfterId = nextData?.startAfterId || null;
         page++;
       }
