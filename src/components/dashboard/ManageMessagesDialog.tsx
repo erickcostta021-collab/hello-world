@@ -2069,8 +2069,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                       </Label>
                       <div className="flex items-center gap-1.5">
                         <input ref={csvInputRef} type="file" accept=".csv,.txt" onChange={handleCsvUpload} className="hidden" />
-                        <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="border-primary/30 text-primary hover:bg-primary/10 h-7 text-xs">
-                          <Upload className="h-3 w-3 mr-1" /> CSV
+                        <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="border-border h-7 text-xs">
+                          <Upload className="h-3 w-3 mr-1" /> Importar CSV
                         </Button>
                       </div>
                     </div>
