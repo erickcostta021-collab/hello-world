@@ -463,17 +463,21 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   };
 
   // ─── Campaign control ───
-  const handleCampaignAction = async () => {
+  const handleCampaignAction = async (action?: "stop" | "continue" | "delete") => {
+    const actionToUse = action || campaignAction;
     if (!campaignFolderId.trim()) { toast.error("Informe o ID da campanha"); return; }
+    const confirmLabels = { stop: "pausar", continue: "continuar", delete: "deletar" };
+    const confirmed = window.confirm(`Tem certeza que deseja ${confirmLabels[actionToUse]} esta campanha?`);
+    if (!confirmed) return;
     setExecutingAction(true);
     try {
       const res = await fetch(`${getBaseUrl()}/sender/edit`, {
         method: "POST", headers: getHeaders(),
-        body: JSON.stringify({ folder_id: campaignFolderId.trim(), action: campaignAction }),
+        body: JSON.stringify({ folder_id: campaignFolderId.trim(), action: actionToUse }),
       });
       if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const labels = { stop: "pausada", continue: "retomada", delete: "deletada" };
-      toast.success(`Campanha ${labels[campaignAction]} com sucesso!`);
+      toast.success(`Campanha ${labels[actionToUse]} com sucesso!`);
       setCampaignFolderId("");
       if (folders.length > 0) handleListFolders();
     } catch (err: any) {
@@ -2387,23 +2391,22 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 <Input placeholder="Ex: folder_123" value={campaignFolderId} onChange={(e) => setCampaignFolderId(e.target.value)} className="bg-secondary border-border" />
               </div>
               <div className="grid grid-cols-3 gap-2">
-                <Button variant={campaignAction === "stop" ? "default" : "outline"} onClick={() => setCampaignAction("stop")}
-                  className={cn("border-border text-xs", campaignAction === "stop" && "bg-yellow-600 hover:bg-yellow-700 text-white")} size="sm">
-                  <Pause className="h-3.5 w-3.5 mr-1" /> Pausar
+                <Button variant="outline" onClick={() => handleCampaignAction("stop")}
+                  disabled={executingAction || !campaignFolderId.trim()}
+                  className="border-border text-xs bg-yellow-600 hover:bg-yellow-700 text-white" size="sm">
+                  {executingAction && campaignAction === "stop" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Pause className="h-3.5 w-3.5 mr-1" />} Pausar
                 </Button>
-                <Button variant={campaignAction === "continue" ? "default" : "outline"} onClick={() => setCampaignAction("continue")}
-                  className={cn("border-border text-xs", campaignAction === "continue" && "bg-green-600 hover:bg-green-700 text-white")} size="sm">
-                  <Play className="h-3.5 w-3.5 mr-1" /> Continuar
+                <Button variant="outline" onClick={() => handleCampaignAction("continue")}
+                  disabled={executingAction || !campaignFolderId.trim()}
+                  className="border-border text-xs bg-green-600 hover:bg-green-700 text-white" size="sm">
+                  {executingAction && campaignAction === "continue" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-1" />} Continuar
                 </Button>
-                <Button variant={campaignAction === "delete" ? "default" : "outline"} onClick={() => setCampaignAction("delete")}
-                  className={cn("border-border text-xs", campaignAction === "delete" && "bg-destructive hover:bg-destructive/90 text-white")} size="sm">
-                  <Trash className="h-3.5 w-3.5 mr-1" /> Deletar
+                <Button variant="outline" onClick={() => handleCampaignAction("delete")}
+                  disabled={executingAction || !campaignFolderId.trim()}
+                  className="border-border text-xs bg-destructive hover:bg-destructive/90 text-white" size="sm">
+                  {executingAction && campaignAction === "delete" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Trash className="h-3.5 w-3.5 mr-1" />} Deletar
                 </Button>
               </div>
-              <Button onClick={handleCampaignAction} disabled={executingAction || !campaignFolderId.trim()} className="w-full bg-primary hover:bg-primary/90" size="sm">
-                {executingAction ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ListChecks className="h-4 w-4 mr-2" />}
-                Executar Ação
-              </Button>
             </div>
 
             {/* ── Cleanup ── */}
