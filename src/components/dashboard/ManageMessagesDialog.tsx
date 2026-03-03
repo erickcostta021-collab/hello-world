@@ -1518,7 +1518,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           setCsvFileName("");
         }
       }}
-        className="bg-secondary border-border min-h-[80px]"
+        className="bg-secondary border-border min-h-[100px]"
       />
       {csvContacts.length > 0 && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
