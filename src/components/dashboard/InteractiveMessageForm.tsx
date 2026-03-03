@@ -9,14 +9,15 @@ import { toast } from "sonner";
 
 const UPLOAD_URL = "https://jtabmlyjgtrgimnhvixb.supabase.co/functions/v1/upload-command-image";
 
-// ─── Reusable Image Upload Field ───
-function ImageUploadField({
-  value, onChange, placeholder = "URL da imagem", className = "",
+// ─── Reusable File Upload Field ───
+export function FileUploadField({
+  value, onChange, placeholder = "URL da imagem", className = "", accept = "image/*",
 }: {
   value: string;
   onChange: (url: string) => void;
   placeholder?: string;
   className?: string;
+  accept?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -34,7 +35,7 @@ function ImageUploadField({
       const data = await res.json();
       if (data.url) {
         onChange(data.url);
-        toast.success("Imagem enviada!");
+        toast.success("Arquivo enviado!");
       } else {
         toast.error("Erro no upload: " + (data.error || "desconhecido"));
       }
@@ -57,7 +58,7 @@ function ImageUploadField({
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept={accept}
         className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
       />
@@ -68,7 +69,7 @@ function ImageUploadField({
         className="shrink-0 border-border h-9 w-9"
         disabled={uploading}
         onClick={() => fileRef.current?.click()}
-        title="Upload imagem"
+        title="Upload arquivo"
       >
         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
       </Button>
@@ -179,7 +180,7 @@ function BotoesForm({
         </div>
         <div className="space-y-1">
           <Label className={compact ? "text-xs" : "text-sm"}>URL da Imagem</Label>
-          <ImageUploadField
+          <FileUploadField
             placeholder="https://... (opcional)"
             value={data.imageButton || ""}
             onChange={(url) => onChange({ imageButton: url })}
@@ -299,7 +300,7 @@ function CarrosselForm({
 
             <div className="space-y-1">
               <Label className="text-xs">Imagem *</Label>
-              <ImageUploadField
+              <FileUploadField
                 placeholder="URL da imagem"
                 value={card.image}
                 onChange={(url) => updateCard(ci, { image: url })}

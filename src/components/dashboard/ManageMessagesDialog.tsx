@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
-import { InteractiveMessageForm, InteractiveData, buildInteractivePayload } from "@/components/dashboard/InteractiveMessageForm";
+import { InteractiveMessageForm, InteractiveData, buildInteractivePayload, FileUploadField } from "@/components/dashboard/InteractiveMessageForm";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -1981,7 +1981,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             {showMediaField && (
               <div className="space-y-2">
                 <Label>URL do Arquivo</Label>
-                <Input placeholder="https://exemplo.com/arquivo.jpg" value={fileUrl} onChange={(e) => setFileUrl(e.target.value)} className="bg-secondary border-border" />
+                <FileUploadField placeholder="https://exemplo.com/arquivo.jpg" value={fileUrl} onChange={(url) => setFileUrl(url)} accept="*/*" />
                 {messageType === "document" && (
                   <div className="space-y-2">
                     <Label>Nome do Documento</Label>
@@ -2113,7 +2113,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                       {showMsgMedia && (
                         <div className="space-y-2">
                           <Label className="text-xs">URL do Arquivo</Label>
-                          <Input placeholder="https://..." value={msg.file || ""} onChange={(e) => updateAdvMsg(idx, { file: e.target.value })} className="bg-secondary border-border" />
+                          <FileUploadField placeholder="https://..." value={msg.file || ""} onChange={(url) => updateAdvMsg(idx, { file: url })} accept="*/*" />
                           {msg.type === "document" && (
                             <div className="space-y-2">
                               <Label className="text-xs">Nome do Documento</Label>
