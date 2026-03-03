@@ -2401,9 +2401,17 @@ serve(async (req: Request) => {
       // fail-open: don't block message sending
     }
     
+    // CRITICAL: If direction is explicitly "inbound", ALWAYS ignore — no exceptions.
+    // This prevents loops where webhook-inbound forwards a WhatsApp message to GHL,
+    // and GHL fires the Conversation Provider webhook back with the same content.
+    if (direction === "inbound") {
+      console.log("🛑 [BLOCKED] Ignoring inbound-direction message:", { eventType, direction, messageId });
+      return;
+    }
+
     // Accept messages if:
     // 1. type is OutboundMessage OR direction is outbound
-    // 2. OR type is SMS with phone and content (GHL sends SMS type for user-sent messages)
+    // 2. OR type is SMS with phone and content AND direction is NOT inbound (GHL sends SMS type for user-sent messages)
     const isOutbound = eventType === "OutboundMessage" || direction === "outbound";
     const isSmsWithContent = eventType === "SMS" && phoneRaw && (messageText || attachments.length > 0);
     
