@@ -39,7 +39,7 @@ const DEFAULT_OPTIONS: EmbedVisibleOptions = {
   disconnect: true,
   status: true,
   messages: true,
-  api_oficial: true,
+  api_oficial: false,
   group_manager: true,
 };
 
