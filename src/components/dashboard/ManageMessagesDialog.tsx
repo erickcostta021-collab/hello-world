@@ -372,6 +372,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [campaignFolderId, setCampaignFolderId] = useState("");
   const [campaignAction, setCampaignAction] = useState<"stop" | "continue" | "delete">("stop");
   const [executingAction, setExecutingAction] = useState(false);
+  const [pendingCampaignAction, setPendingCampaignAction] = useState<"stop" | "continue" | "delete" | null>(null);
   const [folders, setFolders] = useState<CampaignFolder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
   const [folderStatusFilter, setFolderStatusFilter] = useState("");
@@ -466,9 +467,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const handleCampaignAction = async (action?: "stop" | "continue" | "delete") => {
     const actionToUse = action || campaignAction;
     if (!campaignFolderId.trim()) { toast.error("Informe o ID da campanha"); return; }
-    const confirmLabels = { stop: "pausar", continue: "continuar", delete: "deletar" };
-    const confirmed = window.confirm(`Tem certeza que deseja ${confirmLabels[actionToUse]} esta campanha?`);
-    if (!confirmed) return;
+    setPendingCampaignAction(actionToUse);
+  };
+
+  const confirmCampaignAction = async () => {
+    if (!pendingCampaignAction) return;
+    const actionToUse = pendingCampaignAction;
+    setPendingCampaignAction(null);
     setExecutingAction(true);
     try {
       const res = await fetch(`${getBaseUrl()}/sender/edit`, {
@@ -2407,6 +2412,28 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                   {executingAction && campaignAction === "delete" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Trash className="h-3.5 w-3.5 mr-1" />} Deletar
                 </Button>
               </div>
+              <AlertDialog open={!!pendingCampaignAction} onOpenChange={(open) => { if (!open) setPendingCampaignAction(null); }}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {pendingCampaignAction === "stop" && "Pausar campanha?"}
+                      {pendingCampaignAction === "continue" && "Continuar campanha?"}
+                      {pendingCampaignAction === "delete" && "Deletar campanha?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {pendingCampaignAction === "stop" && "Tem certeza que deseja pausar esta campanha?"}
+                      {pendingCampaignAction === "continue" && "Tem certeza que deseja continuar esta campanha?"}
+                      {pendingCampaignAction === "delete" && "Tem certeza que deseja deletar esta campanha? Esta ação não pode ser desfeita."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmCampaignAction} className={pendingCampaignAction === "delete" ? "bg-destructive hover:bg-destructive/90" : ""}>
+                      Confirmar
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
 
             {/* ── Cleanup ── */}
