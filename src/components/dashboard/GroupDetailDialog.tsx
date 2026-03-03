@@ -206,6 +206,16 @@ export function GroupDetailDialog({
 
   const adminCount = participants.filter((p) => p.isAdmin || p.isSuperAdmin).length;
 
+  // Check if the instance's phone is an admin/superadmin in the group
+  const instancePhoneClean = instance.phone?.replace(/\D/g, "") || "";
+  const isInstanceAdmin = instancePhoneClean
+    ? participants.some(
+        (p) =>
+          (p.isAdmin || p.isSuperAdmin) &&
+          p.phone.includes(instancePhoneClean)
+      )
+    : false;
+
   const filteredParticipants = participants.filter((p) => {
     const q = searchQuery.toLowerCase();
     return (
@@ -1002,12 +1012,13 @@ export function GroupDetailDialog({
             <Button
               size="sm"
               variant="outline"
-              onClick={toggleAnnounce}
-              disabled={togglingAnnounce}
-            >
-              {togglingAnnounce ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : isAnnounce ? (
+          onClick={toggleAnnounce}
+          disabled={togglingAnnounce || !isInstanceAdmin}
+          title={!isInstanceAdmin ? "Apenas admins do grupo podem alterar esta configuração" : undefined}
+        >
+          {togglingAnnounce ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : isAnnounce ? (
                 <Lock className="h-4 w-4 mr-1" />
               ) : (
                 <MessageSquare className="h-4 w-4 mr-1" />
@@ -1017,12 +1028,13 @@ export function GroupDetailDialog({
             <Button
               size="sm"
               variant="outline"
-              onClick={toggleLocked}
-              disabled={togglingLocked}
-            >
-              {togglingLocked ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : isLocked ? (
+          onClick={toggleLocked}
+          disabled={togglingLocked || !isInstanceAdmin}
+          title={!isInstanceAdmin ? "Apenas admins do grupo podem alterar esta configuração" : undefined}
+        >
+          {togglingLocked ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : isLocked ? (
                 <Lock className="h-4 w-4 mr-1" />
               ) : (
                 <Pencil className="h-4 w-4 mr-1" />
@@ -1032,6 +1044,14 @@ export function GroupDetailDialog({
           </div>
         </CardContent>
       </Card>
+
+      {/* Not admin warning */}
+      {!loading && participants.length > 0 && !isInstanceAdmin && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-400">
+          <Shield className="h-4 w-4 shrink-0" />
+          <span>Você não é admin deste grupo. Ações administrativas estão desativadas.</span>
+        </div>
+      )}
 
       {/* Add Participant Section */}
       <Card className="bg-card/80 border-border">
@@ -1056,7 +1076,7 @@ export function GroupDetailDialog({
               variant="outline"
               size="sm"
               onClick={() => csvInputRef.current?.click()}
-              disabled={importingCsv}
+              disabled={importingCsv || !isInstanceAdmin}
               className="text-primary border-primary/50 shrink-0"
             >
               {importingCsv ? (
@@ -1078,7 +1098,7 @@ export function GroupDetailDialog({
             <Button
               size="icon"
               onClick={addMember}
-              disabled={addingMember || !addPhoneInput.trim()}
+              disabled={addingMember || !addPhoneInput.trim() || !isInstanceAdmin}
               className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0"
             >
               {addingMember ? (
@@ -1183,7 +1203,7 @@ export function GroupDetailDialog({
                       size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-primary"
                       onClick={() => promoteParticipant(p.phone)}
-                      disabled={promotingPhone === p.phone}
+                      disabled={promotingPhone === p.phone || !isInstanceAdmin}
                       title="Promover a Admin"
                     >
                       {promotingPhone === p.phone ? (
@@ -1201,7 +1221,7 @@ export function GroupDetailDialog({
                       size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-amber-500"
                       onClick={() => demoteParticipant(p.phone)}
-                      disabled={demotingPhone === p.phone}
+                      disabled={demotingPhone === p.phone || !isInstanceAdmin}
                       title="Revogar Admin"
                     >
                       {demotingPhone === p.phone ? (
@@ -1253,7 +1273,7 @@ export function GroupDetailDialog({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                      disabled={removingPhone === p.phone}
+                      disabled={removingPhone === p.phone || !isInstanceAdmin}
                       onClick={(e) => {
                         e.stopPropagation();
                         setConfirmRemove(p);
