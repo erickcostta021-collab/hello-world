@@ -144,6 +144,11 @@ Deno.serve(async (req) => {
     }
 
     const data = await res.json();
+
+    // Log first 3 raw contacts for debugging
+    console.log("[list-ghl-contacts] Sample raw contacts:", JSON.stringify((data.contacts || []).slice(0, 3)));
+    console.log("[list-ghl-contacts] Total raw:", data.contacts?.length, "meta:", JSON.stringify(data.meta));
+
     const contacts = (data.contacts || []).map((c: any) => ({
       id: c.id,
       phone: c.phone || "",
@@ -151,7 +156,16 @@ Deno.serve(async (req) => {
       lastName: c.lastName || "",
       name: c.contactName || c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
       email: c.email || "",
-    })).filter((c: any) => c.phone);
+      type: c.type || "",
+    })).filter((c: any) => {
+      // Must have a phone
+      if (!c.phone) return false;
+      // Exclude group-like phone numbers (WhatsApp group JIDs)
+      if (c.phone.includes("@g.us") || c.phone.includes("@broadcast")) return false;
+      // Exclude if type indicates it's not a lead/contact
+      if (c.type && c.type.toLowerCase() === "group") return false;
+      return true;
+    });
 
     return new Response(JSON.stringify({
       contacts,
