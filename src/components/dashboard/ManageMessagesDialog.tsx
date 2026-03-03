@@ -130,9 +130,7 @@ interface CampaignMessage {
 
 // ─── Parse inline "phone: name" format ───
 function parseInlineContacts(raw: string): CsvContact[] | null {
-  // Detect "phone, name" pattern — entries separated by newline or period
-  // Example: "5521980014713, Érick silva da costa\n5511999999999, Maria"
-  // Or: "5521980014713, João.5511999999999, Maria"
+  // Detect "phone, name" or "phone," or plain phone entries separated by newline or period
   const expanded: string[] = [];
   for (const line of raw.split(/\r?\n/).filter(Boolean)) {
     // Split by period only when followed by optional space then a digit (entry separator)
@@ -140,22 +138,36 @@ function parseInlineContacts(raw: string): CsvContact[] | null {
     expanded.push(...parts);
   }
 
-  // Match: digits, comma, then name (at least one non-digit char)
-  const commaEntries = expanded.filter((e) => /^\s*[\d+]+\s*,\s*[^\d].+/.test(e));
-  if (commaEntries.length === 0) return null;
+  // Match: digits followed by comma (with optional name) OR just digits (phone-only)
+  const commaEntries = expanded.filter((e) => /^\s*[\d+]+\s*,/.test(e));
+  const phoneOnlyEntries = expanded.filter((e) => /^\s*[\d+]{7,}\s*$/.test(e.trim()) && !commaEntries.includes(e));
 
-  return commaEntries.map((entry) => {
+  const allEntries = [...commaEntries, ...phoneOnlyEntries];
+  if (allEntries.length === 0) return null;
+
+  const results: CsvContact[] = [];
+
+  for (const entry of commaEntries) {
     const commaIdx = entry.indexOf(",");
     const phone = entry.slice(0, commaIdx).trim().replace(/\D/g, "");
+    if (!phone || phone.length < 7) continue;
     const fullName = entry.slice(commaIdx + 1).trim();
-    const parts = fullName.split(/\s+/);
-    return {
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    results.push({
       phone,
       firstName: parts[0] || undefined,
       lastName: parts.slice(1).join(" ") || undefined,
       fullName: fullName || undefined,
-    };
-  });
+    });
+  }
+
+  for (const entry of phoneOnlyEntries) {
+    const phone = entry.trim().replace(/\D/g, "");
+    if (!phone || phone.length < 7) continue;
+    results.push({ phone });
+  }
+
+  return results.length > 0 ? results : null;
 }
 
 // ─── CSV Parser ───
