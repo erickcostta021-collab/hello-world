@@ -65,9 +65,8 @@ const MESSAGE_TYPES = [
 // Dynamic field placeholders
 const DYNAMIC_FIELDS = [
   { tag: "{{primeiro_nome}}", label: "Primeiro Nome" },
-  { tag: "{{nome}}", label: "Nome Completo" },
   { tag: "{{sobrenome}}", label: "Sobrenome" },
-  { tag: "{{telefone}}", label: "Telefone" },
+  { tag: "{{nome}}", label: "Nome Completo" },
 ];
 
 interface AdvancedMessage {
