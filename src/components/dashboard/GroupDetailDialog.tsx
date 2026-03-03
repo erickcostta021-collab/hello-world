@@ -76,6 +76,7 @@ interface GroupDetailDialogProps {
   groupId: string;
   groupName: string;
   onGroupNameChanged?: (groupId: string, newName: string) => void;
+  onGroupLeft?: (groupId: string) => void;
 }
 
 interface ParticipantInfo {
@@ -94,6 +95,7 @@ export function GroupDetailDialog({
   groupId,
   groupName,
   onGroupNameChanged,
+  onGroupLeft,
 }: GroupDetailDialogProps) {
   const [participants, setParticipants] = useState<ParticipantInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -315,6 +317,7 @@ export function GroupDetailDialog({
       if (error) throw error;
       if (data?.result && !data.result.success) throw new Error(data.result.message);
       toast.success("Você saiu do grupo com sucesso!");
+      onGroupLeft?.(groupId);
       onOpenChange(false);
     } catch (err: any) {
       toast.error(err.message || "Erro ao sair do grupo");
