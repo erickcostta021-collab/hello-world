@@ -336,15 +336,17 @@ export function useInstances(subaccountId?: string) {
 
   const unlinkInstance = useMutation({
     mutationFn: async (instance: Instance) => {
+      // Delete the instance entirely from the database to avoid ghost references
+      // that cause message loops with duplicate subaccounts
       const { error } = await supabase
         .from("instances")
-        .update({ subaccount_id: null })
+        .delete()
         .eq("id", instance.id);
       if (error) throw error;
     },
     onSuccess: () => {
       invalidateInstanceQueries(queryClient);
-      toast.success("Instância desvinculada da subconta!");
+      toast.success("Instância desvinculada e removida do sistema!");
     },
     onError: (error) => {
       toast.error("Erro ao desvincular: " + error.message);
