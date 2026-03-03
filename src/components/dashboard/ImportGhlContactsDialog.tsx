@@ -233,8 +233,8 @@ export function ImportGhlContactsDialog({
                 </div>
 
                 {/* Contacts */}
-                <ScrollArea className="max-h-[280px]">
-                  <div className="space-y-1">
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-1 pr-3">
                     {filteredContacts.map((contact) => (
                       <div
                         key={contact.id}
