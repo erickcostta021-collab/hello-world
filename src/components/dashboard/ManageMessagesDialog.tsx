@@ -753,6 +753,62 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   };
   const addAdvMsg = () => setAdvMessages((prev) => [...prev, emptyAdvancedMsg()]);
   const removeAdvMsg = (index: number) => setAdvMessages((prev) => prev.filter((_, i) => i !== index));
+
+  // ─── Advanced CSV Upload Handler ───
+  const advCsvInputRef = useRef<HTMLInputElement>(null);
+  const handleAdvCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      if (!content) return;
+      const lines = content.split(/\r?\n/).filter((l) => l.trim());
+      if (lines.length === 0) { toast.error("CSV vazio."); return; }
+
+      // Detect header
+      const firstLine = lines[0].toLowerCase();
+      const hasHeader = firstLine.includes("phone") || firstLine.includes("telefone") || firstLine.includes("message") || firstLine.includes("mensagem") || firstLine.includes("numero");
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+
+      // Detect separator
+      const sep = dataLines[0]?.includes(";") ? ";" : ",";
+
+      // Parse header columns
+      let phoneCol = 0;
+      let msgCol = 1;
+      let typeCol = -1;
+      if (hasHeader) {
+        const headers = lines[0].split(sep).map((h) => h.trim().toLowerCase().replace(/"/g, ""));
+        phoneCol = headers.findIndex((h) => ["phone", "telefone", "numero", "número", "number"].includes(h));
+        msgCol = headers.findIndex((h) => ["message", "mensagem", "texto", "text", "msg"].includes(h));
+        typeCol = headers.findIndex((h) => ["type", "tipo"].includes(h));
+        if (phoneCol === -1) phoneCol = 0;
+        if (msgCol === -1) msgCol = 1;
+      }
+
+      const newMessages: AdvancedMessage[] = dataLines
+        .map((line) => {
+          const cols = line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ""));
+          const phone = cols[phoneCol] || "";
+          const text = cols[msgCol] || "";
+          const type = typeCol >= 0 ? (cols[typeCol] || "text") : "text";
+          if (!phone) return null;
+          return { number: phone.replace(/\D/g, ""), type, text };
+        })
+        .filter(Boolean) as AdvancedMessage[];
+
+      if (newMessages.length === 0) {
+        toast.error("Nenhuma mensagem válida encontrada no CSV.");
+        return;
+      }
+
+      setAdvMessages(newMessages);
+      toast.success(`${newMessages.length} mensagem(ns) importadas do CSV!`);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
   const updateAdvChoice = (msgIdx: number, choiceIdx: number, value: string) => {
     setAdvMessages((prev) =>
       prev.map((m, i) => {
@@ -2241,10 +2297,19 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-semibold">Mensagens ({advMessages.length})</Label>
-                <Button variant="outline" size="sm" onClick={addAdvMsg} className="border-border">
-                  <Plus className="h-4 w-4 mr-1" /> Adicionar Mensagem
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <input ref={advCsvInputRef} type="file" accept=".csv,.txt" onChange={handleAdvCsvUpload} className="hidden" />
+                  <Button variant="outline" size="sm" onClick={() => advCsvInputRef.current?.click()} className="border-border">
+                    <Upload className="h-4 w-4 mr-1" /> Importar CSV
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={addAdvMsg} className="border-border">
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar
+                  </Button>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                💡 CSV com colunas: <strong>telefone</strong>, <strong>mensagem</strong> (e opcionalmente <strong>tipo</strong>)
+              </p>
 
               {advMessages.map((msg, idx) => {
                 const showMsgMedia = ["image", "video", "audio", "ptt", "sticker", "document"].includes(msg.type);
