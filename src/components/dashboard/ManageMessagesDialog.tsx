@@ -2270,7 +2270,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               </div>
             </div>
             <p className="text-[10px] text-center text-muted-foreground/50 mt-1">
-              🛡️ Disparo em massa inteligente com delays aleatórios para evitar bloqueios do WhatsApp
+              🛡️ Envio inteligente com intervalos variáveis para proteger seu número contra bloqueios
             </p>
           </TabsContent>
 
