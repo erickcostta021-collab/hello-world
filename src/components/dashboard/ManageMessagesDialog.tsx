@@ -2391,10 +2391,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 const selectedFolder = folders.find((f) => (f.folder_id || f.id) === campaignFolderId.trim());
                 const isDone = selectedFolder?.status === "done" || selectedFolder?.status === "completed";
                 const isPaused = selectedFolder?.status === "paused";
+                const isActive = selectedFolder?.status === "active" || selectedFolder?.status === "running" || selectedFolder?.status === "sending";
                 return (
                   <div className="grid grid-cols-3 gap-2">
                     <Button variant="outline" onClick={() => handleCampaignAction("continue")}
-                      disabled={executingAction || !campaignFolderId.trim() || isDone}
+                      disabled={executingAction || !campaignFolderId.trim() || isDone || isActive}
                       className="border-border text-xs bg-green-600 hover:bg-green-700 text-white rounded-none" size="sm">
                       {executingAction && campaignAction === "continue" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-1" />} Continuar
                     </Button>
