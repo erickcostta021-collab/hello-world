@@ -149,15 +149,25 @@ Deno.serve(async (req) => {
     console.log("[list-ghl-contacts] Sample raw contacts:", JSON.stringify((data.contacts || []).slice(0, 3)));
     console.log("[list-ghl-contacts] Total raw:", data.contacts?.length, "meta:", JSON.stringify(data.meta));
 
-    const contacts = (data.contacts || []).map((c: any) => ({
-      id: c.id,
-      phone: c.phone || "",
-      firstName: c.firstName || "",
-      lastName: c.lastName || "",
-      name: c.contactName || c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
-      email: c.email || "",
-      type: c.type || "",
-    })).filter((c: any) => {
+    const contacts = (data.contacts || []).map((c: any) => {
+      let phone = c.phone || "";
+      const email = c.email || "";
+      
+      // If phone is empty but email looks like a phone number, use email as phone
+      if (!phone && email && /^\+?\d[\d\s\-()]{6,}$/.test(email.trim())) {
+        phone = email.trim();
+      }
+      
+      return {
+        id: c.id,
+        phone,
+        firstName: c.firstName || "",
+        lastName: c.lastName || "",
+        name: c.contactName || c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
+        email: /^\+?\d[\d\s\-()]{6,}$/.test(email.trim()) ? "" : email,
+        type: c.type || "",
+      };
+    }).filter((c: any) => {
       // Must have a phone
       if (!c.phone) return false;
       // Exclude group-like phone numbers (WhatsApp group JIDs)
