@@ -496,8 +496,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       const url = new URL(`${getBaseUrl()}/sender/listfolders`);
       if (folderStatusFilter) url.searchParams.set("status", folderStatusFilter);
       const res = await fetch(url.toString(), { method: "GET", headers: getHeaders() });
-      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
       const data = await res.json();
+      if (!res.ok || data?.code === 401) throw new Error(data?.message || `Erro ${res.status}: Token inválido. Verifique as credenciais da instância.`);
       const list = Array.isArray(data) ? data : (data.folders || data.data || []);
       setFolders(list);
       if (list.length === 0) toast.info("Nenhuma campanha encontrada");
