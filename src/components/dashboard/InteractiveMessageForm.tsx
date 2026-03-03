@@ -1,10 +1,80 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "sonner";
+
+const UPLOAD_URL = "https://jtabmlyjgtrgimnhvixb.supabase.co/functions/v1/upload-command-image";
+
+// ─── Reusable Image Upload Field ───
+function ImageUploadField({
+  value, onChange, placeholder = "URL da imagem", className = "",
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (file: File) => {
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Arquivo muito grande (máx 5MB)");
+      return;
+    }
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(UPLOAD_URL, { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.url) {
+        onChange(data.url);
+        toast.success("Imagem enviada!");
+      } else {
+        toast.error("Erro no upload: " + (data.error || "desconhecido"));
+      }
+    } catch (e: any) {
+      toast.error("Erro no upload: " + e.message);
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="flex gap-1.5">
+      <Input
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`bg-secondary border-border flex-1 ${className}`}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="shrink-0 border-border h-9 w-9"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+        title="Upload imagem"
+      >
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+      </Button>
+    </div>
+  );
+}
 
 // ─── Types ───
 export interface InteractiveButton {
@@ -109,11 +179,10 @@ function BotoesForm({
         </div>
         <div className="space-y-1">
           <Label className={compact ? "text-xs" : "text-sm"}>URL da Imagem</Label>
-          <Input
+          <ImageUploadField
             placeholder="https://... (opcional)"
             value={data.imageButton || ""}
-            onChange={(e) => onChange({ imageButton: e.target.value })}
-            className="bg-secondary border-border"
+            onChange={(url) => onChange({ imageButton: url })}
           />
         </div>
       </div>
@@ -230,7 +299,12 @@ function CarrosselForm({
 
             <div className="space-y-1">
               <Label className="text-xs">Imagem *</Label>
-              <Input placeholder="URL da imagem" value={card.image} onChange={(e) => updateCard(ci, { image: e.target.value })} className="bg-secondary border-border text-sm" />
+              <ImageUploadField
+                placeholder="URL da imagem"
+                value={card.image}
+                onChange={(url) => updateCard(ci, { image: url })}
+                className="text-sm"
+              />
             </div>
 
             <div className="space-y-1">
