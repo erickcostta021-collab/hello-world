@@ -26,7 +26,6 @@ async function getValidToken(supabase: any, sub: any): Promise<string> {
 
   if (!sub.ghl_refresh_token) return sub.ghl_access_token;
 
-  // Need to refresh
   const { data: creds } = await supabase.rpc("get_admin_oauth_credentials");
   const clientId = creds?.[0]?.ghl_client_id;
   const clientSecret = creds?.[0]?.ghl_client_secret;
@@ -73,18 +72,48 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Auth check
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const { subaccountId, limit = 100, startAfterId, query, embedToken } = await req.json();
 
-    const { subaccountId, limit = 100, startAfterId, query } = await req.json();
+    // ─── Auth: JWT or embedToken ───
+    let authorizedUserId: string | null = null;
+
+    if (embedToken) {
+      // Embed auth: validate via embedToken
+      const { data: embedSub, error: embedErr } = await supabase
+        .from("ghl_subaccounts")
+        .select("id, user_id")
+        .eq("embed_token", embedToken)
+        .maybeSingle();
+
+      if (embedErr || !embedSub) {
+        return new Response(JSON.stringify({ error: "Token embed inválido" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify the subaccountId matches the embed token
+      if (subaccountId && embedSub.id !== subaccountId) {
+        return new Response(JSON.stringify({ error: "Subconta não corresponde ao token" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      authorizedUserId = embedSub.user_id;
+    } else {
+      // Standard JWT auth
+      const authHeader = req.headers.get("authorization") || "";
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      authorizedUserId = user.id;
+    }
 
     if (!subaccountId) {
       return new Response(JSON.stringify({ error: "subaccountId required" }), {
@@ -107,10 +136,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Verify ownership
-    if (sub.user_id !== user.id) {
-      // Check if admin
-      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    // Verify ownership (skip for embed since already validated above)
+    if (!embedToken && sub.user_id !== authorizedUserId) {
+      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: authorizedUserId, _role: "admin" });
       if (!isAdmin) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
@@ -145,8 +173,6 @@ Deno.serve(async (req) => {
 
     const data = await res.json();
 
-    // Log first 3 raw contacts for debugging
-    console.log("[list-ghl-contacts] Sample raw contacts:", JSON.stringify((data.contacts || []).slice(0, 3)));
     console.log("[list-ghl-contacts] Total raw:", data.contacts?.length, "meta:", JSON.stringify(data.meta));
 
     const contacts = (data.contacts || []).map((c: any) => {
@@ -156,12 +182,10 @@ Deno.serve(async (req) => {
                       email.includes("@g.us") || email.includes("@broadcast") ||
                       (c.type && c.type.toLowerCase() === "group");
 
-      // If phone is empty but email looks like a phone number, use email as phone
       if (!phone && email && /^\+?\d[\d\s\-()]{6,}$/.test(email.trim())) {
         phone = email.trim();
       }
 
-      // For groups, use the JID from email if available
       const jid = isGroup ? (email.includes("@g.us") || email.includes("@broadcast") ? email.trim() : phone) : "";
 
       return {
@@ -176,7 +200,6 @@ Deno.serve(async (req) => {
         jid,
       };
     }).filter((c: any) => {
-      // Must have a phone or jid
       if (!c.phone && !c.jid) return false;
       return true;
     });
@@ -192,7 +215,7 @@ Deno.serve(async (req) => {
   } catch (err) {
     console.error("[list-ghl-contacts] Error:", err);
     return new Response(JSON.stringify({ error: err.message, contacts: [] }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

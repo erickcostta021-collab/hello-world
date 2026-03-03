@@ -2768,6 +2768,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       onOpenChange={setGhlImportOpen}
       subaccountId={instance.subaccount_id}
       onImport={handleGhlImportResult}
+      embedToken={embedToken}
     />
   )}
   </>
