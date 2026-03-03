@@ -804,7 +804,7 @@ export function EmbedInstanceCard({
             instance={{
               id: instance.id,
               user_id: "",
-              subaccount_id: null,
+              subaccount_id: subaccountId,
               instance_name: instance.instance_name,
               uazapi_instance_token: instance.uazapi_instance_token,
               instance_status: currentStatus,
