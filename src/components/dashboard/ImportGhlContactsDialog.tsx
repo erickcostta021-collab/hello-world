@@ -193,7 +193,7 @@ export function ImportGhlContactsDialog({
             {!fetched && !loading && (
               <Button
                 onClick={handleFetchAll}
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border-0"
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white border-0"
               >
                 <Search className="h-4 w-4 mr-2" />
                 {tagFilter.trim() ? "Buscar com filtro" : "Buscar todos"}
