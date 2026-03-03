@@ -1916,7 +1916,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
             {(messageType === "text" || showMediaField || showChoiceFields) && (
               <div className="space-y-2">
-                <Label>Texto da Mensagem</Label>
+                <Label>{showMediaField ? "Legenda" : "Texto da Mensagem"}</Label>
                 {renderDynamicFields("simple-text")}
                 <Textarea
                   id="simple-text"
