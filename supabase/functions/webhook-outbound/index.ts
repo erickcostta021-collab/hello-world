@@ -2377,10 +2377,10 @@ serve(async (req: Request) => {
       const normalizedText = normalizeTextForSig(messageText);
       const normalizedAttachments = (attachments || []).map(String).filter(Boolean).sort();
 
-      // Include messageId so two distinct messages with the same text
-      // in the same minute are NOT treated as duplicates.
+      // DO NOT include messageId in the signature!
+      // GHL Conversation Provider creates new messageIds for the same content in rapid succession,
+      // causing infinite loops. By excluding messageId, we catch these duplicates.
       const signaturePayload = {
-        messageId: String(messageId ?? ""),
         locationId: String(body.locationId ?? ""),
         contactId: String(body.contactId ?? ""),
         conversationId: String(body.conversationId ?? ""),
