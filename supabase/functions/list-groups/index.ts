@@ -464,7 +464,7 @@ serve(async (req) => {
     }
 
     // ======== LIST ALL GROUPS ========
-    const groupsUrl = `${baseUrl}/group/list?noparticipants=true&force=true&refresh=true`;
+    const groupsUrl = `${baseUrl}/group/list?force=true&refresh=true`;
     console.log(`Fetching groups from: ${groupsUrl}`);
 
     const response = await fetch(groupsUrl, {

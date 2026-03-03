@@ -212,12 +212,10 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
                       {group.name}
                     </h4>
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      {group.memberCount != null && group.memberCount > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Users className="h-3 w-3" />
-                          {group.memberCount}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="h-3 w-3" />
+                        {group.memberCount != null && group.memberCount > 0 ? group.memberCount : "—"}
+                      </div>
                       {group.isAdmin && (
                         <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-400 border-amber-500/30">
                           <Shield className="h-2.5 w-2.5 mr-0.5" />
