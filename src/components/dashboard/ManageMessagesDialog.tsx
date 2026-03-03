@@ -1908,7 +1908,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                     <Label className="flex items-center gap-2 text-sm font-semibold">
                       <Sparkles className="h-4 w-4 text-primary" /> Nome da Campanha
                     </Label>
-                    <Input placeholder="Ex: Promoção Janeiro 2026" value={folder} onChange={(e) => setFolder(e.target.value)} className="bg-secondary border-border" />
+                    <Input placeholder="Ex: Campanha de vendas" value={folder} onChange={(e) => setFolder(e.target.value)} className="bg-secondary border-border" />
                   </CardContent>
                 </Card>
 
