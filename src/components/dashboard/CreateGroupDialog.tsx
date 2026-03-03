@@ -214,7 +214,7 @@ export function CreateGroupDialog({ open, onOpenChange, instance, onCreated }: C
           placeholder={"5511999999999\n5521988888888\n5527977777777"}
           value={participantsText}
           onChange={(e) => setParticipantsText(e.target.value)}
-          rows={4}
+          rows={8}
         />
         <p className="text-xs text-muted-foreground">
           Adicione números separados por vírgula ou quebra de linha (com DDI + DDD)
