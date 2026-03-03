@@ -800,6 +800,7 @@ export function EmbedInstanceCard({
           <ManageMessagesDialog
             open={messagesDialogOpen}
             onOpenChange={setMessagesDialogOpen}
+            embedToken={embedToken}
             instance={{
               id: instance.id,
               user_id: "",
