@@ -340,14 +340,6 @@ function WebhookForm({
           className="bg-secondary border-border"
         />
       </div>
-      <div className="flex items-center justify-between">
-        <Label htmlFor="ignore-groups">Ignorar mensagens de grupos</Label>
-        <Switch
-          id="ignore-groups"
-          checked={ignoreGroups}
-          onCheckedChange={onIgnoreGroupsChange}
-        />
-      </div>
       <Collapsible>
         <CollapsibleTrigger className="flex items-center justify-between w-full group">
           <Label className="cursor-pointer">Escutar Eventos</Label>
