@@ -29,6 +29,7 @@ import {
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { InteractiveMessageForm, InteractiveData, buildInteractivePayload, FileUploadField } from "@/components/dashboard/InteractiveMessageForm";
+import { ImportGhlContactsDialog } from "@/components/dashboard/ImportGhlContactsDialog";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -270,7 +271,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   // ─── CSV contacts ───
   const [csvContacts, setCsvContacts] = useState<CsvContact[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
-  const [loadingGhlContacts, setLoadingGhlContacts] = useState(false);
+  const [ghlImportOpen, setGhlImportOpen] = useState(false);
 
   // ─── AI Variations ───
   const [generatingVariations, setGeneratingVariations] = useState(false);
@@ -464,65 +465,21 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     if (csvInputRef.current) csvInputRef.current.value = "";
   };
 
-  // ─── GHL Contacts Import ───
-  const handleImportGhlContacts = async () => {
-    if (!instance.subaccount_id) {
-      toast.error("Instância não vinculada a uma subconta GHL.");
-      return;
-    }
-    setLoadingGhlContacts(true);
-    try {
-      let allContacts: CsvContact[] = [];
-      let startAfterId: string | null = null;
-      let page = 0;
-      const maxPages = 50; // safety limit (5000 contacts max)
-
-      do {
-        const { data, error } = await supabase.functions.invoke("list-ghl-contacts", {
-          body: { subaccountId: instance.subaccount_id, limit: 100, startAfterId },
-        });
-        if (error) throw new Error(error.message || "Erro ao buscar contatos");
-        if (data?.error) throw new Error(data.error);
-
-        const contacts = (data?.contacts || []).map((c: any) => ({
-          phone: c.phone.replace(/\D/g, ""),
-          firstName: c.firstName || undefined,
-          lastName: c.lastName || undefined,
-          fullName: c.name || undefined,
-        })).filter((c: CsvContact) => c.phone && c.phone.length >= 7);
-
-        allContacts = [...allContacts, ...contacts];
-        startAfterId = data?.startAfterId || null;
-        page++;
-      } while (startAfterId && page < maxPages);
-
-      if (allContacts.length === 0) {
-        toast.warning("Nenhum contato com telefone encontrado na subconta GHL.");
-        return;
-      }
-
-      // Deduplicate by phone
-      const seen = new Set<string>();
-      const unique = allContacts.filter((c) => {
-        if (seen.has(c.phone)) return false;
-        seen.add(c.phone);
-        return true;
-      });
-
-      setCsvContacts(unique);
-      setCsvFileName(`GHL — ${unique.length} contato(s)`);
-      const phonesText = unique.map((c) => {
-        const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
-        return name ? `${c.phone}, ${name}` : c.phone;
-      }).join("\n");
-      setNumbers(phonesText);
-      toast.success(`${unique.length} contatos importados do GHL!`);
-    } catch (err: any) {
-      console.error("GHL import error:", err);
-      toast.error(err.message || "Erro ao importar contatos do GHL.");
-    } finally {
-      setLoadingGhlContacts(false);
-    }
+  // ─── GHL Contacts Import (via selection dialog) ───
+  const handleGhlImportResult = (imported: { phone: string; firstName?: string; lastName?: string; fullName?: string }[]) => {
+    const mapped: CsvContact[] = imported.map((c) => ({
+      phone: c.phone,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      fullName: c.fullName,
+    }));
+    setCsvContacts(mapped);
+    setCsvFileName(`GHL — ${mapped.length} contato(s)`);
+    const phonesText = mapped.map((c) => {
+      const name = [c.firstName, c.lastName].filter(Boolean).join(" ");
+      return name ? `${c.phone}, ${name}` : c.phone;
+    }).join("\n");
+    setNumbers(phonesText);
   };
 
   // ─── Insert dynamic field into textarea ───
@@ -1593,8 +1550,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         <div className="flex items-center gap-1.5">
           <input ref={csvInputRef} type="file" accept=".csv,.txt" onChange={handleCsvUpload} className="hidden" />
           {instance.subaccount_id && (
-            <Button variant="outline" size="sm" onClick={handleImportGhlContacts} disabled={loadingGhlContacts} className="border-border h-7 text-xs">
-              {loadingGhlContacts ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />} Importar GHL
+            <Button variant="outline" size="sm" onClick={() => setGhlImportOpen(true)} className="border-border h-7 text-xs">
+              <Download className="h-3 w-3 mr-1" /> Importar GHL
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="border-border h-7 text-xs">
@@ -2138,8 +2095,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                       <div className="flex items-center gap-1.5">
                         <input ref={csvInputRef} type="file" accept=".csv,.txt" onChange={handleCsvUpload} className="hidden" />
                         {instance.subaccount_id && (
-                          <Button variant="outline" size="sm" onClick={handleImportGhlContacts} disabled={loadingGhlContacts} className="border-border h-7 text-xs">
-                            {loadingGhlContacts ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Download className="h-3 w-3 mr-1" />} Importar GHL
+                          <Button variant="outline" size="sm" onClick={() => setGhlImportOpen(true)} className="border-border h-7 text-xs">
+                            <Download className="h-3 w-3 mr-1" /> Importar GHL
                           </Button>
                         )}
                         <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="border-border h-7 text-xs">
@@ -2740,6 +2697,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       </DialogBody>
     </DialogContent>
   </Dialog>
+  {instance.subaccount_id && (
+    <ImportGhlContactsDialog
+      open={ghlImportOpen}
+      onOpenChange={setGhlImportOpen}
+      subaccountId={instance.subaccount_id}
+      onImport={handleGhlImportResult}
+    />
+  )}
   </>
   );
 }
