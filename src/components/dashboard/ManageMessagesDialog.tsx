@@ -2324,6 +2324,28 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                             {f.failed != null && <span>Falhas: {f.failed}</span>}
                             {f.scheduled != null && <span>Agendadas: {f.scheduled}</span>}
                           </div>
+                          {isExpanded && (
+                            <div className="flex justify-end gap-1 mt-1">
+                              <Button variant="outline" size="sm"
+                                onClick={() => { setCampaignFolderId(fId); handleCampaignAction("continue"); }}
+                                disabled={executingAction || f.status === "done" || f.status === "completed"}
+                                className="h-6 text-[10px] px-2 bg-green-600 hover:bg-green-700 text-white rounded-none border-border">
+                                {executingAction && campaignAction === "continue" && campaignFolderId === fId ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Play className="h-3 w-3 mr-1" />} Continuar
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                onClick={() => { setCampaignFolderId(fId); handleCampaignAction("stop"); }}
+                                disabled={executingAction || f.status === "done" || f.status === "completed" || f.status === "paused"}
+                                className="h-6 text-[10px] px-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-none border-border">
+                                {executingAction && campaignAction === "stop" && campaignFolderId === fId ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Pause className="h-3 w-3 mr-1" />} Pausar
+                              </Button>
+                              <Button variant="outline" size="sm"
+                                onClick={() => { setCampaignFolderId(fId); handleCampaignAction("delete"); }}
+                                disabled={executingAction}
+                                className="h-6 text-[10px] px-2 bg-destructive hover:bg-destructive/90 text-white rounded-none border-border">
+                                {executingAction && campaignAction === "delete" && campaignFolderId === fId ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Trash className="h-3 w-3 mr-1" />} Deletar
+                              </Button>
+                            </div>
+                          )}
                           {isExpanded && campaignMessages.length > 0 && (
                             <div className="mt-2 rounded border border-border overflow-hidden">
                               <Table>
