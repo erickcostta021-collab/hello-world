@@ -1535,7 +1535,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         </div>
       </div>
       <Textarea
-        placeholder={"5511999999999, João Silva\n5521888888888, Maria\n\nOu só números, quebra de linha, ou CSV (phone,nome,sobrenome)"}
+        placeholder={"5531912345678, Carlos Souza\n5548987654321, Ana Lima\n\nAceita números avulsos, quebra de linha ou CSV (phone,nome,sobrenome)"}
       value={numbers}
       onChange={(e) => {
         const val = e.target.value;
@@ -2075,7 +2075,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                       </div>
                     </div>
                     <Textarea
-                      placeholder={"Cole, importe do GHL ou suba um CSV. Formato: telefone ou telefone,nome\n\n5511999999999\n5511888888888, João Silva\n5521777777777, Maria Santos"}
+                      placeholder={"Cole aqui, importe do CRM ou suba um CSV.\nFormato: telefone ou telefone, nome\n\n5531912345678\n5548987654321, Carlos Souza\n5527911223344, Ana Lima"}
                       value={numbers}
                       onChange={(e) => {
                         const val = e.target.value;
