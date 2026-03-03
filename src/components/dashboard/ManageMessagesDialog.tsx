@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
+import { InteractiveMessageForm, InteractiveData, buildInteractivePayload } from "@/components/dashboard/InteractiveMessageForm";
 import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -348,6 +349,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [footerText, setFooterText] = useState("");
   const [buttonText, setButtonText] = useState("");
   const [choices, setChoices] = useState<string[]>([""]);
+  const [interactiveData, setInteractiveData] = useState<InteractiveData>({});
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [contactOrg, setContactOrg] = useState("");
@@ -908,10 +910,15 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       body.name = locationName; body.address = locationAddress;
     }
     if (["list", "button", "poll", "carousel"].includes(messageType)) {
-      if (footerText) body.footerText = footerText;
-      if (buttonText) body.buttonText = buttonText;
-      const fc = choices.filter(Boolean);
-      if (fc.length > 0) body.choices = fc;
+      const interPayload = buildInteractivePayload(messageType, interactiveData);
+      Object.assign(body, interPayload);
+      // Fallbacks from legacy state
+      if (!body.footerText && footerText) body.footerText = footerText;
+      if (!body.buttonText && buttonText) body.buttonText = buttonText;
+      if (!body.choices) {
+        const fc = choices.filter(Boolean);
+        if (fc.length > 0) body.choices = fc;
+      }
     }
     return body;
   };
@@ -1899,7 +1906,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
             <div className="space-y-2">
               <Label>Tipo de Mensagem</Label>
-              <Select value={messageType} onValueChange={setMessageType}>
+              <Select value={messageType} onValueChange={(v) => { setMessageType(v); setInteractiveData({}); }}>
                 <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {MESSAGE_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
@@ -2004,20 +2011,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
             {showChoiceFields && (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2"><Label>Texto do Rodapé</Label><Input value={footerText} onChange={(e) => setFooterText(e.target.value)} className="bg-secondary border-border" placeholder="Rodapé" /></div>
-                  <div className="space-y-2"><Label>Texto do Botão</Label><Input value={buttonText} onChange={(e) => setButtonText(e.target.value)} className="bg-secondary border-border" placeholder="Ver opções" /></div>
-                </div>
-                <Label>Opções</Label>
-                {choices.map((choice, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <Input value={choice} onChange={(e) => handleChoiceChange(i, e.target.value)} placeholder={`Opção ${i + 1}`} className="bg-secondary border-border" />
-                    {choices.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => handleRemoveChoice(i)} className="shrink-0 text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                    )}
-                  </div>
-                ))}
-                <Button variant="outline" size="sm" onClick={handleAddChoice} className="border-border"><Plus className="h-4 w-4 mr-1" /> Adicionar Opção</Button>
+                <InteractiveMessageForm
+                  messageType={messageType}
+                  data={interactiveData}
+                  onChange={(updates) => setInteractiveData((prev) => ({ ...prev, ...updates }))}
+                />
               </div>
             )}
 
@@ -2126,39 +2124,22 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                       )}
                       {showMsgChoices && (
                         <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs">Rodapé</Label>
-                              <Input placeholder="Rodapé" value={msg.footerText || ""} onChange={(e) => updateAdvMsg(idx, { footerText: e.target.value })} className="bg-secondary border-border" />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-xs">{msg.type === "list" ? "Botão da Lista" : "Texto do Botão"}</Label>
-                              <Input
-                                placeholder={msg.type === "list" ? "Ver Categorias" : "Ver opções"}
-                                value={msg.type === "list" ? (msg.listButton || "") : (msg.buttonText || "")}
-                                onChange={(e) => updateAdvMsg(idx, msg.type === "list" ? { listButton: e.target.value } : { buttonText: e.target.value })}
-                                className="bg-secondary border-border"
-                              />
-                            </div>
-                          </div>
-                          {(msg.type === "button" || msg.type === "carousel") && (
-                            <div className="space-y-1">
-                              <Label className="text-xs">URL da Imagem do Botão</Label>
-                              <Input placeholder="https://..." value={msg.imageButton || ""} onChange={(e) => updateAdvMsg(idx, { imageButton: e.target.value })} className="bg-secondary border-border" />
-                            </div>
-                          )}
-                          <Label className="text-xs">Opções</Label>
-                          {(msg.choices || [""]).map((c, ci) => (
-                            <div key={ci} className="flex items-center gap-2">
-                              <Input value={c} onChange={(e) => updateAdvChoice(idx, ci, e.target.value)} placeholder={`Opção ${ci + 1}`} className="bg-secondary border-border text-sm" />
-                              {(msg.choices || []).length > 1 && (
-                                <Button variant="ghost" size="icon" onClick={() => removeAdvChoice(idx, ci)} className="h-7 w-7 shrink-0 text-destructive"><Trash2 className="h-3 w-3" /></Button>
-                              )}
-                            </div>
-                          ))}
-                          <Button variant="outline" size="sm" onClick={() => addAdvChoice(idx)} className="border-border text-xs h-7">
-                            <Plus className="h-3 w-3 mr-1" /> Opção
-                          </Button>
+                          <InteractiveMessageForm
+                            messageType={msg.type}
+                            data={{
+                              footerText: msg.footerText,
+                              buttonText: msg.buttonText,
+                              listButton: msg.listButton,
+                              imageButton: msg.imageButton,
+                              choices: msg.choices || [""],
+                              interactiveButtons: (msg as any).interactiveButtons,
+                              carouselCards: (msg as any).carouselCards,
+                              listMenuSection: (msg as any).listMenuSection,
+                              listMenuItems: (msg as any).listMenuItems,
+                            }}
+                            onChange={(updates) => updateAdvMsg(idx, updates)}
+                            compact
+                          />
                         </div>
                       )}
                     </CardContent>
