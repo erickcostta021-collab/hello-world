@@ -1867,8 +1867,10 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     </>
   );
 
-  // count numbers for summary
-  const numberCount = numbers.split(/[\n,;]+/).filter(n => n.trim()).length;
+  // count numbers for summary — prefer csvContacts (already parsed) over raw split
+  const numberCount = csvContacts.length > 0
+    ? csvContacts.length
+    : numbers.split(/[\n;]+/).filter(n => n.trim()).length;
 
   return (
     <>
