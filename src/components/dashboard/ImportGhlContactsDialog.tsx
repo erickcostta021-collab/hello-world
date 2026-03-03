@@ -36,11 +36,13 @@ export function ImportGhlContactsDialog({
 }: ImportGhlContactsDialogProps) {
   const [contacts, setContacts] = useState<GhlContact[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [fetched, setFetched] = useState(false);
   const [hideGroups, setHideGroups] = useState(true);
+  const [loadProgress, setLoadProgress] = useState("");
 
   useEffect(() => {
     if (!open) {
@@ -50,55 +52,84 @@ export function ImportGhlContactsDialog({
       setTagFilter("");
       setFetched(false);
       setHideGroups(true);
+      setLoadingMore(false);
+      setLoadProgress("");
     }
   }, [open]);
 
+  const dedup = (list: GhlContact[]) => {
+    const seen = new Set<string>();
+    return list.filter((c) => {
+      const key = (c.phone || c.jid || c.id).replace(/\D/g, "") || c.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
   const fetchContacts = async (query?: string) => {
     setLoading(true);
+    setContacts([]);
+    setFetched(false);
     try {
-      let allContacts: GhlContact[] = [];
       let startAfterId: string | null = null;
       let page = 0;
       const maxPages = 50;
 
-      do {
-        const body: Record<string, unknown> = {
-          subaccountId,
-          limit: 100,
-          startAfterId,
-        };
-        if (query) body.query = query;
+      // First page
+      const body: Record<string, unknown> = { subaccountId, limit: 100 };
+      if (query) body.query = query;
 
-        const { data, error } = await supabase.functions.invoke("list-ghl-contacts", { body });
-        if (error) throw new Error(error.message || "Erro ao buscar contatos");
-        if (data?.error) throw new Error(data.error);
+      const { data, error } = await supabase.functions.invoke("list-ghl-contacts", { body });
+      if (error) throw new Error(error.message || "Erro ao buscar contatos");
+      if (data?.error) throw new Error(data.error);
 
-        const batch = (data?.contacts || []).filter((c: GhlContact) => c.phone);
-        allContacts = [...allContacts, ...batch];
-        startAfterId = data?.startAfterId || null;
-        page++;
-      } while (startAfterId && page < maxPages);
-
-      // Deduplicate by phone
-      const seen = new Set<string>();
-      const unique = allContacts.filter((c) => {
-        const key = c.phone.replace(/\D/g, "");
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-
+      const firstBatch = (data?.contacts || []).filter((c: GhlContact) => c.phone || c.jid);
+      const unique = dedup(firstBatch);
       setContacts(unique);
       setFetched(true);
+      setLoading(false);
 
-      if (unique.length === 0) {
+      startAfterId = data?.startAfterId || null;
+      page = 1;
+
+      if (!startAfterId) {
+        if (unique.length === 0) toast.info("Nenhum contato com telefone encontrado.");
+        return;
+      }
+
+      // Remaining pages in background
+      setLoadingMore(true);
+      let allContacts = [...unique];
+
+      while (startAfterId && page < maxPages) {
+        setLoadProgress(`Carregando página ${page + 1}... (${allContacts.length} contatos)`);
+        const nextBody: Record<string, unknown> = { subaccountId, limit: 100, startAfterId };
+        if (query) nextBody.query = query;
+
+        const { data: nextData, error: nextErr } = await supabase.functions.invoke("list-ghl-contacts", { body: nextBody });
+        if (nextErr || nextData?.error) break;
+
+        const batch = (nextData?.contacts || []).filter((c: GhlContact) => c.phone || c.jid);
+        allContacts = dedup([...allContacts, ...batch]);
+        setContacts(allContacts);
+
+        startAfterId = nextData?.startAfterId || null;
+        page++;
+      }
+
+      setLoadingMore(false);
+      setLoadProgress("");
+
+      if (allContacts.length === 0) {
         toast.info("Nenhum contato com telefone encontrado.");
       }
     } catch (err: any) {
       console.error("GHL contacts error:", err);
       toast.error(err.message || "Erro ao buscar contatos do GHL.");
-    } finally {
       setLoading(false);
+      setLoadingMore(false);
+      setLoadProgress("");
     }
   };
 
@@ -205,6 +236,14 @@ export function ImportGhlContactsDialog({
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <span className="ml-2 text-sm text-muted-foreground">Buscando contatos...</span>
+              </div>
+            )}
+
+            {/* Loading more indicator */}
+            {loadingMore && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border/30">
+                <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                <span className="text-xs text-muted-foreground">{loadProgress || "Carregando mais contatos..."}</span>
               </div>
             )}
 
