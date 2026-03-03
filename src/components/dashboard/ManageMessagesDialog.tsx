@@ -2248,14 +2248,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                                 setLoadingFullscreen(true);
                                 setFullscreenMessages([]);
                                 try {
-                                  const base = getBaseUrl();
-                                  const resp = await fetch(`${base}/sender/listmessages`, {
-                                    method: "POST",
-                                    headers: getHeaders(),
-                                    body: JSON.stringify({ folder_id: fId, page: 1, pageSize: 1000 }),
-                                  });
-                                  if (!resp.ok) throw new Error(`Erro ${resp.status}`);
-                                  const data = await resp.json();
+                                  const data = await proxyFetch("/sender/listmessages", "POST", { folder_id: fId, page: 1, pageSize: 1000 });
                                   const mainList: CampaignMessage[] = normalizeMessages(
                                     Array.isArray(data) ? data : data?.messages || data?.data || data?.items || data?.results || []
                                   );
@@ -2275,12 +2268,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                                     const contResults = await Promise.allSettled(
                                       contFolders.map(async (cf) => {
                                         const cfId = cf.folder_id || cf.id;
-                                        const cfRes = await fetch(`${base}/sender/listmessages`, {
-                                          method: "POST", headers: getHeaders(),
-                                          body: JSON.stringify({ folder_id: cfId, page: 1, pageSize: 1000 }),
-                                        });
-                                        if (!cfRes.ok) return [];
-                                        const cfData = await cfRes.json();
+                                        const cfData = await proxyFetch("/sender/listmessages", "POST", { folder_id: cfId, page: 1, pageSize: 1000 });
                                         return normalizeMessages(Array.isArray(cfData) ? cfData : cfData?.messages || cfData?.data || []);
                                       })
                                     );
