@@ -1916,7 +1916,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         <DialogHeader>
           <DialogTitle className="text-card-foreground flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
-            Disparo Inteligente
+            Disparo em Massa Inteligente
           </DialogTitle>
           <DialogDescription>
             Envio em massa com comportamento humano para evitar bloqueios — <strong>{instance.instance_name}</strong>
@@ -2214,7 +2214,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               </div>
             </div>
             <p className="text-[10px] text-center text-muted-foreground/50 mt-1">
-              🛡️ Disparo inteligente com delays aleatórios para evitar bloqueios do WhatsApp
+              🛡️ Disparo em massa inteligente com delays aleatórios para evitar bloqueios do WhatsApp
             </p>
           </TabsContent>
 
