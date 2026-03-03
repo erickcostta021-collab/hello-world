@@ -44,6 +44,7 @@ interface ManageMessagesDialogProps {
   onOpenChange: (open: boolean) => void;
   instance: Instance;
   allInstances?: Instance[];
+  embedToken?: string;
 }
 
 const MESSAGE_TYPES = [
@@ -246,7 +247,7 @@ function splitMessageByTripleBreak(text: string): string[] {
   return parts.length > 0 ? parts : [text];
 }
 
-export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances }: ManageMessagesDialogProps) {
+export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances, embedToken }: ManageMessagesDialogProps) {
   const { settings } = useSettings();
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState("simple");
@@ -397,6 +398,31 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const getBaseUrlFor = (inst: Instance) => getBaseUrlForInstance(inst, settings?.uazapi_base_url);
   const getHeadersFor = (inst: Instance) => ({ "Content-Type": "application/json", Accept: "application/json", token: inst.uazapi_instance_token });
 
+  // Proxy-aware fetch for embed context
+  const proxyFetch = async (path: string, method: string = "GET", payload?: any): Promise<any> => {
+    if (!embedToken) {
+      // Direct call
+      const url = `${getBaseUrl()}${path}`;
+      const init: RequestInit = { method, headers: getHeaders() };
+      if (payload && ["POST", "PUT", "PATCH"].includes(method)) init.body = JSON.stringify(payload);
+      const res = await fetch(url, init);
+      const data = await res.json();
+      if (!res.ok || data?.code === 401) throw new Error(data?.message || `Erro ${res.status}`);
+      return data;
+    }
+    // Use proxy
+    const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/uazapi-proxy-embed`;
+    const res = await fetch(proxyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ embedToken, instanceId: instance.id, action: "uazapi-passthrough", path, method, payload }),
+    });
+    const json = await res.json();
+    if (!json?.ok) throw new Error(json?.data?.message || json?.error || "Erro na requisição");
+    if (json?.data?.code === 401) throw new Error(json?.data?.message || "Token inválido");
+    return json.data;
+  };
+
   // ─── CSV Upload Handler ───
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -476,11 +502,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     setPendingCampaignAction(null);
     setExecutingAction(true);
     try {
-      const res = await fetch(`${getBaseUrl()}/sender/edit`, {
-        method: "POST", headers: getHeaders(),
-        body: JSON.stringify({ folder_id: campaignFolderId.trim(), action: actionToUse }),
-      });
-      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      await proxyFetch("/sender/edit", "POST", { folder_id: campaignFolderId.trim(), action: actionToUse });
       const labels = { stop: "pausada", continue: "retomada", delete: "deletada" };
       toast.success(`Campanha ${labels[actionToUse]} com sucesso!`);
       setCampaignFolderId("");
@@ -493,11 +515,8 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const handleListFolders = async () => {
     setLoadingFolders(true);
     try {
-      const url = new URL(`${getBaseUrl()}/sender/listfolders`);
-      if (folderStatusFilter) url.searchParams.set("status", folderStatusFilter);
-      const res = await fetch(url.toString(), { method: "GET", headers: getHeaders() });
-      const data = await res.json();
-      if (!res.ok || data?.code === 401) throw new Error(data?.message || `Erro ${res.status}: Token inválido. Verifique as credenciais da instância.`);
+      const path = folderStatusFilter ? `/sender/listfolders?status=${folderStatusFilter}` : "/sender/listfolders";
+      const data = await proxyFetch(path, "GET");
       const list = Array.isArray(data) ? data : (data.folders || data.data || []);
       setFolders(list);
       if (list.length === 0) toast.info("Nenhuma campanha encontrada");
@@ -563,11 +582,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
       if (msgStatusFilter) body.messageStatus = msgStatusFilter;
       body.page = msgPage;
       body.pageSize = msgPageSize;
-      const res = await fetch(`${getBaseUrl()}/sender/listmessages`, {
-        method: "POST", headers: getHeaders(), body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
-      const data = await res.json();
+      const data = await proxyFetch("/sender/listmessages", "POST", body);
       const rawList = Array.isArray(data) ? data : (data.messages || data.data || data.items || data.results || []);
       const list: CampaignMessage[] = normalizeMessages(rawList);
 
@@ -609,14 +624,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             const cfId = cf.folder_id || cf.id;
             const infoStr = String(cf.info || cf.folder_name || cf.name || "");
             const wave = parseInt(infoStr.match(/#(\d+)/)?.[1] || String(idx + 1));
-            const cfRes = await fetch(`${getBaseUrl()}/sender/listmessages`, {
-              method: "POST", headers: getHeaders(),
-              body: JSON.stringify({ folder_id: cfId, page: 1, pageSize: 1000 }),
-            });
-            if (!cfRes.ok) return { wave, msgs: [] as CampaignMessage[] };
-            const cfData = await cfRes.json();
-            const cfRaw = Array.isArray(cfData) ? cfData : (cfData.messages || cfData.data || cfData.items || cfData.results || []);
-            return { wave, msgs: normalizeMessages(cfRaw) };
+            try {
+              const cfData = await proxyFetch("/sender/listmessages", "POST", { folder_id: cfId, page: 1, pageSize: 1000 });
+              const cfRaw = Array.isArray(cfData) ? cfData : (cfData.messages || cfData.data || cfData.items || cfData.results || []);
+              return { wave, msgs: normalizeMessages(cfRaw) };
+            } catch { return { wave, msgs: [] as CampaignMessage[] }; }
           })
         );
         for (const r of contResults) {
@@ -676,11 +688,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const handleClearDone = async () => {
     setClearingDone(true);
     try {
-      const res = await fetch(`${getBaseUrl()}/sender/cleardone`, {
-        method: "POST", headers: getHeaders(),
-        body: JSON.stringify({ hours: parseInt(clearHours) || 168 }),
-      });
-      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      await proxyFetch("/sender/cleardone", "POST", { hours: parseInt(clearHours) || 168 });
       toast.success("Limpeza de mensagens enviadas iniciada!");
       if (folders.length > 0) handleListFolders();
     } catch (err: any) {
@@ -691,13 +699,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const handleClearAll = async () => {
     setClearingAll(true);
     try {
-      const res = await fetch(`${getBaseUrl()}/sender/clearall`, {
-        method: "DELETE", headers: getHeaders(),
-      });
-      if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+      await proxyFetch("/sender/clearall", "DELETE");
       toast.success("Toda a fila de mensagens foi limpa!");
       setFolders([]); setCampaignMessages([]);
-      // Reload folders to confirm clearing
       setTimeout(() => handleListFolders(), 1000);
     } catch (err: any) {
       toast.error(`Erro: ${err.message}`);

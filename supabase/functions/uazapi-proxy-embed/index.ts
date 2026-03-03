@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info" | "get-track-id";
+type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info" | "get-track-id" | "uazapi-passthrough";
 
 function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     const instanceId = String(body?.instanceId || "").trim();
     const action = String(body?.action || "").trim() as Action;
 
-    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users", "get-info", "get-track-id"].includes(action)) {
+    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users", "get-info", "get-track-id", "uazapi-passthrough"].includes(action)) {
       return new Response(JSON.stringify({ error: "Parâmetros inválidos" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -292,10 +292,51 @@ Deno.serve(async (req) => {
 
     const instanceToken = String((inst as any).uazapi_instance_token);
 
-    const commonHeaders = {
+    const commonHeaders: Record<string, string> = {
       "Content-Type": "application/json",
       token: instanceToken,
     };
+
+    // ============ UAZAPI Passthrough Action ============
+    if (action === "uazapi-passthrough") {
+      const path = String(body?.path || "").trim();
+      const method = String(body?.method || "GET").toUpperCase();
+      const payload = body?.payload;
+
+      if (!path) {
+        return new Response(JSON.stringify({ error: "path obrigatório" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const base = normalizeBaseUrl(uazapiBaseUrl);
+      const url = `${base}${path.startsWith("/") ? path : "/" + path}`;
+
+      const fetchInit: RequestInit = {
+        method,
+        headers: commonHeaders,
+      };
+      if (payload && ["POST", "PUT", "PATCH"].includes(method)) {
+        fetchInit.body = JSON.stringify(payload);
+      }
+
+      try {
+        const res = await fetch(url, fetchInit);
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = text; }
+        return new Response(JSON.stringify({ ok: res.ok, status: res.status, data }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     if (action === "status") {
       const result = await tryFetchJson(
