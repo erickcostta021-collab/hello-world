@@ -2901,7 +2901,19 @@ serve(async (req: Request) => {
       
       if (!result.sent) {
         console.error("Failed to send media:", { attachment, status: result.status, body: result.body });
-      } else if (result.uazapiMessageId && messageId) {
+      } else if (result.uazapiMessageId) {
+        // Register UAZAPI dedup to prevent webhook-inbound from re-processing the echo
+        try {
+          await supabase.from("ghl_processed_messages").upsert(
+            { message_id: `uazapi:${instanceToken}:${result.uazapiMessageId}` },
+            { onConflict: "message_id" }
+          );
+          console.log("Registered UAZAPI dedup for outbound media:", `uazapi:${instanceToken}:${result.uazapiMessageId}`);
+        } catch (dedupErr) {
+          console.error("Failed to register UAZAPI dedup:", dedupErr);
+        }
+
+        if (messageId) {
         // Save message mapping for outbound media
         try {
           const { error: mapError } = await supabase.from("message_map").upsert({
@@ -2922,6 +2934,7 @@ serve(async (req: Request) => {
         } catch (mapErr) {
           console.error("Failed to save outbound mapping:", mapErr);
         }
+        }
       }
     }
 
@@ -2934,7 +2947,19 @@ serve(async (req: Request) => {
       
       if (!result.sent) {
         console.error("Failed to send text:", { status: result.status, body: result.body });
-      } else if (result.uazapiMessageId && messageId) {
+      } else if (result.uazapiMessageId) {
+        // Register UAZAPI dedup to prevent webhook-inbound from re-processing the echo
+        try {
+          await supabase.from("ghl_processed_messages").upsert(
+            { message_id: `uazapi:${instanceToken}:${result.uazapiMessageId}` },
+            { onConflict: "message_id" }
+          );
+          console.log("Registered UAZAPI dedup for outbound text:", `uazapi:${instanceToken}:${result.uazapiMessageId}`);
+        } catch (dedupErr) {
+          console.error("Failed to register UAZAPI dedup:", dedupErr);
+        }
+
+        if (messageId) {
         // Save message mapping for outbound text
         try {
           const { error: mapError } = await supabase.from("message_map").upsert({
@@ -2954,6 +2979,7 @@ serve(async (req: Request) => {
           }
         } catch (mapErr) {
           console.error("Failed to save outbound mapping:", mapErr);
+        }
         }
       }
     }
