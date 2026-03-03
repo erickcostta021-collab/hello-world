@@ -809,22 +809,24 @@ export function GroupDetailDialog({
           <div className="flex items-start gap-4">
             {/* Group avatar with hover to change photo */}
             <div
-              className="relative h-16 w-16 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden group/avatar cursor-pointer"
-              onClick={() => photoInputRef.current?.click()}
-              title="Trocar foto do grupo"
+              className={`relative h-16 w-16 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden group/avatar ${isInstanceAdmin ? "cursor-pointer" : "cursor-default"}`}
+              onClick={() => isInstanceAdmin && photoInputRef.current?.click()}
+              title={isInstanceAdmin ? "Trocar foto do grupo" : "Apenas admins podem trocar a foto"}
             >
               {groupProfilePic ? (
                 <img src={groupProfilePic} alt={currentGroupName} className="h-full w-full object-cover" />
               ) : (
                 <Users className="h-8 w-8 text-muted-foreground" />
               )}
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full">
-                {changingPhoto ? (
-                  <Loader2 className="h-5 w-5 text-white animate-spin" />
-                ) : (
-                  <Camera className="h-5 w-5 text-white" />
-                )}
-              </div>
+              {isInstanceAdmin && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-full">
+                  {changingPhoto ? (
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  ) : (
+                    <Camera className="h-5 w-5 text-white" />
+                  )}
+                </div>
+              )}
             </div>
             <input
               ref={photoInputRef}
@@ -900,11 +902,12 @@ export function GroupDetailDialog({
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 shrink-0"
+                      disabled={!isInstanceAdmin}
                       onClick={() => {
                         setNewGroupName(currentGroupName);
                         setEditingName(true);
                       }}
-                      title="Editar nome do grupo"
+                      title={!isInstanceAdmin ? "Apenas admins podem editar o nome" : "Editar nome do grupo"}
                     >
                       <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
@@ -924,7 +927,7 @@ export function GroupDetailDialog({
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={resettingLink}
+                            disabled={resettingLink || !isInstanceAdmin}
                             className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
                           >
                             {resettingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
@@ -986,12 +989,13 @@ export function GroupDetailDialog({
               </div>
             ) : (
               <div
-                className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto rounded-md bg-muted/30 p-3 border border-border/40 w-full"
+                className={`text-sm text-muted-foreground whitespace-pre-wrap break-words max-h-[120px] overflow-y-auto rounded-md bg-muted/30 p-3 border border-border/40 w-full ${isInstanceAdmin ? "cursor-pointer hover:text-foreground" : "opacity-70"} transition-colors`}
                 onClick={() => {
+                  if (!isInstanceAdmin) return;
                   setNewGroupDesc(groupDescription);
                   setEditingDesc(true);
                 }}
-                title="Clique para editar descrição"
+                title={isInstanceAdmin ? "Clique para editar descrição" : "Apenas admins podem editar a descrição"}
               >
                 {groupDescription || "Sem descrição"}
               </div>
