@@ -2477,6 +2477,11 @@ serve(async (req: Request) => {
     }
 
     // Per-instance base URL takes priority over global settings
+    let instance = instances?.[0];
+    if (!instance) {
+      console.error("No instances found for subaccount:", subaccount.id);
+      return;
+    }
     const resolvedBaseUrl = instance.uazapi_base_url || settings?.uazapi_base_url;
 
     if (settingsErr || !resolvedBaseUrl || !instance.uazapi_instance_token) {
