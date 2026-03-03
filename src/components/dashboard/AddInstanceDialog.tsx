@@ -283,7 +283,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
           Adicionar WhatsApp
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-card border-border max-w-md max-h-[85vh]">
+      <DialogContent className="bg-card border-border max-w-md max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-card-foreground">
             Adicionar WhatsApp
@@ -311,7 +311,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
 
         {/* Tabs */}
         {hasUAZAPIConfig ? (
-          <div className="flex border border-border rounded-lg overflow-hidden">
+          <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
             <button
               className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
                 activeTab === "create"
@@ -352,257 +352,259 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
           </Alert>
         )}
 
-        {/* Create Tab Content */}
-        {activeTab === "create" && hasUAZAPIConfig && (
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="instance-name">Nome da Instância</Label>
-              <Input
-                id="instance-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: [Cliente][01]"
-                className="bg-secondary border-border"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <Label htmlFor="system-name">System Name</Label>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs text-xs">
-                      Nome interno usado para identificação no sistema.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <Input
-                id="system-name"
-                value={systemName}
-                onChange={(e) => setSystemName(e.target.value)}
-                placeholder={name || "Nome interno"}
-                className="bg-secondary border-border"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-1">
-                <User className="h-3.5 w-3.5 text-muted-foreground" />
-                <Label>Usuário GHL (Opcional)</Label>
-              </div>
-              <Select
-                value={selectedUserId}
-                onValueChange={setSelectedUserId}
-              >
-                <SelectTrigger className="bg-secondary border-border">
-                  <SelectValue placeholder="Nenhum usuário" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
-                  <SelectItem value="none">Nenhum usuário</SelectItem>
-                  {!subaccount.ghl_access_token ? (
-                    <div className="px-2 py-2 text-xs text-muted-foreground">
-                      App não instalado na subconta
-                    </div>
-                  ) : loadingUsers ? (
-                    <div className="flex items-center justify-center py-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    </div>
-                  ) : ghlUsers.length === 0 ? (
-                    <div className="px-2 py-2 text-xs text-muted-foreground">
-                      Nenhum usuário encontrado
-                    </div>
-                  ) : (
-                    ghlUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name || user.email}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              className="w-full bg-primary hover:bg-primary/90"
-              onClick={handleCreate}
-              disabled={!name.trim() || createInstance.isPending || !canCreateInstance}
-            >
-              {createInstance.isPending && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              <Plus className="h-4 w-4 mr-2" />
-              {canCreateInstance ? "Criar Instância" : "Limite Atingido"}
-            </Button>
-          </div>
-        )}
-
-        {/* Import Tab Content */}
-        {activeTab === "import" && hasUAZAPIConfig && (
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">
-                  Instâncias no Servidor
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setImportSearchOpen(!importSearchOpen);
-                      if (importSearchOpen) setImportSearchTerm("");
-                    }}
-                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                  >
-                    {importSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={loadUazapiInstances}
-                    disabled={loadingInstances}
-                    className="h-8 px-2 text-muted-foreground hover:text-foreground"
-                  >
-                    <RefreshCw
-                      className={`h-4 w-4 mr-1 ${loadingInstances ? "animate-spin" : ""}`}
-                    />
-                    Atualizar
-                  </Button>
-                </div>
-              </div>
-              {importSearchOpen && (
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {/* Create Tab Content */}
+          {activeTab === "create" && hasUAZAPIConfig && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="instance-name">Nome da Instância</Label>
                 <Input
-                  value={importSearchTerm}
-                  onChange={(e) => setImportSearchTerm(e.target.value)}
-                  placeholder="Buscar instância..."
-                  className="bg-secondary border-border h-8 text-sm"
-                  autoFocus
+                  id="instance-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex: [Cliente][01]"
+                  className="bg-secondary border-border"
                 />
-              )}
-            </div>
+              </div>
 
-            <ScrollArea className="h-[280px] pr-2">
-              {loadingInstances ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  <Label htmlFor="system-name">System Name</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs text-xs">
+                        Nome interno usado para identificação no sistema.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
-              ) : uazapiInstances.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  Nenhuma instância encontrada no servidor
+                <Input
+                  id="system-name"
+                  value={systemName}
+                  onChange={(e) => setSystemName(e.target.value)}
+                  placeholder={name || "Nome interno"}
+                  className="bg-secondary border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-1">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label>Usuário GHL (Opcional)</Label>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {/* Available instances (not yet imported or unlinked) */}
-                  {availableInstances.map((instance) => {
-                    const isUnlinked = unlinkedTokenMap.has(instance.token);
-                    return (
+                <Select
+                  value={selectedUserId}
+                  onValueChange={setSelectedUserId}
+                >
+                  <SelectTrigger className="bg-secondary border-border">
+                    <SelectValue placeholder="Nenhum usuário" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    <SelectItem value="none">Nenhum usuário</SelectItem>
+                    {!subaccount.ghl_access_token ? (
+                      <div className="px-2 py-2 text-xs text-muted-foreground">
+                        App não instalado na subconta
+                      </div>
+                    ) : loadingUsers ? (
+                      <div className="flex items-center justify-center py-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      </div>
+                    ) : ghlUsers.length === 0 ? (
+                      <div className="px-2 py-2 text-xs text-muted-foreground">
+                        Nenhum usuário encontrado
+                      </div>
+                    ) : (
+                      ghlUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name || user.email}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                className="w-full bg-primary hover:bg-primary/90"
+                onClick={handleCreate}
+                disabled={!name.trim() || createInstance.isPending || !canCreateInstance}
+              >
+                {createInstance.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                <Plus className="h-4 w-4 mr-2" />
+                {canCreateInstance ? "Criar Instância" : "Limite Atingido"}
+              </Button>
+            </div>
+          )}
+
+          {/* Import Tab Content */}
+          {activeTab === "import" && hasUAZAPIConfig && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">
+                    Instâncias no Servidor
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setImportSearchOpen(!importSearchOpen);
+                        if (importSearchOpen) setImportSearchTerm("");
+                      }}
+                      className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                    >
+                      {importSearchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={loadUazapiInstances}
+                      disabled={loadingInstances}
+                      className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 mr-1 ${loadingInstances ? "animate-spin" : ""}`}
+                      />
+                      Atualizar
+                    </Button>
+                  </div>
+                </div>
+                {importSearchOpen && (
+                  <Input
+                    value={importSearchTerm}
+                    onChange={(e) => setImportSearchTerm(e.target.value)}
+                    placeholder="Buscar instância..."
+                    className="bg-secondary border-border h-8 text-sm"
+                    autoFocus
+                  />
+                )}
+              </div>
+
+              <ScrollArea className="h-[280px] pr-2">
+                {loadingInstances ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : uazapiInstances.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    Nenhuma instância encontrada no servidor
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Available instances (not yet imported or unlinked) */}
+                    {availableInstances.map((instance) => {
+                      const isUnlinked = unlinkedTokenMap.has(instance.token);
+                      return (
+                        <div
+                          key={instance.token}
+                          className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                            selectedInstances.has(instance.token)
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-muted-foreground bg-secondary/50"
+                          }`}
+                          onClick={() => toggleInstanceSelection(instance.token)}
+                        >
+                          <Checkbox
+                            checked={selectedInstances.has(instance.token)}
+                            onCheckedChange={() =>
+                              toggleInstanceSelection(instance.token)
+                            }
+                            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground truncate">
+                                {instance.name}
+                              </p>
+                              {isUnlinked && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                                  desvinculada
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground font-mono truncate">
+                              {instance.token}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Already linked instances with unlink button */}
+                    {alreadyLinkedInstances.map((instance) => (
                       <div
                         key={instance.token}
-                        className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                          selectedInstances.has(instance.token)
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-muted-foreground bg-secondary/50"
-                        }`}
-                        onClick={() => toggleInstanceSelection(instance.token)}
+                        className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/30 opacity-70"
                       >
-                        <Checkbox
-                          checked={selectedInstances.has(instance.token)}
-                          onCheckedChange={() =>
-                            toggleInstanceSelection(instance.token)
-                          }
-                          className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                        />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-foreground truncate">
-                              {instance.name}
-                            </p>
-                            {isUnlinked && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
-                                desvinculada
-                              </span>
-                            )}
-                          </div>
+                          <p className="font-medium text-foreground truncate">
+                            {instance.name}
+                          </p>
                           <p className="text-xs text-muted-foreground font-mono truncate">
                             {instance.token}
                           </p>
                         </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 bg-orange-500/15 hover:bg-orange-500/25 text-orange-500 hover:text-orange-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnlinkClick(instance);
+                              }}
+                            >
+                              <Unlink className="h-3.5 w-3.5" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Desvincular instância</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
 
-                  {/* Already linked instances with unlink button */}
-                  {alreadyLinkedInstances.map((instance) => (
-                    <div
-                      key={instance.token}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-border bg-secondary/30 opacity-70"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground truncate">
-                          {instance.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground font-mono truncate">
-                          {instance.token}
-                        </p>
-                      </div>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 shrink-0 bg-orange-500/15 hover:bg-orange-500/25 text-orange-500 hover:text-orange-600"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleUnlinkClick(instance);
-                            }}
-                          >
-                            <Unlink className="h-3.5 w-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Desvincular instância</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
+              <Button
+                className="w-full bg-primary/80 hover:bg-primary"
+                onClick={handleImport}
+                disabled={selectedInstances.size === 0 || importInstance.isPending || !canCreateInstance}
+              >
+                {importInstance.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
+                <Plus className="h-4 w-4 mr-2" />
+                {canCreateInstance 
+                  ? `Vincular Instâncias${selectedInstances.size > 0 ? ` (${selectedInstances.size})` : ""}`
+                  : "Limite Atingido"
+                }
+              </Button>
+            </div>
+          )}
 
-            <Button
-              className="w-full bg-primary/80 hover:bg-primary"
-              onClick={handleImport}
-              disabled={selectedInstances.size === 0 || importInstance.isPending || !canCreateInstance}
-            >
-              {importInstance.isPending && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              <Plus className="h-4 w-4 mr-2" />
-              {canCreateInstance 
-                ? `Vincular Instâncias${selectedInstances.size > 0 ? ` (${selectedInstances.size})` : ""}`
-                : "Limite Atingido"
-              }
-            </Button>
-          </div>
-        )}
-
-        {/* Manual Tab Content */}
-        {activeTab === "manual" && (
-          <div className="space-y-4 py-2">
-            <h3 className="text-sm font-semibold text-foreground">Conexão por instância</h3>
-            <ManualConnectTab
-              subaccountId={subaccount.id}
-              canCreateInstance={canCreateInstance}
-              onSuccess={() => {
-                setOpen(false);
-              }}
-            />
-          </div>
-        )}
+          {/* Manual Tab Content */}
+          {activeTab === "manual" && (
+            <div className="space-y-4 py-2">
+              <h3 className="text-sm font-semibold text-foreground">Conexão por instância</h3>
+              <ManualConnectTab
+                subaccountId={subaccount.id}
+                canCreateInstance={canCreateInstance}
+                onSuccess={() => {
+                  setOpen(false);
+                }}
+              />
+            </div>
+          )}
+        </div>
 
       </DialogContent>
 
