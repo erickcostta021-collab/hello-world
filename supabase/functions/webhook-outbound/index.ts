@@ -2433,37 +2433,56 @@ serve(async (req: Request) => {
     }
 
     // Find subaccount - prefer the one with valid OAuth token and most recent install
-    const { data: subaccounts, error: subError } = await supabase
+    // Fetch ALL subaccounts with tokens (not just 1) so we can fallback if the first has no instances
+    const { data: allSubaccounts, error: subError } = await supabase
       .from("ghl_subaccounts")
       .select("id, user_id, location_id, ghl_access_token, ghl_refresh_token, ghl_token_expires_at")
       .eq("location_id", locationId)
       .not("ghl_access_token", "is", null)
-      .order("oauth_installed_at", { ascending: false, nullsFirst: false })
-      .limit(1);
-    
-    const subaccount = subaccounts?.[0] || null;
+      .order("oauth_installed_at", { ascending: false, nullsFirst: false });
 
-    if (subError || !subaccount) {
+    if (subError || !allSubaccounts?.length) {
       console.error("Subaccount lookup failed:", { locationId, subError });
       return; // Already responded
     }
 
-    // Parallelize instances + settings queries (both depend on subaccount but are independent)
-    const [instancesResult, settingsResult] = await Promise.all([
-      supabase
+    // Try each subaccount until we find one with connected instances
+    let subaccount: any = null;
+    let instances: any[] | null = null;
+    let settings: any = null;
+    let settingsErr: any = null;
+
+    for (const candidate of allSubaccounts) {
+      const { data: candidateInstances } = await supabase
         .from("instances")
         .select("id, instance_name, uazapi_instance_token, uazapi_base_url, phone")
-        .eq("subaccount_id", subaccount.id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("user_settings")
-        .select("uazapi_base_url, uazapi_admin_token, ghl_client_id, ghl_client_secret")
-        .eq("user_id", subaccount.user_id)
-        .single(),
-    ]);
+        .eq("subaccount_id", candidate.id)
+        .eq("instance_status", "connected")
+        .order("created_at", { ascending: true });
 
-    const { data: instances, error: instErr } = instancesResult;
-    const { data: settings, error: settingsErr } = settingsResult;
+      if (candidateInstances?.length) {
+        subaccount = candidate;
+        instances = candidateInstances;
+        console.log("Found subaccount with instances:", { subaccountId: candidate.id, instanceCount: candidateInstances.length });
+        break;
+      }
+      console.log("Skipping subaccount without instances:", candidate.id);
+    }
+
+    if (!subaccount || !instances?.length) {
+      console.error("No subaccount with connected instances found for location:", locationId);
+      return;
+    }
+
+    // Now fetch settings for the chosen subaccount's user
+    const settingsResult = await supabase
+      .from("user_settings")
+      .select("uazapi_base_url, uazapi_admin_token, ghl_client_id, ghl_client_secret")
+      .eq("user_id", subaccount.user_id)
+      .single();
+
+    settings = settingsResult.data;
+    settingsErr = settingsResult.error;
 
     // Fallback to admin OAuth credentials if user doesn't have their own
     if (settings && (!settings.ghl_client_id || !settings.ghl_client_secret)) {
@@ -2477,11 +2496,7 @@ serve(async (req: Request) => {
     }
 
     // Per-instance base URL takes priority over global settings
-    let instance = instances?.[0];
-    if (!instance) {
-      console.error("No instances found for subaccount:", subaccount.id);
-      return;
-    }
+    let instance = instances[0];
     const resolvedBaseUrl = instance.uazapi_base_url || settings?.uazapi_base_url;
 
     if (settingsErr || !resolvedBaseUrl || !instance.uazapi_instance_token) {
