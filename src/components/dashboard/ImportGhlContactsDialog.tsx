@@ -29,10 +29,11 @@ interface ImportGhlContactsDialogProps {
   onOpenChange: (open: boolean) => void;
   subaccountId: string;
   onImport: (contacts: { phone: string; firstName?: string; lastName?: string; fullName?: string }[]) => void;
+  embedToken?: string;
 }
 
 export function ImportGhlContactsDialog({
-  open, onOpenChange, subaccountId, onImport,
+  open, onOpenChange, subaccountId, onImport, embedToken,
 }: ImportGhlContactsDialogProps) {
   const [contacts, setContacts] = useState<GhlContact[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,6 +80,7 @@ export function ImportGhlContactsDialog({
       // First page
       const body: Record<string, unknown> = { subaccountId, limit: 100 };
       if (query) body.query = query;
+      if (embedToken) body.embedToken = embedToken;
 
       const { data, error } = await supabase.functions.invoke("list-ghl-contacts", { body });
       if (error) throw new Error(error.message || "Erro ao buscar contatos");
@@ -107,6 +109,7 @@ export function ImportGhlContactsDialog({
         setLoadProgress(`Carregando página ${page + 1}... (${allContacts.length} contatos)`);
         const nextBody: Record<string, unknown> = { subaccountId, limit: 100, startAfterId };
         if (query) nextBody.query = query;
+        if (embedToken) nextBody.embedToken = embedToken;
 
         const { data: nextData, error: nextErr } = await supabase.functions.invoke("list-ghl-contacts", { body: nextBody });
         if (nextErr || nextData?.error) break;
