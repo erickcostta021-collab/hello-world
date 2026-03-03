@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Search, Users, Tag, Phone } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Search, Users, Tag, Phone, UsersRound } from "lucide-react";
 
 interface GhlContact {
   id: string;
@@ -19,6 +20,8 @@ interface GhlContact {
   lastName: string;
   name: string;
   email: string;
+  isGroup?: boolean;
+  jid?: string;
 }
 
 interface ImportGhlContactsDialogProps {
@@ -37,6 +40,7 @@ export function ImportGhlContactsDialog({
   const [searchQuery, setSearchQuery] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [fetched, setFetched] = useState(false);
+  const [hideGroups, setHideGroups] = useState(true);
 
   useEffect(() => {
     if (!open) {
@@ -45,6 +49,7 @@ export function ImportGhlContactsDialog({
       setSearchQuery("");
       setTagFilter("");
       setFetched(false);
+      setHideGroups(true);
     }
   }, [open]);
 
@@ -98,16 +103,20 @@ export function ImportGhlContactsDialog({
   };
 
   const filteredContacts = useMemo(() => {
-    if (!searchQuery.trim()) return contacts;
+    let result = contacts;
+    if (hideGroups) {
+      result = result.filter((c) => !c.isGroup);
+    }
+    if (!searchQuery.trim()) return result;
     const q = searchQuery.toLowerCase();
-    return contacts.filter(
+    return result.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.phone.includes(q) ||
         c.firstName.toLowerCase().includes(q) ||
         c.lastName.toLowerCase().includes(q)
     );
-  }, [contacts, searchQuery]);
+  }, [contacts, searchQuery, hideGroups]);
 
   const allSelected = filteredContacts.length > 0 && filteredContacts.every((c) => selectedIds.has(c.id));
 
@@ -137,7 +146,7 @@ export function ImportGhlContactsDialog({
       return;
     }
     const mapped = selected.map((c) => ({
-      phone: c.phone.replace(/\D/g, ""),
+      phone: c.isGroup && c.jid ? c.jid : c.phone.replace(/\D/g, ""),
       firstName: c.firstName || undefined,
       lastName: c.lastName || undefined,
       fullName: c.name || undefined,
@@ -202,15 +211,28 @@ export function ImportGhlContactsDialog({
             {/* Contact list */}
             {fetched && !loading && contacts.length > 0 && (
               <>
-                {/* Search within results */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar nos resultados..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                  />
+                {/* Search + Hide groups toggle */}
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar nos resultados..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Switch
+                      id="hide-groups"
+                      checked={hideGroups}
+                      onCheckedChange={setHideGroups}
+                    />
+                    <Label htmlFor="hide-groups" className="text-xs whitespace-nowrap cursor-pointer">
+                      <UsersRound className="h-3.5 w-3.5 inline mr-1" />
+                      Ocultar grupos
+                    </Label>
+                  </div>
                 </div>
 
                 {/* Select all */}
@@ -245,7 +267,11 @@ export function ImportGhlContactsDialog({
                           checked={selectedIds.has(contact.id)}
                           onCheckedChange={() => toggleContact(contact.id)}
                         />
-                        <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        {contact.isGroup ? (
+                          <UsersRound className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                        ) : (
+                          <Phone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
                         <div className="min-w-0 flex-1">
                           <span className="text-sm truncate block">
                             {contact.name || contact.phone}
