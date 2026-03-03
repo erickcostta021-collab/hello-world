@@ -1189,9 +1189,9 @@ export function GroupDetailDialog({
                 <div className="flex items-center gap-1.5 shrink-0">
                   {/* Role badge */}
                   {p.isSuperAdmin ? (
-                    <Badge variant="outline" className="text-[10px] px-2">Dono</Badge>
+                    <Badge variant="outline" className="text-[10px] px-2 bg-amber-500/15 text-amber-400 border-amber-500/40">Dono</Badge>
                   ) : p.isAdmin ? (
-                    <Badge variant="outline" className="text-[10px] px-2">Admin</Badge>
+                    <Badge variant="outline" className="text-[10px] px-2 bg-primary/15 text-primary border-primary/40">Admin</Badge>
                   ) : (
                     <Badge variant="outline" className="text-[10px] px-2 text-muted-foreground">Membro</Badge>
                   )}
