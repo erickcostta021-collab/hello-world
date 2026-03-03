@@ -2393,17 +2393,17 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               <div className="grid grid-cols-3 gap-2">
                 <Button variant="outline" onClick={() => handleCampaignAction("stop")}
                   disabled={executingAction || !campaignFolderId.trim()}
-                  className="border-border text-xs bg-yellow-600 hover:bg-yellow-700 text-white" size="sm">
+                  className="border-border text-xs bg-yellow-600 hover:bg-yellow-700 text-white rounded-none" size="sm">
                   {executingAction && campaignAction === "stop" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Pause className="h-3.5 w-3.5 mr-1" />} Pausar
                 </Button>
                 <Button variant="outline" onClick={() => handleCampaignAction("continue")}
                   disabled={executingAction || !campaignFolderId.trim()}
-                  className="border-border text-xs bg-green-600 hover:bg-green-700 text-white" size="sm">
+                  className="border-border text-xs bg-green-600 hover:bg-green-700 text-white rounded-none" size="sm">
                   {executingAction && campaignAction === "continue" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-1" />} Continuar
                 </Button>
                 <Button variant="outline" onClick={() => handleCampaignAction("delete")}
                   disabled={executingAction || !campaignFolderId.trim()}
-                  className="border-border text-xs bg-destructive hover:bg-destructive/90 text-white" size="sm">
+                  className="border-border text-xs bg-destructive hover:bg-destructive/90 text-white rounded-none" size="sm">
                   {executingAction && campaignAction === "delete" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Trash className="h-3.5 w-3.5 mr-1" />} Deletar
                 </Button>
               </div>
