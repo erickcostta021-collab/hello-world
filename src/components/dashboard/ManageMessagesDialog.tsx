@@ -1867,24 +1867,27 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     </>
   );
 
+  // count numbers for summary
+  const numberCount = numbers.split(/[\n,;]+/).filter(n => n.trim()).length;
+
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card border-border max-w-2xl">
+      <DialogContent className="bg-card border-border max-w-5xl">
         <DialogHeader>
           <DialogTitle className="text-card-foreground flex items-center gap-2">
             <Send className="h-5 w-5 text-primary" />
-            Mensagem em massa (beta)
+            Disparo Inteligente
           </DialogTitle>
           <DialogDescription>
-            Crie campanhas de disparo para a instância <strong>{instance.instance_name}</strong>
+            Envio em massa com comportamento humano para evitar bloqueios — <strong>{instance.instance_name}</strong>
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setTimeout(() => { const el = document.querySelector('[data-dialog-body]'); el?.scrollTo({ top: 0, behavior: "smooth" }); }, 50); }} className="w-full">
           <TabsList className="w-full">
             <TabsTrigger value="simple" className="flex-1">
-              <Send className="h-4 w-4 mr-2" />Simples
+              <Plus className="h-4 w-4 mr-2" />Nova Campanha
             </TabsTrigger>
             <TabsTrigger value="advanced" className="flex-1">
               <Layers className="h-4 w-4 mr-2" />Avançado
@@ -1894,157 +1897,274 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             </TabsTrigger>
           </TabsList>
 
-          {/* ════════ SIMPLE TAB ════════ */}
-          <TabsContent value="simple" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label>Nome da Campanha</Label>
-              <Input placeholder="Ex: Campanha Janeiro" value={folder} onChange={(e) => setFolder(e.target.value)} className="bg-secondary border-border" />
-            </div>
+          {/* ════════ SIMPLE TAB - TWO COLUMN ════════ */}
+          <TabsContent value="simple" className="mt-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* ── LEFT COLUMN: Campaign + Messages ── */}
+              <div className="space-y-4">
+                {/* Campaign Name */}
+                <Card className="bg-secondary/20 border-border">
+                  <CardContent className="p-4 space-y-3">
+                    <Label className="flex items-center gap-2 text-sm font-semibold">
+                      <Sparkles className="h-4 w-4 text-primary" /> Nome da Campanha
+                    </Label>
+                    <Input placeholder="Ex: Promoção Janeiro 2026" value={folder} onChange={(e) => setFolder(e.target.value)} className="bg-secondary border-border" />
+                  </CardContent>
+                </Card>
 
-            {/* CSV Upload + Numbers */}
-            {renderCsvUpload()}
-
-            <div className="space-y-2">
-              <Label>Tipo de Mensagem</Label>
-              <Select value={messageType} onValueChange={(v) => { setMessageType(v); setInteractiveData({}); }}>
-                <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MESSAGE_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {(messageType === "text" || showMediaField || showChoiceFields) && (
-              <div className="space-y-2">
-                <Label>{showMediaField ? "Legenda" : "Texto da Mensagem"}</Label>
-                {renderDynamicFields("simple-text")}
-                <Textarea
-                  id="simple-text"
-                  placeholder="Digite sua mensagem... Use {{primeiro_nome}} para personalizar"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  className="bg-secondary border-border min-h-[100px]"
-                />
-                {/* Split preview indicator */}
-                {splitMessages && text && splitMessageByTripleBreak(text).length > 1 && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-[11px] font-medium text-primary flex items-center gap-1">
-                      ✂️ Mensagem será dividida em {splitMessageByTripleBreak(text).length} partes
-                    </p>
-                    <div className="space-y-1">
-                      {splitMessageByTripleBreak(text).map((part, i) => (
-                        <div key={i} className="text-[10px] bg-secondary rounded px-2 py-1 border border-border">
-                          <span className="font-semibold text-muted-foreground">Parte {i + 1}:</span>{" "}
-                          <span className="text-foreground">{part.length > 80 ? part.slice(0, 80) + "…" : part}</span>
-                        </div>
-                      ))}
+                {/* Messages Section */}
+                <Card className="bg-secondary/20 border-border">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2 text-sm font-semibold">
+                        <MessageSquare className="h-4 w-4 text-primary" /> Mensagens
+                      </Label>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
 
-            {/* Dividir mensagem */}
-            <div className="space-y-2 p-3 rounded-lg border border-border bg-secondary/50">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <Scissors className="h-4 w-4 text-primary" />
-                  Dividir mensagem
-                </Label>
-                <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
+                    {/* Message Type */}
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Tipo de Mídia</Label>
+                          <Select value={messageType} onValueChange={(v) => { setMessageType(v); setInteractiveData({}); }}>
+                            <SelectTrigger className="bg-secondary border-border"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {MESSAGE_TYPES.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {showMediaField && (
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-muted-foreground">URL da Mídia</Label>
+                            <FileUploadField placeholder="https://..." value={fileUrl} onChange={(url) => setFileUrl(url)} accept="*/*" />
+                          </div>
+                        )}
+                      </div>
+                      {showMediaField && messageType === "document" && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Nome do Documento</Label>
+                          <Input placeholder="documento.pdf" value={docName} onChange={(e) => setDocName(e.target.value)} className="bg-secondary border-border" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Text / Caption */}
+                    {(messageType === "text" || showMediaField || showChoiceFields) && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">{showMediaField ? "Legenda (opcional)" : "Texto da Mensagem"}</Label>
+                        {renderDynamicFields("simple-text")}
+                        <Textarea
+                          id="simple-text"
+                          placeholder="Digite sua mensagem... Use {{primeiro_nome}} para personalizar"
+                          value={text}
+                          onChange={(e) => setText(e.target.value)}
+                          className="bg-secondary border-border min-h-[100px]"
+                        />
+                        {splitMessages && text && splitMessageByTripleBreak(text).length > 1 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-[11px] font-medium text-primary flex items-center gap-1">
+                              ✂️ Mensagem será dividida em {splitMessageByTripleBreak(text).length} partes
+                            </p>
+                            <div className="space-y-1">
+                              {splitMessageByTripleBreak(text).map((part, i) => (
+                                <div key={i} className="text-[10px] bg-secondary rounded px-2 py-1 border border-border">
+                                  <span className="font-semibold text-muted-foreground">Parte {i + 1}:</span>{" "}
+                                  <span className="text-foreground">{part.length > 80 ? part.slice(0, 80) + "…" : part}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Contact fields */}
+                    {showContactFields && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5"><Label className="text-xs">Nome Completo</Label><Input value={contactName} onChange={(e) => setContactName(e.target.value)} className="bg-secondary border-border" /></div>
+                        <div className="space-y-1.5"><Label className="text-xs">Telefone</Label><Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="bg-secondary border-border" /></div>
+                        <div className="space-y-1.5"><Label className="text-xs">Organização</Label><Input value={contactOrg} onChange={(e) => setContactOrg(e.target.value)} className="bg-secondary border-border" /></div>
+                        <div className="space-y-1.5"><Label className="text-xs">Email</Label><Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="bg-secondary border-border" /></div>
+                      </div>
+                    )}
+
+                    {/* Location fields */}
+                    {showLocationFields && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5"><Label className="text-xs">Latitude</Label><Input value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-secondary border-border" /></div>
+                        <div className="space-y-1.5"><Label className="text-xs">Longitude</Label><Input value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-secondary border-border" /></div>
+                        <div className="space-y-1.5"><Label className="text-xs">Nome do Local</Label><Input value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-secondary border-border" /></div>
+                        <div className="space-y-1.5"><Label className="text-xs">Endereço</Label><Input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} className="bg-secondary border-border" /></div>
+                      </div>
+                    )}
+
+                    {/* Interactive fields */}
+                    {showChoiceFields && (
+                      <InteractiveMessageForm
+                        messageType={messageType}
+                        data={interactiveData}
+                        onChange={(updates) => setInteractiveData((prev) => ({ ...prev, ...updates }))}
+                      />
+                    )}
+
+                    {/* Link Preview */}
+                    {messageType === "text" && (
+                      <div className="flex items-center justify-between p-2.5 bg-secondary/50 rounded-lg border border-border">
+                        <Label className="cursor-pointer text-xs">Preview de Link</Label>
+                        <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
+                      </div>
+                    )}
+
+                    {/* Split */}
+                    <div className="p-2.5 rounded-lg border border-border bg-secondary/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="flex items-center gap-2 cursor-pointer text-xs">
+                          <Scissors className="h-3.5 w-3.5 text-primary" />
+                          Dividir mensagem
+                        </Label>
+                        <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
+                      </div>
+                      {splitMessages && (
+                        <div className="pt-2 border-t border-border">
+                          <div className="space-y-1 max-w-[180px]">
+                            <Label className="text-[10px] text-muted-foreground">Delay entre partes (s)</Label>
+                            <Input type="number" min={0} max={30} value={splitDelay} onChange={(e) => setSplitDelay(e.target.value)} className="bg-secondary border-border h-7 text-xs" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-              <p className="text-[10px] text-muted-foreground">
-                Use 3 quebras de linha (Enter 3x) no texto para separar em mensagens diferentes.
-              </p>
-              {splitMessages && (
-                <div className="pt-2 border-t border-border">
-                  <div className="space-y-1 max-w-[180px]">
-                    <Label className="text-xs text-muted-foreground">Delay entre partes (s)</Label>
-                    <Input
-                      type="number" min={0} max={30}
-                      value={splitDelay}
-                      onChange={(e) => setSplitDelay(e.target.value)}
-                      className="bg-secondary border-border h-8 text-xs"
+
+              {/* ── RIGHT COLUMN: Recipients + Settings ── */}
+              <div className="space-y-4">
+                {/* Recipients */}
+                <Card className="bg-secondary/20 border-border">
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="flex items-center gap-2 text-sm font-semibold">
+                        <Send className="h-4 w-4 text-primary" /> Destinatários
+                      </Label>
+                      <div className="flex items-center gap-1.5">
+                        <input ref={csvInputRef} type="file" accept=".csv,.txt" onChange={handleCsvUpload} className="hidden" />
+                        <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="border-primary/30 text-primary hover:bg-primary/10 h-7 text-xs">
+                          <Upload className="h-3 w-3 mr-1" /> CSV
+                        </Button>
+                      </div>
+                    </div>
+                    <Textarea
+                      placeholder={"Cole, importe do GHL ou suba um CSV. Formato: telefone ou telefone,nome\n\n5511999999999\n5511888888888, João Silva\n5521777777777, Maria Santos"}
+                      value={numbers}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNumbers(val);
+                        const inline = parseInlineContacts(val);
+                        if (inline && inline.length > 0) {
+                          setCsvContacts(inline);
+                          setCsvFileName(`${inline.length} contato(s) inline`);
+                        } else if (csvFileName.includes("inline")) {
+                          setCsvContacts([]);
+                          setCsvFileName("");
+                        }
+                      }}
+                      className="bg-secondary border-border min-h-[120px] text-sm"
                     />
-                  </div>
-                </div>
-              )}
-            </div>
+                    {csvContacts.length > 0 && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                        <Badge variant="outline" className="text-[10px] border-primary/50 text-primary">
+                          📄 {csvFileName} — {csvContacts.length} contatos
+                        </Badge>
+                        {csvContacts.some((c) => c.firstName || c.fullName) && (
+                          <Badge variant="outline" className="text-[10px] border-green-500/50 text-green-500">
+                            ✓ Campos dinâmicos disponíveis
+                          </Badge>
+                        )}
+                        <Button variant="ghost" size="sm" className="h-5 text-xs text-destructive" onClick={() => { setCsvContacts([]); setCsvFileName(""); }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                    {/* Dynamic fields info */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-[10px] text-muted-foreground">Formatos aceitos:</span>
+                      <span className="text-[10px] text-muted-foreground">telefone ou telefone,nome (separado por , ou ;)</span>
+                    </div>
+                    {renderDynamicFields("simple-text")}
+                  </CardContent>
+                </Card>
 
-            {messageType === "text" && (
-              <div className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-border">
-                <Label className="cursor-pointer">Preview de Link</Label>
-                <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
-              </div>
-            )}
+                {/* Delay Settings */}
+                <Card className="bg-secondary/20 border-border">
+                  <CardContent className="p-4 space-y-3">
+                    <Label className="flex items-center gap-2 text-sm font-semibold">
+                      <Clock className="h-4 w-4 text-primary" /> Configurações Anti-Ban
+                    </Label>
+                    <div className="space-y-3">
+                      <Label className="text-xs text-muted-foreground">Delay entre mensagens</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Mínimo</Label>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" value={delayMin} onChange={(e) => setDelayMin(e.target.value)} className="bg-secondary border-border h-8 text-sm" />
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">s</span>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Máximo</Label>
+                          <div className="flex items-center gap-2">
+                            <Input type="number" value={delayMax} onChange={(e) => setDelayMax(e.target.value)} className="bg-secondary border-border h-8 text-sm" />
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">s</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {showMediaField && (
-              <div className="space-y-2">
-                <Label>URL do Arquivo</Label>
-                <FileUploadField placeholder="https://exemplo.com/arquivo.jpg" value={fileUrl} onChange={(url) => setFileUrl(url)} accept="*/*" />
-                {messageType === "document" && (
-                  <div className="space-y-2">
-                    <Label>Nome do Documento</Label>
-                    <Input placeholder="documento.pdf" value={docName} onChange={(e) => setDocName(e.target.value)} className="bg-secondary border-border" />
-                  </div>
+                {/* Schedule */}
+                {renderScheduleSection(
+                  scheduleEnabled, setScheduleEnabled,
+                  scheduledFor, setScheduledFor,
+                  scheduleDays, setScheduleDays,
+                  scheduleTimeRestrict, setScheduleTimeRestrict,
+                  scheduleTimeStart, setScheduleTimeStart,
+                  scheduleTimeEnd, setScheduleTimeEnd,
                 )}
-              </div>
-            )}
 
-            {showContactFields && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label>Nome Completo</Label><Input value={contactName} onChange={(e) => setContactName(e.target.value)} className="bg-secondary border-border" /></div>
-                <div className="space-y-2"><Label>Telefone</Label><Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="bg-secondary border-border" /></div>
-                <div className="space-y-2"><Label>Organização</Label><Input value={contactOrg} onChange={(e) => setContactOrg(e.target.value)} className="bg-secondary border-border" /></div>
-                <div className="space-y-2"><Label>Email</Label><Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="bg-secondary border-border" /></div>
-              </div>
-            )}
+                {/* Anti-Ban */}
+                {renderAntiBan()}
 
-            {showLocationFields && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2"><Label>Latitude</Label><Input value={latitude} onChange={(e) => setLatitude(e.target.value)} className="bg-secondary border-border" /></div>
-                <div className="space-y-2"><Label>Longitude</Label><Input value={longitude} onChange={(e) => setLongitude(e.target.value)} className="bg-secondary border-border" /></div>
-                <div className="space-y-2"><Label>Nome do Local</Label><Input value={locationName} onChange={(e) => setLocationName(e.target.value)} className="bg-secondary border-border" /></div>
-                <div className="space-y-2"><Label>Endereço</Label><Input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} className="bg-secondary border-border" /></div>
+                {/* Round-Robin */}
+                {renderRoundRobin("simple")}
               </div>
-            )}
-
-            {showChoiceFields && (
-              <div className="space-y-3">
-                <InteractiveMessageForm
-                  messageType={messageType}
-                  data={interactiveData}
-                  onChange={(updates) => setInteractiveData((prev) => ({ ...prev, ...updates }))}
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Delay Mínimo (seg)</Label><Input type="number" value={delayMin} onChange={(e) => setDelayMin(e.target.value)} className="bg-secondary border-border" /></div>
-              <div className="space-y-2"><Label>Delay Máximo (seg)</Label><Input type="number" value={delayMax} onChange={(e) => setDelayMax(e.target.value)} className="bg-secondary border-border" /></div>
             </div>
 
-            {renderScheduleSection(
-              scheduleEnabled, setScheduleEnabled,
-              scheduledFor, setScheduledFor,
-              scheduleDays, setScheduleDays,
-              scheduleTimeRestrict, setScheduleTimeRestrict,
-              scheduleTimeStart, setScheduleTimeStart,
-              scheduleTimeEnd, setScheduleTimeEnd,
-            )}
-
-
-            {/* Anti-Ban */}
-            {renderAntiBan()}
-
-            {/* Round-Robin */}
-            {renderRoundRobin("simple")}
-
-            <Button onClick={handleSendSimple} disabled={sending} className="w-full bg-primary hover:bg-primary/90">
+            {/* Full-width CTA button */}
+            <Button onClick={handleSendSimple} disabled={sending} className="w-full bg-primary hover:bg-primary/90 mt-4 h-11">
               {sending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               {needsPerContactMessages() ? "Criar Campanha Personalizada" :
-                useRoundRobin && selectedInstanceIds.length > 0 ? "Criar Campanha Round-Robin" : "Criar Campanha Simples"}
+                useRoundRobin && selectedInstanceIds.length > 0 ? "Criar Campanha Round-Robin" : "Criar Campanha"}
             </Button>
+
+            {/* Summary Bar */}
+            <div className="flex items-center justify-center gap-8 mt-3 py-3 border-t border-border">
+              <div className="text-center">
+                <p className="text-lg font-bold text-primary">{numberCount || 0}</p>
+                <p className="text-[10px] text-muted-foreground">Mensagens</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-primary">{numberCount || 0}</p>
+                <p className="text-[10px] text-muted-foreground">Destinatários</p>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-bold text-primary">~{Math.ceil(numberCount * ((parseInt(delayMin) || 10) + (parseInt(delayMax) || 30)) / 2 / 60)}min</p>
+                <p className="text-[10px] text-muted-foreground">Tempo estimado</p>
+              </div>
+            </div>
+            <p className="text-[10px] text-center text-muted-foreground/50 mt-1">
+              🛡️ Disparo inteligente com delays aleatórios para evitar bloqueios do WhatsApp
+            </p>
           </TabsContent>
 
           {/* ════════ ADVANCED TAB ════════ */}
