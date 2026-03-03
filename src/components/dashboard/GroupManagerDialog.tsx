@@ -125,6 +125,10 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     }
   };
 
+  const handleGroupLeft = (groupId: string) => {
+    setGroups(prev => prev.filter(g => g.id !== groupId));
+  };
+
   const handleCreateGroup = () => {
     setCreateOpen(true);
   };
@@ -256,6 +260,7 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
       groupId={selectedGroup.id}
       groupName={selectedGroup.name}
       onGroupNameChanged={handleGroupNameChanged}
+      onGroupLeft={handleGroupLeft}
     />
   );
 
