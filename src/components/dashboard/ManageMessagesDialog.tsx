@@ -2390,6 +2390,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               {(() => {
                 const selectedFolder = folders.find((f) => (f.folder_id || f.id) === campaignFolderId.trim());
                 const isDone = selectedFolder?.status === "done" || selectedFolder?.status === "completed";
+                const isPaused = selectedFolder?.status === "paused";
                 return (
                   <div className="grid grid-cols-3 gap-2">
                     <Button variant="outline" onClick={() => handleCampaignAction("continue")}
@@ -2398,7 +2399,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                       {executingAction && campaignAction === "continue" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Play className="h-3.5 w-3.5 mr-1" />} Continuar
                     </Button>
                     <Button variant="outline" onClick={() => handleCampaignAction("stop")}
-                      disabled={executingAction || !campaignFolderId.trim() || isDone}
+                      disabled={executingAction || !campaignFolderId.trim() || isDone || isPaused}
                       className="border-border text-xs bg-yellow-600 hover:bg-yellow-700 text-white rounded-none" size="sm">
                       {executingAction && campaignAction === "stop" ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Pause className="h-3.5 w-3.5 mr-1" />} Pausar
                     </Button>
