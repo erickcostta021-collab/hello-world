@@ -152,28 +152,32 @@ Deno.serve(async (req) => {
     const contacts = (data.contacts || []).map((c: any) => {
       let phone = c.phone || "";
       const email = c.email || "";
-      
+      const isGroup = phone.includes("@g.us") || phone.includes("@broadcast") ||
+                      email.includes("@g.us") || email.includes("@broadcast") ||
+                      (c.type && c.type.toLowerCase() === "group");
+
       // If phone is empty but email looks like a phone number, use email as phone
       if (!phone && email && /^\+?\d[\d\s\-()]{6,}$/.test(email.trim())) {
         phone = email.trim();
       }
-      
+
+      // For groups, use the JID from email if available
+      const jid = isGroup ? (email.includes("@g.us") || email.includes("@broadcast") ? email.trim() : phone) : "";
+
       return {
         id: c.id,
-        phone,
+        phone: phone || email,
         firstName: c.firstName || "",
         lastName: c.lastName || "",
         name: c.contactName || c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim(),
-        email: /^\+?\d[\d\s\-()]{6,}$/.test(email.trim()) ? "" : email,
+        email: isGroup ? "" : (/^\+?\d[\d\s\-()]{6,}$/.test(email.trim()) ? "" : email),
         type: c.type || "",
+        isGroup,
+        jid,
       };
     }).filter((c: any) => {
-      // Must have a phone
-      if (!c.phone) return false;
-      // Exclude group-like phone numbers (WhatsApp group JIDs)
-      if (c.phone.includes("@g.us") || c.phone.includes("@broadcast")) return false;
-      // Exclude if type indicates it's not a lead/contact
-      if (c.type && c.type.toLowerCase() === "group") return false;
+      // Must have a phone or jid
+      if (!c.phone && !c.jid) return false;
       return true;
     });
 
