@@ -1609,10 +1609,12 @@ serve(async (req) => {
 
     // IMPORTANT:
     // If UAZAPI marks the message as API-sent but there's no track_id,
-    // we must discard it to avoid infinite loops (e.g., messages mirrored from GHL -> UAZAPI).
-    // The track_id validation against user's configured track_id happens later after we fetch the instance.
-    if (wasSentByApi && !trackId) {
-      console.log("Discarding API-sent message without track_id:", {
+    // we used to discard it to avoid infinite loops (GHL -> UAZAPI -> webhook -> GHL).
+    // However, this also blocks legitimate mass sends via /sender/advanced.
+    // The dedup mechanism (markIfNew) already prevents loops, so we now allow
+    // fromMe messages through and only discard non-fromMe API messages without track_id.
+    if (wasSentByApi && !trackId && !isFromMe) {
+      console.log("Discarding API-sent non-fromMe message without track_id:", {
         wasSentByApi,
         trackId,
         isFromMe,
