@@ -440,6 +440,34 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     return json.data;
   };
 
+  // Proxy-aware fetch for any instance (used in bulk sends with round-robin)
+  const fetchForInstance = async (inst: Instance, path: string, method: string, payload: any): Promise<any> => {
+    if (!embedToken) {
+      const url = `${getBaseUrlFor(inst)}${path}`;
+      const res = await fetch(url, {
+        method,
+        headers: getHeadersFor(inst),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Erro ${res.status}`);
+      }
+      return res.json().catch(() => ({}));
+    }
+    // Use proxy (passthrough) — instanceId determines the token on the server
+    const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/uazapi-proxy-embed`;
+    const res = await fetch(proxyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ embedToken, instanceId: inst.id, action: "uazapi-passthrough", path, method, payload }),
+    });
+    const json = await res.json();
+    if (!json?.ok) throw new Error(json?.data?.message || json?.error || "Erro na requisição");
+    if (json?.data?.code === 401) throw new Error(json?.data?.message || "Token inválido");
+    return json.data;
+  };
+
   // ─── CSV Upload Handler ───
   const handleCsvUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1138,10 +1166,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               messages: msgs,
             };
             if (scheduleEnabled && scheduledFor) body.scheduled_for = scheduledFor.getTime();
-            const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
-              method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-            });
-            if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+            await fetchForInstance(inst, "/sender/advanced", "POST", body);
           };
 
           const numParts = perContactParts[0]?.parts.length || 1;
@@ -1198,10 +1223,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
             messages,
           };
-          const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/advanced`, {
-            method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
-          });
-          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+          await fetchForInstance(instances[0], "/sender/advanced", "POST", body);
           toast.success(`Campanha personalizada criada! ${messages.length} mensagem(ns) na fila.`);
         } else {
           // Round-robin distribution
@@ -1219,9 +1241,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
                 messages: buckets[idx],
               };
-              return fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
-                method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-              }).then(async (res) => { if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`); });
+              return fetchForInstance(inst, "/sender/advanced", "POST", body);
             })
           );
           const succeeded = results.filter((r) => r.status === "fulfilled").length;
@@ -1270,10 +1290,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             messages: msgs,
           };
           // split_messages is now handled client-side
-          const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
-            method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-          });
-          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+          await fetchForInstance(inst, "/sender/advanced", "POST", body);
         };
 
         if (instances.length === 1) {
@@ -1337,10 +1354,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
             messages: msgs,
           };
-          const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
-            method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-          });
-          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+          await fetchForInstance(inst, "/sender/advanced", "POST", body);
         };
 
         if (instances.length === 1) {
@@ -1379,10 +1393,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         if (instances.length === 1) {
           const body = buildSimpleBody(numberList);
           if (antiBanEnabled) body.text = bodyText;
-          const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/simple`, {
-            method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
-          });
-          if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+          await fetchForInstance(instances[0], "/sender/simple", "POST", body);
           toast.success(`Campanha criada! ${numberList.length} número(s) na fila.`);
         } else {
           const buckets: string[][] = instances.map(() => []);
@@ -1394,9 +1405,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               const body = buildSimpleBody(buckets[idx]);
               body.folder = `${folder || "Campanha Bridge"} (${inst.instance_name})`;
               if (antiBanEnabled) body.text = bodyText;
-              return fetch(`${getBaseUrlFor(inst)}/sender/simple`, {
-                method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-              }).then(async (res) => { if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`); });
+              return fetchForInstance(inst, "/sender/simple", "POST", body);
             })
           );
           const succeeded = results.filter((r) => r.status === "fulfilled").length;
@@ -1477,10 +1486,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           ...buildScheduleParams(advScheduleEnabled, advScheduledFor, advScheduleDays, advScheduleTimeRestrict, advScheduleTimeStart, advScheduleTimeEnd),
           messages,
         };
-        const res = await fetch(`${getBaseUrlFor(instances[0])}/sender/advanced`, {
-          method: "POST", headers: getHeadersFor(instances[0]), body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
+        await fetchForInstance(instances[0], "/sender/advanced", "POST", body);
         toast.success(`Envio avançado criado! ${messages.length} mensagem(ns) na fila.`);
       } else {
         const buckets: AdvancedMessage[][] = instances.map(() => []);
@@ -1498,9 +1504,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               ...buildScheduleParams(advScheduleEnabled, advScheduledFor, advScheduleDays, advScheduleTimeRestrict, advScheduleTimeStart, advScheduleTimeEnd),
               messages,
             };
-            return fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
-              method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
-            }).then(async (res) => { if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`); });
+            return fetchForInstance(inst, "/sender/advanced", "POST", body);
           })
         );
         const succeeded = results.filter((r) => r.status === "fulfilled").length;
