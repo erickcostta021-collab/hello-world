@@ -18,7 +18,7 @@ const PLANS = [
     key: "flexible",
     name: "Flexível",
     description: "Comece com até 5 conexões grátis por 5 dias",
-    firstUnitPrice: 30,
+    firstUnitPrice: 29,
     extraUnitPrice: 20,
     isFlexible: true,
     trialInfo: "Trial grátis de 5 dias (até 5 conexões)",
@@ -77,7 +77,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
             {PLANS.map((plan) => {
               const isFlexible = plan.isFlexible;
               const price = isFlexible
-                ? 30 + 10 * (flexibleQuantity - 1) * flexibleQuantity / 2
+                ? 29 + 10 * (flexibleQuantity - 1) * flexibleQuantity / 2
                 : plan.price!;
               const instances = isFlexible ? flexibleQuantity : plan.instances!;
 
@@ -130,7 +130,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
                     <span className="text-muted-foreground text-sm">/mês</span>
                     {isFlexible && (
                       <p className="text-xs text-primary mt-1">
-                        {flexibleQuantity === 1 ? "R$30 a primeira conexão" : "R$20 por conexão adicional"}
+                        {flexibleQuantity === 1 ? "R$29 a primeira conexão" : "R$20 por conexão adicional"}
                       </p>
                     )}
                     {isFlexible && flexibleQuantity <= 5 && (
