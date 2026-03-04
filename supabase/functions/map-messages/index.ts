@@ -901,6 +901,15 @@ serve(async (req) => {
         console.log("⚠️ Could not parse reply response for message ID");
       }
 
+      // Mark this reply as handled IMMEDIATELY (before InternalComment)
+      // to prevent webhook-inbound from creating a duplicate IC when the
+      // UAZAPI echo arrives (which can happen within milliseconds).
+      if (newMessageId) {
+        const replyIcKey = `reply-ic:${newMessageId}`;
+        console.log("🔒 Marking reply as handled to prevent duplicate IC:", replyIcKey);
+        await supabase.from("ghl_processed_messages").insert({ message_id: replyIcKey }).maybeSingle();
+      }
+
       // Send InternalComment to GHL with reply context (like we do for edits)
       let ghlInternalCommentSent = false;
       // Generate friendly label for media types when message_text is empty
@@ -1018,14 +1027,6 @@ serve(async (req) => {
                   original_timestamp: new Date().toISOString(),
                 }, { onConflict: "ghl_message_id" });
             console.log("📌 Reply InternalComment mapped:", { ghl: icGhlId, uazapi: newMessageId });
-              }
-
-              // Mark this reply as already handled so webhook-inbound doesn't
-              // send a duplicate InternalComment when it receives the UAZAPI echo.
-              if (newMessageId) {
-                const replyIcKey = `reply-ic:${newMessageId}`;
-                console.log("🔒 Marking reply as handled to prevent duplicate IC:", replyIcKey);
-                await supabase.from("ghl_processed_messages").insert({ message_id: replyIcKey }).maybeSingle();
               }
             } catch (parseErr) {
               console.log("⚠️ Could not parse InternalComment response for mapping:", parseErr);
