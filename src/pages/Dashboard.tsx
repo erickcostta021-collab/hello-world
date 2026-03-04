@@ -11,14 +11,19 @@ import { useInstances } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
-import { RefreshCw, Search, ArrowLeft, Loader2, AlertCircle, Plus, Smartphone, Link2, Eye, Lock, CreditCard, Clock, ChevronDown, RotateCw, KeyRound } from "lucide-react";
+import { RefreshCw, Search, ArrowLeft, Loader2, AlertCircle, Plus, Smartphone, Link2, Eye, Lock, CreditCard, Clock, ChevronDown, RotateCw, KeyRound, LayoutGrid, Building2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CANONICAL_APP_ORIGIN } from "@/lib/canonicalOrigin";
+import { useAuth } from "@/hooks/useAuth";
+import { getEffectiveUserId } from "@/hooks/useSettings";
+import { useQuery } from "@tanstack/react-query";
+import type { Instance } from "@/hooks/instances/instanceApi";
 
 export default function Dashboard() {
   const [selectedSubaccount, setSelectedSubaccount] = useState<Subaccount | null>(null);
@@ -26,10 +31,30 @@ export default function Dashboard() {
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [embedPassword, setEmbedPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+  const [viewMode, setViewMode] = useState<"subaccounts" | "all-instances">("subaccounts");
+  const [instanceSearch, setInstanceSearch] = useState("");
+  const { user } = useAuth();
   const { subaccounts, isLoading, syncSubaccounts, isSharedAccount } = useSubaccounts();
   const { instances, syncAllInstancesStatus, linkedInstanceCount, unlinkedInstanceCount, instanceLimit } = useInstances(selectedSubaccount?.id);
   const { settings } = useSettings();
   const { hasActiveSubscription, isInGracePeriod, gracePeriodEndsAt } = useSubscription();
+
+  // Query all instances for the "all instances" view
+  const { data: allInstances = [], isLoading: allInstancesLoading } = useQuery({
+    queryKey: ["all-instances-dashboard", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const effectiveUserId = await getEffectiveUserId(user.id);
+      const { data, error } = await supabase
+        .from("instances")
+        .select("*")
+        .eq("user_id", effectiveUserId)
+        .order("instance_name");
+      if (error) throw error;
+      return data as Instance[];
+    },
+    enabled: !!user && viewMode === "all-instances",
+  });
 
   const handleRegenerateLink = async () => {
     if (!selectedSubaccount) return;
@@ -80,6 +105,17 @@ export default function Dashboard() {
     s.account_name.toLowerCase().includes(search.toLowerCase()) ||
     s.location_id.toLowerCase().includes(search.toLowerCase())
   );
+
+  const filteredAllInstances = allInstances.filter((inst) =>
+    inst.instance_name.toLowerCase().includes(instanceSearch.toLowerCase()) ||
+    (inst.phone || "").includes(instanceSearch)
+  );
+
+  const getSubaccountName = (subaccountId: string | null) => {
+    if (!subaccountId) return null;
+    const sub = subaccounts.find((s) => s.id === subaccountId);
+    return sub?.account_name || null;
+  };
 
   const hasGHLToken = !!settings?.ghl_agency_token;
   const hasUAZAPIConfig = !!settings?.uazapi_admin_token && !!settings?.uazapi_base_url;
@@ -363,48 +399,143 @@ export default function Dashboard() {
 
 
 
-        {/* Search */}
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar subcontas..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 bg-secondary border-border"
-          />
+        {/* View Toggle */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant={viewMode === "subaccounts" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("subaccounts")}
+            className="gap-2"
+          >
+            <Building2 className="h-4 w-4" />
+            Subcontas
+          </Button>
+          <Button
+            variant={viewMode === "all-instances" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("all-instances")}
+            className="gap-2"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Todas as Instâncias
+          </Button>
         </div>
 
-        {/* Subaccounts Grid */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : filteredSubaccounts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="p-4 bg-muted rounded-full mb-4">
-              <AlertCircle className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-medium text-foreground mb-2">
-              {subaccounts.length === 0 ? "Nenhuma subconta" : "Nenhum resultado"}
-            </h3>
-            <p className="text-muted-foreground max-w-md">
-              {subaccounts.length === 0
-                ? hasGHLToken
-                  ? "Clique em 'Sincronizar CRM' para importar suas subcontas do GoHighLevel."
-                  : "Clique em 'Conectar Subconta' no topo da página para conectar sua primeira subconta."
-                : "Tente ajustar sua busca."}
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredSubaccounts.map((subaccount) => (
-              <SubaccountCard
-                key={subaccount.id}
-                subaccount={subaccount}
-                onClick={() => setSelectedSubaccount(subaccount)}
+        {viewMode === "subaccounts" ? (
+          <>
+            {/* Search */}
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar subcontas..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 bg-secondary border-border"
               />
-            ))}
-          </div>
+            </div>
+
+            {/* Subaccounts Grid */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredSubaccounts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="p-4 bg-muted rounded-full mb-4">
+                  <AlertCircle className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {subaccounts.length === 0 ? "Nenhuma subconta" : "Nenhum resultado"}
+                </h3>
+                <p className="text-muted-foreground max-w-md">
+                  {subaccounts.length === 0
+                    ? hasGHLToken
+                      ? "Clique em 'Sincronizar CRM' para importar suas subcontas do GoHighLevel."
+                      : "Clique em 'Conectar Subconta' no topo da página para conectar sua primeira subconta."
+                    : "Tente ajustar sua busca."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredSubaccounts.map((subaccount) => (
+                  <SubaccountCard
+                    key={subaccount.id}
+                    subaccount={subaccount}
+                    onClick={() => setSelectedSubaccount(subaccount)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {/* All Instances Search */}
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar instâncias por nome ou telefone..."
+                value={instanceSearch}
+                onChange={(e) => setInstanceSearch(e.target.value)}
+                className="pl-10 bg-secondary border-border"
+              />
+            </div>
+
+            {/* Stats */}
+            {!allInstancesLoading && allInstances.length > 0 && (
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  {allInstances.filter(i => i.instance_status === "connected").length} conectadas
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-destructive" />
+                  {allInstances.filter(i => i.instance_status === "disconnected").length} desconectadas
+                </span>
+                <span className="text-muted-foreground/60">
+                  {allInstances.length} total
+                </span>
+              </div>
+            )}
+
+            {/* All Instances Grid */}
+            {allInstancesLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredAllInstances.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="p-4 bg-muted rounded-full mb-4">
+                  <Smartphone className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {allInstances.length === 0 ? "Nenhuma instância" : "Nenhum resultado"}
+                </h3>
+                <p className="text-muted-foreground max-w-md">
+                  {allInstances.length === 0
+                    ? "Crie instâncias a partir de uma subconta para vê-las aqui."
+                    : "Tente ajustar sua busca."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredAllInstances.map((inst) => {
+                  const subName = getSubaccountName(inst.subaccount_id);
+                  return (
+                    <div key={inst.id} className="relative">
+                      {subName && (
+                        <div className="absolute -top-2.5 left-3 z-10">
+                          <Badge variant="secondary" className="text-[10px] px-2 py-0 bg-secondary border border-border shadow-sm">
+                            {subName}
+                          </Badge>
+                        </div>
+                      )}
+                      <InstanceCard instance={inst} allInstances={filteredAllInstances} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
     </DashboardLayout>
