@@ -719,12 +719,28 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         return false;
       };
 
-      // First pass: process main campaign messages
+      // First pass: process main campaign messages, merging splitPart entries
       for (const msg of list) {
         if (isButtonMsg(msg)) continue;
         const num = String(msg.number || (msg as any).chatid || "");
-        merged.push(msg);
-        if (num) mainByNumber[num] = msg;
+        // Check if this message is a split part (interleaved in same campaign)
+        const isSplitPart = (() => {
+          try {
+            const raw = (msg as any).send_payload || (msg as any).sendPayload;
+            if (raw) {
+              const sp = typeof raw === "string" ? JSON.parse(raw) : raw;
+              if (sp?.splitPart === true) return true;
+            }
+          } catch { /* ignore */ }
+          return false;
+        })();
+        if (isSplitPart && num && mainByNumber[num]) {
+          // Merge into existing main entry
+          if (msg.text) mainByNumber[num].text = (mainByNumber[num].text || "") + "\n\n" + msg.text;
+        } else {
+          merged.push(msg);
+          if (num) mainByNumber[num] = msg;
+        }
       }
 
       // Second pass: merge ALL continuation messages into main entries
