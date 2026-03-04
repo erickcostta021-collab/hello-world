@@ -2503,6 +2503,32 @@ serve(async (req) => {
         // send ONLY the InternalComment (which already contains the full text + reply context).
         // This avoids creating a duplicate: the normal text message AND the InternalComment.
         if ((quotedMessageId || quotedText) && contact?.id) {
+          // Check if map-messages already sent this reply InternalComment
+          // (same dedup pattern as edits)
+          const uazapiMsgIdForDedup = messageData.messageid || messageData.id || "";
+          let replyAlreadyHandled = false;
+          if (uazapiMsgIdForDedup) {
+            const replyIcKey = `reply-ic:${uazapiMsgIdForDedup}`;
+            const { data: existing } = await supabase
+              .from("ghl_processed_messages")
+              .select("id")
+              .eq("message_id", replyIcKey)
+              .maybeSingle();
+            if (existing) {
+              replyAlreadyHandled = true;
+              console.log("⏭️ Reply InternalComment already sent by map-messages, skipping duplicate:", replyIcKey);
+            }
+          }
+
+          if (replyAlreadyHandled) {
+            // Still save the mapping if needed but skip the InternalComment
+            console.log("Reply IC skipped (already handled), saving mapping only");
+            try {
+              if (uazapiMsgIdForDedup) {
+                await markIfNew(supabase, `reply:${uazapiMsgIdForDedup}`);
+              }
+            } catch { /* ignore */ }
+          } else {
           console.log("Outbound reply detected – sending only InternalComment (no duplicate text):", {
             textMessage: textMessage?.substring(0, 50),
             quotedMessageId,
@@ -2574,6 +2600,7 @@ serve(async (req) => {
           } catch (e) {
             console.error("Error creating reply InternalComment:", e);
           }
+          } // end of else (replyAlreadyHandled)
         } else {
           // Normal outbound text (no reply context) – send as regular outbound message
           console.log("Sending outbound text to GHL (inbound endpoint):", { textMessage: textMessage?.substring(0, 50) });
