@@ -801,6 +801,7 @@ export function EmbedInstanceCard({
             open={messagesDialogOpen}
             onOpenChange={setMessagesDialogOpen}
             embedToken={embedToken}
+            trackId={trackId}
             instance={{
               id: instance.id,
               user_id: "",

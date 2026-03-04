@@ -48,6 +48,7 @@ interface ManageMessagesDialogProps {
   instance: Instance;
   allInstances?: Instance[];
   embedToken?: string;
+  trackId?: string | null;
 }
 
 const MESSAGE_TYPES = [
@@ -262,8 +263,9 @@ function splitMessageByTripleBreak(text: string): string[] {
   return parts.length > 0 ? parts : [text];
 }
 
-export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances, embedToken }: ManageMessagesDialogProps) {
+export function ManageMessagesDialog({ open, onOpenChange, instance, allInstances, embedToken, trackId: propTrackId }: ManageMessagesDialogProps) {
   const { settings } = useSettings();
+  const effectiveTrackId = settings?.track_id || propTrackId || null;
   const [sending, setSending] = useState(false);
   const [activeTab, setActiveTab] = useState("simple");
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -442,12 +444,17 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
   // Proxy-aware fetch for any instance (used in bulk sends with round-robin)
   const fetchForInstance = async (inst: Instance, path: string, method: string, payload: any): Promise<any> => {
+    // Inject track_id into sender payloads so webhook-inbound recognizes them
+    const enrichedPayload = (path.startsWith("/sender/") && effectiveTrackId)
+      ? { ...payload, track_id: effectiveTrackId }
+      : payload;
+
     if (!embedToken) {
       const url = `${getBaseUrlFor(inst)}${path}`;
       const res = await fetch(url, {
         method,
         headers: getHeadersFor(inst),
-        body: JSON.stringify(payload),
+        body: JSON.stringify(enrichedPayload),
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
@@ -460,7 +467,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     const res = await fetch(proxyUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ embedToken, instanceId: inst.id, action: "uazapi-passthrough", path, method, payload }),
+      body: JSON.stringify({ embedToken, instanceId: inst.id, action: "uazapi-passthrough", path, method, payload: enrichedPayload }),
     });
     const json = await res.json();
     if (!json?.ok) throw new Error(json?.data?.message || json?.error || "Erro na requisição");
