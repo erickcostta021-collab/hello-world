@@ -2108,14 +2108,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                         </Label>
                         <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
                       </div>
-                      {splitMessages && (
-                        <div className="pt-2 border-t border-border">
-                          <div className="space-y-1 max-w-[180px]">
-                            <Label className="text-[10px] text-muted-foreground">Delay entre partes (s)</Label>
-                            <Input type="number" min={0} max={30} value={splitDelay} onChange={(e) => setSplitDelay(e.target.value)} className="bg-secondary border-border h-7 text-xs" />
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {/* Link Preview */}
