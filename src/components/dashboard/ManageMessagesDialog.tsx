@@ -1088,12 +1088,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           return obj;
         });
 
-        // If split messages is enabled, organize into waves (wave 0 = part 1 of all contacts, wave 1 = part 2, etc.)
-        // Each wave is sent as a separate API call with a real sleep between them
+        // If split messages is enabled, interleave parts PER CONTACT so each contact
+        // receives all their parts before the next contact starts.
+        // Order: contact1-part1, contact1-part2, ..., contact2-part1, contact2-part2, ...
         if (splitMessages) {
           // Build per-contact parts
-          const contactWaves: Record<string, unknown>[][] = []; // waves[waveIdx] = array of messages
-          let maxParts = 1;
           const perContactParts: { parts: Record<string, unknown>[]; }[] = [];
 
           for (const msg of messages) {
@@ -1105,90 +1104,64 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               if (i > 0) { delete part.file; delete part.docName; part.splitPart = true; }
               built.push(part);
             }
-            perContactParts.push({ parts: built });
-            if (parts.length > maxParts) maxParts = parts.length;
-          }
-
-          // Add anti-ban button as an extra wave after the last part
-          const addBtnWave = antiBanEnabled && antiBanButton;
-          const totalWaves = maxParts + (addBtnWave ? 1 : 0);
-
-          for (let w = 0; w < totalWaves; w++) {
-            const wave: Record<string, unknown>[] = [];
-            for (const contact of perContactParts) {
-              if (w < contact.parts.length) {
-                wave.push(contact.parts[w]);
-              } else if (w === maxParts && addBtnWave) {
-                // Anti-ban button wave
-                wave.push({
-                  number: contact.parts[0].number,
-                  type: "button",
-                  text: antiBanBtnMessage,
-                  footerText: antiBanBtnFooter,
-                  buttonText: antiBanBtnTitle,
-                  choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
-                  splitPart: true,
-                });
-              }
+            // Add anti-ban button as final part for this contact
+            if (antiBanEnabled && antiBanButton) {
+              built.push({
+                number: msg.number,
+                type: "button",
+                text: antiBanBtnMessage,
+                footerText: antiBanBtnFooter,
+                buttonText: antiBanBtnTitle,
+                choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+                splitPart: true,
+              });
             }
-            if (wave.length > 0) contactWaves.push(wave);
+            perContactParts.push({ parts: built });
           }
 
-          // Send each wave with calculated scheduled_for to guarantee message ordering.
-          // Wave N only starts after Wave N-1 has finished delivering to all contacts.
-          const campaignUid = Date.now().toString(36);
+          // Flatten: all parts of contact 1, then all parts of contact 2, etc.
+          const interleavedMessages: Record<string, unknown>[] = [];
+          for (const contact of perContactParts) {
+            interleavedMessages.push(...contact.parts);
+          }
+
           const campaignInfo = folder || "Campanha Bridge";
           const dMin = parseInt(delayMin) || 10;
           const dMax = parseInt(delayMax) || 30;
-          const avgDelay = (dMin + dMax) / 2; // average seconds per message
-          const splitMarginSec = Math.max((parseInt(splitDelay) || 2), 5); // minimum 5s safety margin
 
-          // Calculate the base timestamp for scheduling
-          const baseTs = scheduleEnabled && scheduledFor ? scheduledFor.getTime() : Date.now();
-
-          const sendWave = async (inst: Instance, msgs: Record<string, unknown>[], waveIdx: number, waveScheduledFor: number) => {
+          const sendInterleaved = async (inst: Instance, msgs: Record<string, unknown>[]) => {
             const body: Record<string, unknown> = {
               delayMin: dMin,
               delayMax: dMax,
-              info: waveIdx === 0 ? (contactWaves.length > 1 ? `${campaignInfo} 🔗${campaignUid}` : campaignInfo) : `${campaignInfo} ⏩${campaignUid}#${waveIdx + 1}`,
-              scheduled_for: waveScheduledFor,
+              info: campaignInfo,
               ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
               messages: msgs,
             };
+            if (scheduleEnabled && scheduledFor) body.scheduled_for = scheduledFor.getTime();
             const res = await fetch(`${getBaseUrlFor(inst)}/sender/advanced`, {
               method: "POST", headers: getHeadersFor(inst), body: JSON.stringify(body),
             });
             if (!res.ok) throw new Error((await res.text()) || `Erro ${res.status}`);
           };
 
+          const numParts = perContactParts[0]?.parts.length || 1;
+
           if (instances.length === 1) {
-            let cumulativeOffsetMs = 0;
-            for (let w = 0; w < contactWaves.length; w++) {
-              const waveTs = w === 0 ? (scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1) : baseTs + cumulativeOffsetMs;
-              await sendWave(instances[0], contactWaves[w], w, waveTs);
-              // Estimate how long this wave takes: num contacts × avg delay + safety margin
-              cumulativeOffsetMs += (contactWaves[w].length * avgDelay + splitMarginSec) * 1000;
-            }
-            toast.success(`Campanha enviada com ${contactWaves.length} parte(s)! ${numberList.length} contato(s). As partes estão agendadas em sequência para garantir a ordem.`);
+            await sendInterleaved(instances[0], interleavedMessages);
+            toast.success(`Campanha enviada com ${numParts} parte(s) por contato! ${numberList.length} contato(s). Cada contato recebe todas as partes antes do próximo.`);
           } else {
-            // Round-robin per wave
-            let cumulativeOffsetMs = 0;
-            for (let w = 0; w < contactWaves.length; w++) {
-              const waveMsgs = contactWaves[w];
-              const buckets: Record<string, unknown>[][] = instances.map(() => []);
-              waveMsgs.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
-              const waveTs = w === 0 ? (scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1) : baseTs + cumulativeOffsetMs;
-              await Promise.allSettled(
-                instances.map((inst, idx) => {
-                  if (buckets[idx].length === 0) return Promise.resolve();
-                  return sendWave(inst, buckets[idx], w, waveTs);
-                })
-              );
-              // For round-robin, the wave duration is based on the largest bucket
-              const maxBucket = Math.max(...buckets.map(b => b.length));
-              cumulativeOffsetMs += (maxBucket * avgDelay + splitMarginSec) * 1000;
-            }
-            toast.success(`Campanha round-robin com ${contactWaves.length} parte(s)! ${numberList.length} contato(s). Partes agendadas em sequência.`);
+            // Round-robin: distribute contacts (with all their parts) across instances
+            const buckets: Record<string, unknown>[][] = instances.map(() => []);
+            perContactParts.forEach((contact, idx) => {
+              buckets[idx % instances.length].push(...contact.parts);
+            });
+            await Promise.allSettled(
+              instances.map((inst, idx) => {
+                if (buckets[idx].length === 0) return Promise.resolve();
+                return sendInterleaved(inst, buckets[idx]);
+              })
+            );
+            toast.success(`Campanha round-robin com ${numParts} parte(s) por contato! ${numberList.length} contato(s).`);
           }
           // Redirect to campaigns tab and reload folders
           setActiveTab("campaigns");
