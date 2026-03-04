@@ -73,7 +73,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
           </DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-3 pt-4">
             {PLANS.map((plan) => {
               const isFlexible = plan.isFlexible;
               const price = isFlexible
