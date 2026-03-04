@@ -905,9 +905,18 @@ serve(async (req) => {
       // to prevent webhook-inbound from creating a duplicate IC when the
       // UAZAPI echo arrives (which can happen within milliseconds).
       if (newMessageId) {
-        const replyIcKey = `reply-ic:${newMessageId}`;
-        console.log("🔒 Marking reply as handled to prevent duplicate IC:", replyIcKey);
-        await supabase.from("ghl_processed_messages").insert({ message_id: replyIcKey }).maybeSingle();
+        // Save dedup markers for BOTH full ID and short ID formats.
+        // UAZAPI response gives full format "owner:msgid" (e.g. "5521975367661:3EB0...")
+        // but webhook-inbound echo uses short "messageid" (e.g. "3EB0...").
+        const shortId = newMessageId.includes(":") ? newMessageId.split(":").pop()! : newMessageId;
+        const markers = [`reply-ic:${newMessageId}`];
+        if (shortId !== newMessageId) {
+          markers.push(`reply-ic:${shortId}`);
+        }
+        console.log("🔒 Marking reply as handled to prevent duplicate IC:", markers);
+        await Promise.all(
+          markers.map(key => supabase.from("ghl_processed_messages").insert({ message_id: key }).maybeSingle())
+        );
       }
 
       // Send InternalComment to GHL with reply context (like we do for edits)
