@@ -2377,9 +2377,11 @@ serve(async (req: Request) => {
       const normalizedText = normalizeTextForSig(messageText);
       const normalizedAttachments = (attachments || []).map(String).filter(Boolean).sort();
 
-      // DO NOT include messageId in the signature!
-      // GHL Conversation Provider creates new messageIds for the same content in rapid succession,
-      // causing infinite loops. By excluding messageId, we catch these duplicates.
+      // Include messageId in signature when available to allow legitimate repeated messages.
+      // The primary dedup by messageId (line 2361) already prevents true duplicates.
+      // This secondary signature catches cases where GHL fires different event types
+      // for the same action (e.g., SMS + OutboundMessage) but with different messageIds.
+      // By including messageId, two intentional identical messages get unique signatures.
       const signaturePayload = {
         locationId: String(body.locationId ?? ""),
         contactId: String(body.contactId ?? ""),
@@ -2388,6 +2390,7 @@ serve(async (req: Request) => {
         text: normalizedText,
         attachments: normalizedAttachments,
         minuteBucket,
+        messageId: String(messageId ?? ""),
       };
       const sig = await sha256Hex(JSON.stringify(signaturePayload));
       const sigKey = `ghl_sig:${sig.slice(0, 32)}`;
