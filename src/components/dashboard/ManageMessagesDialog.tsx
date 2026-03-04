@@ -1129,7 +1129,11 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             const built: Record<string, unknown>[] = [];
             for (let i = 0; i < parts.length; i++) {
               const part: Record<string, unknown> = { ...msg, text: parts[i] };
-              if (i > 0) { delete part.file; delete part.docName; part.splitPart = true; }
+              if (i > 0) {
+                delete part.file; delete part.docName;
+                part.splitPart = true;
+                part.delay = (parseInt(splitDelay) || 2) * 1000;
+              }
               built.push(part);
             }
             // Add anti-ban button as final part for this contact
