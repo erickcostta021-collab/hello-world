@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -107,6 +107,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [syncing, setSyncing] = useState(false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(instance.phone || null);
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(instance.profile_pic_url || null);
+  const profilePicRef = useRef(profilePicUrl);
   const [assignUserDialogOpen, setAssignUserDialogOpen] = useState(false);
   const [ghlUserName, setGhlUserName] = useState<string | null>(null);
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
@@ -201,6 +202,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
   // After connection, retry fetching profile pic if missing
   useEffect(() => {
+    profilePicRef.current = profilePicUrl;
+  }, [profilePicUrl]);
+
+  useEffect(() => {
     if (localStatus !== "connected" || profilePicUrl) return;
 
     let cancelled = false;
@@ -208,10 +213,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
     const retries = retryDelays.map((delay) =>
       setTimeout(async () => {
-        if (cancelled || profilePicUrl) return;
+        if (cancelled || profilePicRef.current) return;
         try {
           const result = await syncInstanceStatus.mutateAsync(instance);
-          if (result?.profilePicUrl) setProfilePicUrl(result.profilePicUrl);
+          if (result?.profilePicUrl) {
+            setProfilePicUrl(result.profilePicUrl);
+            profilePicRef.current = result.profilePicUrl;
+          }
           if (result?.phone) setConnectedPhone(result.phone);
         } catch {}
       }, delay)
@@ -221,7 +229,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       cancelled = true;
       retries.forEach(clearTimeout);
     };
-  }, [localStatus, profilePicUrl]);
+  }, [localStatus]);
 
   const handleConnect = async () => {
     setLoadingQR(true);
