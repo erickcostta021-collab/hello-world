@@ -577,17 +577,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
           {/* Actions */}
           <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleSyncStatus}
-              disabled={syncing}
-              className="h-8 w-8 border-border/50"
-              title="Atualizar Status"
-            >
-              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            </Button>
-
             {isConnected ? (
               <Button
                 variant="outline"
@@ -610,6 +599,17 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 Conectar
               </Button>
             )}
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSyncStatus}
+              disabled={syncing}
+              className="h-8 w-8 border-border/50"
+              title="Atualizar Status"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            </Button>
           </div>
         </CardContent>
       </Card>
