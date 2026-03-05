@@ -562,7 +562,12 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           </div>
 
           {/* Status Section */}
-          {isConnected ? null : (
+          {isConnected ? (
+            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+              <Wifi className="h-4 w-4 text-emerald-400" />
+              <span className="text-emerald-400 font-medium text-sm">WhatsApp Conectado</span>
+            </div>
+          ) : (
             <div 
               className="mx-4 mb-3 flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
               onClick={handleConnect}
