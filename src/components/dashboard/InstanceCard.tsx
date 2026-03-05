@@ -431,32 +431,23 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 </div>
               </div>
               
-              <div className="flex items-center gap-1 shrink-0">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleSyncStatus}
-                  disabled={syncing}
-                  className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
-                  title="Atualizar Status"
-                >
-                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 opacity-60 hover:opacity-100"
-                  title="Configurar abas do embed"
-                  onClick={() => setEmbedTabsDialogOpen(true)}
-                >
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-60 hover:opacity-100">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 opacity-60 hover:opacity-100"
+                    title="Configurar abas do embed"
+                    onClick={() => setEmbedTabsDialogOpen(true)}
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-60 hover:opacity-100">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
                   {settings?.track_id && (
                     <DropdownMenuItem onClick={async () => {
@@ -527,6 +518,17 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleSyncStatus}
+                  disabled={syncing}
+                  className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
+                  title="Atualizar Status"
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                </Button>
               </div>
             </div>
           </div>

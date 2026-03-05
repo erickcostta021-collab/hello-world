@@ -559,19 +559,7 @@ export function EmbedInstanceCard({
                 </div>
               </div>
               
-              <div className="flex items-center gap-1 shrink-0">
-                {isVisible("status") && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleSyncStatus}
-                    disabled={syncing}
-                    className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
-                    title="Atualizar Status"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                  </Button>
-                )}
+              <div className="flex flex-col items-end gap-1 shrink-0">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 opacity-60 hover:opacity-100">
@@ -636,6 +624,18 @@ export function EmbedInstanceCard({
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {isVisible("status") && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleSyncStatus}
+                    disabled={syncing}
+                    className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
+                    title="Atualizar Status"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                  </Button>
+                )}
               </div>
             </div>
           </div>
