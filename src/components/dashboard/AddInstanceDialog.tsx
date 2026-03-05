@@ -83,6 +83,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
     instances, 
     fetchUazapiInstances,
     deleteInstance,
+    updateInstanceGHLUser,
     instanceLimit,
     linkedInstanceCount,
     unlinkedInstanceCount,
@@ -168,14 +169,31 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
   const handleCreate = () => {
     if (!name.trim()) return;
     
+    const ghlUserId = selectedUserId && selectedUserId !== "none" ? selectedUserId : null;
+    
     createInstance.mutate(
       { name: name.trim(), subaccountId: subaccount.id },
       {
-        onSuccess: () => {
-          setOpen(false);
-          setName("");
-          setSystemName("");
-          setSelectedUserId("");
+        onSuccess: (data) => {
+          // Assign GHL user after instance is created
+          if (ghlUserId && data?.id) {
+            updateInstanceGHLUser.mutate(
+              { instanceId: data.id, ghlUserId },
+              {
+                onSettled: () => {
+                  setOpen(false);
+                  setName("");
+                  setSystemName("");
+                  setSelectedUserId("");
+                },
+              }
+            );
+          } else {
+            setOpen(false);
+            setName("");
+            setSystemName("");
+            setSelectedUserId("");
+          }
         },
       }
     );
