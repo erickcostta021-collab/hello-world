@@ -565,12 +565,12 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
           {/* Status + Actions */}
           {isConnected ? (
-            <>
+            <div className="mt-auto">
               <div className="mx-4 mb-2 flex flex-col items-center justify-center py-3 bg-emerald-500/15 border border-emerald-500/30 rounded-lg">
                 <Wifi className="h-10 w-10 text-emerald-400 mb-1.5" />
                 <span className="text-sm text-emerald-400 font-bold">WhatsApp Conectado</span>
               </div>
-              <div className="px-4 pb-4 flex items-center justify-center mt-auto">
+              <div className="px-4 pb-4 flex items-center justify-center">
                 <Button
                   size="sm"
                   onClick={handleDisconnect}
@@ -581,7 +581,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   Desconectar
                 </Button>
               </div>
-            </>
+            </div>
           ) : (
             <>
               <div 
