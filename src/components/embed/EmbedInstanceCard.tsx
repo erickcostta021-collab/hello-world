@@ -688,23 +688,25 @@ export function EmbedInstanceCard({
 
           {/* Status + Actions */}
           {isConnected ? (
-            <div className="flex flex-col items-center gap-2 mt-auto mb-1">
-              <div className="flex items-center justify-center gap-2 py-3 w-full bg-emerald-500/15 border-y border-emerald-500/30">
-                <Wifi className="h-5 w-5 text-emerald-400" />
-                <span className="text-emerald-400 font-bold text-base">WhatsApp Conectado</span>
+            <>
+              <div className="mx-4 mb-2 flex flex-col items-center justify-center py-3 bg-emerald-500/15 border border-emerald-500/30 rounded-lg">
+                <Wifi className="h-10 w-10 text-emerald-400 mb-1.5" />
+                <span className="text-sm text-emerald-400 font-bold">WhatsApp Conectado</span>
               </div>
-              {isVisible("disconnect") && (
-                <Button
-                  size="sm"
-                  onClick={handleDisconnect}
-                  disabled={disconnecting}
-                  className="bg-destructive hover:bg-destructive/90 h-9 px-4"
-                >
-                  <Power className="h-3.5 w-3.5 mr-1.5" />
-                  Desconectar
-                </Button>
-              )}
-            </div>
+              <div className="px-4 pb-4 flex items-center justify-center mt-auto">
+                {isVisible("disconnect") && (
+                  <Button
+                    size="sm"
+                    onClick={handleDisconnect}
+                    disabled={disconnecting}
+                    className="bg-destructive hover:bg-destructive/90 h-9 px-4"
+                  >
+                    <Power className="h-3.5 w-3.5 mr-1.5" />
+                    Desconectar
+                  </Button>
+                )}
+              </div>
+            </>
           ) : isVisible("connect") ? (
             <>
               <div 
