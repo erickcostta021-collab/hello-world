@@ -27,6 +27,8 @@ import {
   Webhook,
   MessageSquare,
   Users,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,6 +100,7 @@ export function EmbedInstanceCard({
   const [ignoreGroups, setIgnoreGroups] = useState(false);
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
+  const [showToken, setShowToken] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -667,7 +670,7 @@ export function EmbedInstanceCard({
               <div className="flex items-center gap-1.5 whitespace-nowrap">
                 <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
                 <span
-                  className="text-sm text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
+                  className="text-sm text-muted-foreground font-mono truncate max-w-[250px] cursor-pointer hover:text-foreground transition-colors"
                   title="Clique para copiar o token"
                   onClick={async (e) => {
                     e.stopPropagation();
@@ -680,8 +683,18 @@ export function EmbedInstanceCard({
                     } catch { toast.error("Erro ao copiar"); }
                   }}
                 >
-                  {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
+                  {showToken
+                    ? instance.uazapi_instance_token
+                    : `${instance.uazapi_instance_token.slice(0, 12)}...${instance.uazapi_instance_token.slice(-4)}`}
                 </span>
+                <button
+                  type="button"
+                  className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setShowToken(!showToken); }}
+                  title={showToken ? "Ocultar token" : "Ver token completo"}
+                >
+                  {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
               </div>
             )}
           </div>
