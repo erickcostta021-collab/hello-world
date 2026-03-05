@@ -390,10 +390,12 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                         title={serverOnline ? "Servidor UAZAPI online" : "Servidor UAZAPI offline"}
                       />
                     )}
-                    <Badge variant="outline" className={`${status.className} shrink-0`}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {status.label}
-                    </Badge>
+                    {!isConnected && (
+                      <Badge variant="outline" className={`${status.className} shrink-0`}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {status.label}
+                      </Badge>
+                    )}
                   </div>
                   
                   {/* Phone number - always show if available */}
