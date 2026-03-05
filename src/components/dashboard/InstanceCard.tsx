@@ -113,6 +113,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [groupManagerDialogOpen, setGroupManagerDialogOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
+  const [localStatus, setLocalStatus] = useState<"connected" | "connecting" | "disconnected" | null>(null);
   const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
@@ -157,6 +158,11 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     fetchSubaccount();
   }, [instance.subaccount_id, instance.ghl_user_id]);
 
+  // Sync localStatus when prop changes from React Query refetch
+  useEffect(() => {
+    setLocalStatus(null);
+  }, [instance.instance_status]);
+
   // Fetch phone number and profile pic on mount
   useEffect(() => {
     if (!connectedPhone || !profilePicUrl) {
@@ -185,6 +191,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           if (result?.profilePicUrl) {
             setProfilePicUrl(result.profilePicUrl);
           }
+          setLocalStatus("connected");
           setQrDialogOpen(false);
           toast.success("WhatsApp conectado com sucesso!");
         }
@@ -210,6 +217,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
         if (statusResult?.profilePicUrl) {
           setProfilePicUrl(statusResult.profilePicUrl);
         }
+        setLocalStatus("connected");
         toast.success("Esta instância já está conectada!");
         setLoadingQR(false);
         return;
@@ -219,6 +227,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       if (statusResult?.status === "disconnected") {
         setConnectedPhone(null);
         setProfilePicUrl(null);
+        setLocalStatus("disconnected");
       }
       
       // Connect and get QR code in one call
@@ -285,6 +294,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       if (result?.profilePicUrl) {
         setProfilePicUrl(result.profilePicUrl);
       }
+      setLocalStatus(result.status);
       toast.success("Status atualizado!");
     } catch (error: any) {
       toast.error(error.message);
@@ -317,6 +327,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       onSuccess: () => {
         setConnectedPhone(null);
         setProfilePicUrl(null);
+        setLocalStatus("disconnected");
       }
     });
   };
@@ -355,9 +366,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     },
   };
 
-  const status = statusConfig[instance.instance_status];
+  const effectiveStatus = localStatus ?? instance.instance_status;
+  const status = statusConfig[effectiveStatus];
   const StatusIcon = status.icon;
-  const isConnected = instance.instance_status === "connected";
+  const isConnected = effectiveStatus === "connected";
 
   return (
     <>
