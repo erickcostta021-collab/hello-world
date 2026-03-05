@@ -1,4 +1,5 @@
 import { useState, useEffect, memo } from "react";
+import powerIcon from "@/assets/power-icon.png";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -573,8 +574,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 size="sm"
                 onClick={handleDisconnect}
                 disabled={disconnectInstance.isPending}
-                className="bg-red-900 text-white hover:bg-red-800 h-auto py-1.5 px-3 text-xs uppercase tracking-wider font-bold rounded-none border-none w-auto"
+                className="bg-red-900 text-white hover:bg-red-800 h-auto py-1.5 px-3 text-xs uppercase tracking-wider font-bold rounded-none border-none w-auto gap-1.5"
               >
+                <img src={powerIcon} alt="" className="h-4 w-4" />
                 Desconectar
               </Button>
             </div>
