@@ -463,6 +463,16 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               
               <div className="flex items-center gap-1 shrink-0">
                 <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleSyncStatus}
+                  disabled={syncing}
+                  className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
+                  title="Atualizar Status"
+                >
+                  <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+                </Button>
+                <Button
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 opacity-60 hover:opacity-100"
@@ -598,16 +608,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               </Button>
             )}
 
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={handleSyncStatus}
-              disabled={syncing}
-              className="h-8 w-8 border-border/50 ml-auto"
-              title="Atualizar Status"
-            >
-              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            </Button>
           </div>
         </CardContent>
       </Card>
