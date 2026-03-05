@@ -701,7 +701,8 @@ export function EmbedInstanceCard({
                     disabled={disconnecting}
                     className="bg-destructive hover:bg-destructive/90 h-9 px-4"
                   >
-                    <Power className="h-3.5 w-3.5 mr-1.5" />
+                    <Power className="h-3.5 w-3.5" />
+                    <span className="w-px h-4 bg-destructive-foreground/30" />
                     Desconectar
                   </Button>
                 )}
