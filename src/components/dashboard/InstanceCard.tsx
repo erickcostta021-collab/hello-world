@@ -378,7 +378,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-card-foreground truncate">
+                    <h3 className="font-semibold text-card-foreground truncate text-lg">
                       {instance.instance_name}
                     </h3>
                     {/* Server health badge - only shown after manual check */}
