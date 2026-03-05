@@ -495,7 +495,7 @@ export function EmbedInstanceCard({
 
   return (
     <>
-      <Card className={`bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px] min-h-[260px] rounded-sm flex flex-col ${isConnected ? "snake-border border-emerald-500/30" : ""}`}>
+      <Card className={`bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group max-w-[350px] min-h-[260px] rounded-sm flex flex-col ${isConnected ? "snake-border border-transparent" : "overflow-hidden"}`}>
         <CardContent className="p-0 flex flex-col flex-1">
           {/* Header Section */}
           <div className="p-4 pb-2 pt-3">
