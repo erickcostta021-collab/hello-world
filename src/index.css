@@ -162,7 +162,7 @@
   position: absolute;
   inset: 2px;
   border-radius: inherit;
-  background: hsl(var(--card) / 0.97);
+  background: hsl(var(--card));
   z-index: 0;
   pointer-events: none;
 }
