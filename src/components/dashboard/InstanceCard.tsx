@@ -398,8 +398,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   
                   {/* Phone number - always show if available */}
                   {connectedPhone ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Phone className="h-3.5 w-3.5 text-emerald-400" />
+                    <div className="flex items-center gap-1.5 mt-1 whitespace-nowrap">
+                      <Phone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                       <span className="text-sm text-emerald-400 font-medium">
                         {formatPhoneNumber(connectedPhone)}
                       </span>
