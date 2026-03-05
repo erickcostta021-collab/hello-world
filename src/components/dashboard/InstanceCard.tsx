@@ -357,8 +357,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
   return (
     <>
-      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px] min-h-[260px] rounded-sm">
-        <CardContent className="p-0">
+      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px] min-h-[260px] rounded-sm flex flex-col">
+        <CardContent className="p-0 flex flex-col flex-1">
           {/* Header Section */}
           <div className="p-4 pb-3">
             <div className="flex items-start justify-between gap-3">
@@ -588,7 +588,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           )}
 
           {/* Actions */}
-          <div className="px-4 pb-4 flex items-center justify-center">
+          <div className="px-4 pb-4 flex items-center justify-center mt-auto">
             {isConnected ? (
               <Button
                 size="sm"
