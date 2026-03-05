@@ -159,10 +159,22 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     fetchSubaccount();
   }, [instance.subaccount_id, instance.ghl_user_id]);
 
-  // Sync localStatus when prop changes from React Query refetch
+  // Sync local state when prop changes from React Query refetch
   useEffect(() => {
     setLocalStatus(null);
   }, [instance.instance_status]);
+
+  useEffect(() => {
+    if (instance.profile_pic_url && instance.profile_pic_url !== profilePicUrl) {
+      setProfilePicUrl(instance.profile_pic_url);
+    }
+  }, [instance.profile_pic_url]);
+
+  useEffect(() => {
+    if (instance.phone && instance.phone !== connectedPhone) {
+      setConnectedPhone(instance.phone);
+    }
+  }, [instance.phone]);
 
   // Fetch phone number and profile pic on mount
   useEffect(() => {
