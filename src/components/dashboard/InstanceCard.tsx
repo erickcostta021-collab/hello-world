@@ -568,9 +568,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           {/* Status + Actions */}
           {isConnected ? (
             <>
-              <div className="mb-2 flex flex-col items-center justify-center py-5 bg-emerald-500/15 border-y border-emerald-500/30">
-                <Wifi className="h-10 w-10 text-emerald-400 mb-1.5" />
-                <span className="text-sm text-emerald-400 font-bold">WhatsApp Conectado</span>
+               <div className="mb-2 flex items-center justify-center gap-2 py-5 bg-emerald-500/15 border-y border-emerald-500/30">
+                 <Wifi className="h-5 w-5 text-emerald-400" />
+                 <span className="text-sm text-emerald-400 font-bold">WhatsApp Conectado</span>
               </div>
               <div className="px-4 pb-4 flex items-center justify-center mt-auto">
                 <Button
