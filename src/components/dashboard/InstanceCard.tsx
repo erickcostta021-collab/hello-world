@@ -586,7 +586,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           )}
 
           {/* Actions */}
-          <div className="px-4 pb-4 flex items-center justify-between">
+          <div className="px-4 pb-4 flex items-center justify-center">
             {isConnected ? (
               <Button
                 size="sm"
