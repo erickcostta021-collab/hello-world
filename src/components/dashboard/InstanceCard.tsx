@@ -357,7 +357,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
   return (
     <>
-      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[320px]">
+      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px]">
         <CardContent className="p-0">
           {/* Header Section */}
           <div className="p-4 pb-3">
@@ -576,7 +576,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           )}
 
           {/* Actions */}
-          <div className="px-4 pb-4 grid grid-cols-2 gap-2">
+          <div className="px-4 pb-4 flex items-center justify-between">
             {isConnected ? (
               <Button
                 size="sm"
@@ -591,7 +591,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 size="sm"
                 onClick={handleConnect}
                 disabled={loadingQR}
-                className="w-full bg-primary hover:bg-primary/90 h-9"
+                className="bg-primary hover:bg-primary/90 h-9 px-4"
               >
                 <QrCode className="h-3.5 w-3.5 mr-1.5" />
                 Conectar
@@ -603,7 +603,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               size="icon"
               onClick={handleSyncStatus}
               disabled={syncing}
-              className="h-8 w-8 border-border/50"
+              className="h-8 w-8 border-border/50 ml-auto"
               title="Atualizar Status"
             >
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
