@@ -354,7 +354,7 @@ export async function createInstanceOnApi(
   const response = await fetch(`${base}/instance/init`, {
     method: "POST",
     headers: { "Content-Type": "application/json", admintoken: adminToken },
-    body: JSON.stringify({ name, systemName: "lovable-ghl-bridge" }),
+    body: JSON.stringify({ name, systemName: "Bridge-API" }),
   });
 
   if (!response.ok) {
