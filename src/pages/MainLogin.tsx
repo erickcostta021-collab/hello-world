@@ -228,6 +228,11 @@ const MainLogin = () => {
     try {
       const trimmedEmail = email.trim().toLowerCase();
 
+      // Mark code as used BEFORE creating user (create-user checks for status = 'used')
+      await supabase.functions.invoke("mark-code-used", {
+        body: { email: trimmedEmail },
+      });
+
       const { data, error } = await supabase.functions.invoke("create-user", {
         body: { email: trimmedEmail, password: newPassword },
       });
@@ -238,10 +243,6 @@ const MainLogin = () => {
         setActivationLoading(false);
         return;
       }
-
-      await supabase.functions.invoke("mark-code-used", {
-        body: { email: trimmedEmail },
-      });
 
       const { error: signInError } = await signIn(trimmedEmail, newPassword);
       if (signInError) throw signInError;
