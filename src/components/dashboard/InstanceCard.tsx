@@ -360,7 +360,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px] min-h-[260px] rounded-sm flex flex-col">
         <CardContent className="p-0 flex flex-col flex-1">
           {/* Header Section */}
-          <div className="p-4 pb-3">
+          <div className="p-4 pb-2">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {/* Profile Picture or Default Icon */}
@@ -381,7 +381,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     <h3 className="font-semibold text-card-foreground truncate text-lg">
                       {instance.instance_name}
                     </h3>
-                    {/* Server health badge - only shown after manual check */}
                     {serverOnline !== null && (
                       <div 
                         className={`h-2.5 w-2.5 rounded-full shrink-0 ${
@@ -398,7 +397,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     )}
                   </div>
                   
-                  {/* Phone number - always show if available */}
+                  {/* Phone number */}
                   {connectedPhone ? (
                     <div className="flex items-center gap-1.5 mt-1 whitespace-nowrap">
                       <Phone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
@@ -412,7 +411,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     </p>
                   )}
                   
-                  {/* GHL User - show if assigned */}
+                  {/* GHL User */}
                   {instance.ghl_user_id && (
                     <div className="flex items-center gap-1.5 mt-1">
                       <User className="h-3.5 w-3.5 text-primary" />
@@ -421,38 +420,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                       </span>
                     </div>
                   )}
-                  
-                  {/* Base URL */}
-                  <div className="flex items-center gap-1.5 mt-1 whitespace-nowrap">
-                    <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
-                    <span
-                      className="text-xs text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
-                      title={instance.uazapi_base_url || settings?.uazapi_base_url || "Não configurada"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const url = instance.uazapi_base_url || settings?.uazapi_base_url;
-                        if (url) { navigator.clipboard.writeText(url); toast.success("Base URL copiada!"); }
-                      }}
-                    >
-                      {instance.uazapi_base_url || settings?.uazapi_base_url || "URL não configurada"}
-                    </span>
-                  </div>
-
-                  {/* Token */}
-                  <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
-                    <Copy className="h-3 w-3 text-muted-foreground" />
-                    <span
-                      className="text-xs text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
-                      title="Clique para copiar o token"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(instance.uazapi_instance_token);
-                        toast.success("Token copiado!");
-                      }}
-                    >
-                      {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
-                    </span>
-                  </div>
 
                   {/* Official API badge */}
                   {instance.is_official_api && (
@@ -563,9 +530,41 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             </div>
           </div>
 
+          {/* Credentials Section */}
+          <div className="px-4 pb-2 space-y-0.5">
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span
+                className="text-xs text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
+                title={instance.uazapi_base_url || settings?.uazapi_base_url || "Não configurada"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const url = instance.uazapi_base_url || settings?.uazapi_base_url;
+                  if (url) { navigator.clipboard.writeText(url); toast.success("Base URL copiada!"); }
+                }}
+              >
+                {instance.uazapi_base_url || settings?.uazapi_base_url || "URL não configurada"}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 whitespace-nowrap">
+              <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+              <span
+                className="text-xs text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
+                title="Clique para copiar o token"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(instance.uazapi_instance_token);
+                  toast.success("Token copiado!");
+                }}
+              >
+                {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
+              </span>
+            </div>
+          </div>
+
           {/* Status Section */}
           {isConnected ? (
-            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
               <Wifi className="h-4 w-4 text-emerald-400" />
               <span className="text-emerald-400 font-medium text-sm">WhatsApp Conectado</span>
             </div>
@@ -586,7 +585,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               )}
             </div>
           )}
-
           {/* Actions */}
           <div className="px-4 pb-4 flex items-center justify-center mt-auto">
             {isConnected ? (
