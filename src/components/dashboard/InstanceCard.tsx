@@ -579,13 +579,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           <div className="px-4 pb-4 grid grid-cols-2 gap-2">
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={handleSyncStatus}
               disabled={syncing}
-              className="w-full border-border/50 h-9"
+              className="h-8 w-8 border-border/50"
+              title="Atualizar Status"
             >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-              Status
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
             </Button>
 
             {isConnected ? (
