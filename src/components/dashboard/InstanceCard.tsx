@@ -365,10 +365,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {/* Profile Picture or Default Icon */}
                 {profilePicUrl ? (
-                  <Avatar className="h-11 w-11 shrink-0 border-2 border-primary/20">
+                  <Avatar className="h-14 w-14 shrink-0 border-2 border-primary/20">
                     <AvatarImage src={profilePicUrl} alt="WhatsApp Profile" />
                     <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20">
-                      <Smartphone className="h-5 w-5 text-primary" />
+                      <Smartphone className="h-6 w-6 text-primary" />
                     </AvatarFallback>
                   </Avatar>
                 ) : (
@@ -424,7 +424,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   <div className="flex items-center gap-1.5 mt-1">
                     <Copy className="h-3 w-3 text-muted-foreground" />
                     <span
-                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      className="text-xs text-muted-foreground font-mono truncate max-w-[200px] cursor-pointer hover:text-foreground transition-colors"
                       title={instance.uazapi_base_url || settings?.uazapi_base_url || "Não configurada"}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -440,7 +440,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <Copy className="h-3 w-3 text-muted-foreground" />
                     <span
-                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      className="text-xs text-muted-foreground font-mono truncate max-w-[200px] cursor-pointer hover:text-foreground transition-colors"
                       title="Clique para copiar o token"
                       onClick={(e) => {
                         e.stopPropagation();
