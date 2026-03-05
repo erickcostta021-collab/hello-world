@@ -574,9 +574,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 size="sm"
                 onClick={handleDisconnect}
                 disabled={disconnectInstance.isPending}
-                className="bg-red-900 text-white hover:bg-red-800 h-auto py-1.5 px-3 text-xs uppercase tracking-wider font-bold rounded-none border-none w-auto gap-1.5"
+                className="bg-destructive hover:bg-destructive/90 h-9 px-4"
               >
-                
+                <Power className="h-3.5 w-3.5 mr-1.5" />
                 Desconectar
               </Button>
             </div>
