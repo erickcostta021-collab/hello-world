@@ -689,8 +689,8 @@ export function EmbedInstanceCard({
           {/* Status + Actions */}
           {isConnected ? (
             <div className="flex flex-col items-center gap-2 mt-auto mb-1">
-              <div className="flex items-center justify-center gap-2 py-3 w-full bg-emerald-500/15 border-y border-emerald-500/30">
-                <Wifi className="h-5 w-5 text-emerald-400" />
+              <div className="mx-4 flex flex-col items-center justify-center gap-1.5 py-3 w-[calc(100%-2rem)] bg-emerald-500/15 border border-emerald-500/30 rounded-lg">
+                <Wifi className="h-10 w-10 text-emerald-400" />
                 <span className="text-emerald-400 font-bold text-base">WhatsApp Conectado</span>
               </div>
               {isVisible("disconnect") && (
