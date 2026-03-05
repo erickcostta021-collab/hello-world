@@ -162,7 +162,13 @@
   position: absolute;
   inset: 2px;
   border-radius: inherit;
-  background: hsl(var(--card));
+  background: linear-gradient(
+    165deg,
+    hsl(var(--card) / 1) 0%,
+    hsl(222 47% 15%) 40%,
+    hsl(var(--card) / 1) 60%,
+    hsl(222 47% 11%) 100%
+  );
   z-index: 0;
   pointer-events: none;
 }
