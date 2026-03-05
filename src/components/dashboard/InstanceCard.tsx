@@ -357,7 +357,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
   return (
     <>
-      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px] min-h-[220px] rounded-sm">
+      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px] min-h-[260px] rounded-sm">
         <CardContent className="p-0">
           {/* Header Section */}
           <div className="p-4 pb-3">
