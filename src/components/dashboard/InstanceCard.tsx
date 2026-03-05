@@ -424,7 +424,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   <div className="flex items-center gap-1.5 mt-1 whitespace-nowrap">
                     <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
                     <span
-                      className="text-xs text-muted-foreground font-mono truncate max-w-[200px] cursor-pointer hover:text-foreground transition-colors"
+                      className="text-xs text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
                       title={instance.uazapi_base_url || settings?.uazapi_base_url || "Não configurada"}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -440,7 +440,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   <div className="flex items-center gap-1.5 mt-0.5 whitespace-nowrap">
                     <Copy className="h-3 w-3 text-muted-foreground" />
                     <span
-                      className="text-xs text-muted-foreground font-mono truncate max-w-[200px] cursor-pointer hover:text-foreground transition-colors"
+                      className="text-xs text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
                       title="Clique para copiar o token"
                       onClick={(e) => {
                         e.stopPropagation();
