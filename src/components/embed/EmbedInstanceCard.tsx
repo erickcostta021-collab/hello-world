@@ -689,7 +689,7 @@ export function EmbedInstanceCard({
           {/* Status + Actions */}
           {isConnected ? (
             <>
-               <div className="mb-2 flex items-center justify-center gap-2 py-5 bg-emerald-500/15 border-y border-emerald-500/30">
+               <div className="mt-2 mb-2 flex items-center justify-center gap-2 py-5 bg-emerald-500/15 border-y border-emerald-500/30">
                  <Wifi className="h-5 w-5 text-emerald-400" />
                  <span className="text-sm text-emerald-400 font-bold">WhatsApp Conectado</span>
               </div>
