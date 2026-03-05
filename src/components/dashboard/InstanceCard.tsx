@@ -399,7 +399,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   
                   {/* Phone number */}
                   {connectedPhone ? (
-                    <div className="flex items-center gap-1.5 mt-1 whitespace-nowrap">
+                    <div className="flex items-center gap-1.5 mt-2.5 whitespace-nowrap">
                       <Phone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                       <span className="text-sm text-emerald-400 font-medium">
                         {formatPhoneNumber(connectedPhone)}
@@ -531,7 +531,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           </div>
 
           {/* Credentials Section */}
-          <div className="px-4 pb-2 space-y-0.5">
+          <div className="px-4 pt-2 pb-3 space-y-0.5 border-t border-border/30 mt-1">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
               <span
