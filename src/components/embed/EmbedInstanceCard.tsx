@@ -26,8 +26,6 @@ import {
   Webhook,
   MessageSquare,
   Users,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -99,7 +97,6 @@ export function EmbedInstanceCard({
   const [ignoreGroups, setIgnoreGroups] = useState(false);
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
-  const [showToken, setShowToken] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -578,16 +575,10 @@ export function EmbedInstanceCard({
                   {/* Token */}
                   {isVisible("token") && (
                   <div className="flex items-center gap-1.5 mt-0.5">
+                    <Copy className="h-3 w-3 text-muted-foreground" />
                     <span
-                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px]"
-                    >
-                      {showToken
-                        ? instance.uazapi_instance_token
-                        : instance.uazapi_instance_token.replace(/[^-]/g, '*')}
-                    </span>
-                    <button
-                      className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors shrink-0"
-                      title="Copiar token"
+                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      title="Clique para copiar o token"
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
@@ -599,18 +590,8 @@ export function EmbedInstanceCard({
                         } catch { toast.error("Erro ao copiar"); }
                       }}
                     >
-                      <Copy className="h-3 w-3" />
-                    </button>
-                    <button
-                      className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                      title={showToken ? "Ocultar token" : "Mostrar token"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowToken(!showToken);
-                      }}
-                    >
-                      {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                    </button>
+                      {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
+                    </span>
                   </div>
                   )}
                 </div>

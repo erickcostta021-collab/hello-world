@@ -48,9 +48,7 @@ import {
   User,
   RotateCcw,
   MessageSquare,
-  Users,
-  Eye,
-  EyeOff
+  Users
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -112,7 +110,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [groupManagerDialogOpen, setGroupManagerDialogOpen] = useState(false);
   const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
-  const [showToken, setShowToken] = useState(false);
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
   );
@@ -441,34 +438,18 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
 
                   {/* Token */}
                   <div className="flex items-center gap-1.5 mt-0.5">
+                    <Copy className="h-3 w-3 text-muted-foreground" />
                     <span
-                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px]"
-                    >
-                      {showToken
-                        ? instance.uazapi_instance_token
-                        : instance.uazapi_instance_token.replace(/[^-]/g, '*')}
-                    </span>
-                    <button
-                      className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors shrink-0"
-                      title="Copiar token"
+                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
+                      title="Clique para copiar o token"
                       onClick={(e) => {
                         e.stopPropagation();
                         navigator.clipboard.writeText(instance.uazapi_instance_token);
                         toast.success("Token copiado!");
                       }}
                     >
-                      <Copy className="h-3 w-3" />
-                    </button>
-                    <button
-                      className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                      title={showToken ? "Ocultar token" : "Mostrar token"}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowToken(!showToken);
-                      }}
-                    >
-                      {showToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                    </button>
+                      {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
+                    </span>
                   </div>
 
                   {/* Official API badge */}
