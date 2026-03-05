@@ -604,10 +604,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 {instance.uazapi_base_url || settings?.uazapi_base_url || "URL não configurada"}
               </span>
             </div>
-            <div className="flex items-center gap-1.5 whitespace-nowrap">
-              <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+            <div className={`flex items-start gap-1.5 ${showToken ? '' : 'whitespace-nowrap'}`}>
+              <Copy className="h-3 w-3 text-muted-foreground shrink-0 mt-1" />
               <span
-                className="text-sm text-muted-foreground font-mono truncate max-w-[250px] cursor-pointer hover:text-foreground transition-colors"
+                className={`text-sm text-muted-foreground font-mono cursor-pointer hover:text-foreground transition-colors ${showToken ? 'break-all' : 'truncate max-w-[250px]'}`}
                 title="Clique para copiar o token"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -621,7 +621,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               </span>
               <button
                 type="button"
-                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mt-0.5"
                 onClick={(e) => { e.stopPropagation(); setShowToken(!showToken); }}
                 title={showToken ? "Ocultar token" : "Ver token completo"}
               >
