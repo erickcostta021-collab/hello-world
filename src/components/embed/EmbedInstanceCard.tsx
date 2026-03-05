@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import powerIcon from "@/assets/power-icon.png";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -494,17 +495,17 @@ export function EmbedInstanceCard({
 
   return (
     <>
-      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden">
-        <CardContent className="p-0">
+      <Card className="bg-card/50 backdrop-blur-sm border-border/50 hover:border-primary/40 transition-all duration-300 group overflow-hidden max-w-[350px] min-h-[260px] rounded-sm flex flex-col">
+        <CardContent className="p-0 flex flex-col flex-1">
           {/* Header Section */}
-          <div className="p-4 pb-3">
+          <div className="p-4 pb-2 pt-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 {profilePicUrl ? (
-                  <Avatar className="h-11 w-11 shrink-0 border-2 border-primary/20">
+                  <Avatar className="h-14 w-14 shrink-0 border-2 border-primary/20">
                     <AvatarImage src={profilePicUrl} alt="WhatsApp Profile" />
                     <AvatarFallback className="bg-gradient-to-br from-primary/20 to-accent/20">
-                      <Smartphone className="h-5 w-5 text-primary" />
+                      <Smartphone className="h-6 w-6 text-primary" />
                     </AvatarFallback>
                   </Avatar>
                 ) : (
@@ -514,23 +515,21 @@ export function EmbedInstanceCard({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-card-foreground truncate">
+                    <h3 className="font-semibold text-card-foreground truncate text-lg">
                       {instance.instance_name}
                     </h3>
-                    <Badge variant="outline" className={`${status.className} shrink-0`}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {status.label}
-                    </Badge>
-                    {isVisible("api_oficial") && isOfficialApi && (
-                      <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px] shrink-0">
-                        API Oficial
+                    {!isConnected && (
+                      <Badge variant="outline" className={`${status.className} shrink-0`}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {status.label}
                       </Badge>
                     )}
                   </div>
                   
+                  {/* Phone number */}
                   {connectedPhone ? (
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <Phone className="h-3.5 w-3.5 text-emerald-400" />
+                    <div className="flex items-center gap-1.5 mt-2.5 whitespace-nowrap">
+                      <Phone className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
                       <span className="text-sm text-emerald-400 font-medium">
                         {formatPhoneNumber(connectedPhone)}
                       </span>
@@ -541,6 +540,7 @@ export function EmbedInstanceCard({
                     </p>
                   )}
                   
+                  {/* GHL User */}
                   {currentGhlUserId && (
                     <div className="flex items-center gap-1.5 mt-1">
                       <User className="h-3.5 w-3.5 text-primary" />
@@ -549,188 +549,197 @@ export function EmbedInstanceCard({
                       </span>
                     </div>
                   )}
-                  {/* Base URL */}
-                  {isVisible("base_url") && (
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Copy className="h-3 w-3 text-muted-foreground" />
-                    <span
-                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
-                      title="Clique para copiar Base URL"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          const info = await callUazapiProxy("get-info" as any);
-                          if (info?.baseUrl) {
-                            await copyToClipboard(info.baseUrl);
-                            toast.success("Base URL copiada!");
-                          }
-                        } catch { toast.error("Erro ao copiar"); }
-                      }}
-                    >
-                      {instance.uazapi_base_url || "Base URL"}
-                    </span>
-                  </div>
-                  )}
 
-                  {/* Token */}
-                  {isVisible("token") && (
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <Copy className="h-3 w-3 text-muted-foreground" />
-                    <span
-                      className="text-[11px] text-muted-foreground font-mono truncate max-w-[180px] cursor-pointer hover:text-foreground transition-colors"
-                      title="Clique para copiar o token"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        try {
-                          const info = await callUazapiProxy("get-info" as any);
-                          if (info?.token) {
-                            await copyToClipboard(info.token);
-                            toast.success("Token copiado!");
-                          }
-                        } catch { toast.error("Erro ao copiar"); }
-                      }}
-                    >
-                      {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
-                    </span>
-                  </div>
+                  {/* Official API badge */}
+                  {isVisible("api_oficial") && isOfficialApi && (
+                    <Badge variant="outline" className="mt-1 bg-blue-500/10 text-blue-400 border-blue-500/30 text-[10px]">
+                      API Oficial
+                    </Badge>
                   )}
                 </div>
               </div>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 opacity-60 hover:opacity-100">
-                    <MoreVertical className="h-4 w-4" />
+              <div className="flex items-center gap-1 shrink-0">
+                {isVisible("status") && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleSyncStatus}
+                    disabled={syncing}
+                    className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
+                    title="Atualizar Status"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover border-border">
-                  {isVisible("assign_user") && (
-                  <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Atribuir Usuário GHL
-                  </DropdownMenuItem>
-                  )}
-                  {isVisible("webhook") && (
-                  <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
-                    <Webhook className="h-4 w-4 mr-2" />
-                    Configurar Webhooks
-                  </DropdownMenuItem>
-                  )}
-                  {isVisible("track_id") && trackId && (
-                    <DropdownMenuItem onClick={async () => {
-                      try {
-                        await copyToClipboard(trackId);
-                        toast.success("Track ID copiado!");
-                      } catch {
-                        toast.error("Erro ao copiar Track ID");
-                      }
-                    }}>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copiar Track ID
-                    </DropdownMenuItem>
-                  )}
-                  {isVisible("messages") && (
-                  <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Mensagem em massa (beta)
-                  </DropdownMenuItem>
-                  )}
-                  {isVisible("group_manager") && (
-                  <DropdownMenuItem onClick={() => setGroupManagerOpen(true)}>
-                    <Users className="h-4 w-4 mr-2" />
-                    Gerenciador de Grupos
-                  </DropdownMenuItem>
-                  )}
-                  {isVisible("api_oficial") && (
-                  <DropdownMenuItem onClick={async () => {
-                    const newValue = !isOfficialApi;
-                    const { error } = await supabase
-                      .from("instances")
-                      .update({ is_official_api: newValue })
-                      .eq("id", instance.id);
-                    if (error) {
-                      toast.error("Erro ao atualizar API Oficial");
-                    } else {
-                      setIsOfficialApi(newValue);
-                      toast.success(newValue ? "API Oficial ativada" : "API Oficial desativada");
-                    }
-                  }}>
-                    <Smartphone className="h-4 w-4 mr-2" />
-                    {isOfficialApi ? "Desativar API Oficial" : "Ativar API Oficial"}
-                  </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                )}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-60 hover:opacity-100">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-popover border-border">
+                    {isVisible("assign_user") && (
+                      <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Atribuir Usuário GHL
+                      </DropdownMenuItem>
+                    )}
+                    {isVisible("webhook") && (
+                      <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
+                        <Webhook className="h-4 w-4 mr-2" />
+                        Configurar Webhooks
+                      </DropdownMenuItem>
+                    )}
+                    {isVisible("track_id") && trackId && (
+                      <DropdownMenuItem onClick={async () => {
+                        try {
+                          await copyToClipboard(trackId);
+                          toast.success("Track ID copiado!");
+                        } catch {
+                          toast.error("Erro ao copiar Track ID");
+                        }
+                      }}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copiar Track ID
+                      </DropdownMenuItem>
+                    )}
+                    {isVisible("messages") && (
+                      <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        Mensagem em massa (beta)
+                      </DropdownMenuItem>
+                    )}
+                    {isVisible("group_manager") && (
+                      <DropdownMenuItem onClick={() => setGroupManagerOpen(true)}>
+                        <Users className="h-4 w-4 mr-2" />
+                        Gerenciador de Grupos
+                      </DropdownMenuItem>
+                    )}
+                    {isVisible("api_oficial") && (
+                      <DropdownMenuItem onClick={async () => {
+                        const newValue = !isOfficialApi;
+                        const { error } = await supabase
+                          .from("instances")
+                          .update({ is_official_api: newValue })
+                          .eq("id", instance.id);
+                        if (error) {
+                          toast.error("Erro ao atualizar API Oficial");
+                        } else {
+                          setIsOfficialApi(newValue);
+                          toast.success(newValue ? "API Oficial ativada" : "API Oficial desativada");
+                        }
+                      }}>
+                        <Smartphone className="h-4 w-4 mr-2" />
+                        {isOfficialApi ? "Desativar API Oficial" : "Ativar API Oficial"}
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
-          {/* Status Section */}
+          {/* Credentials Section */}
+          <div className="px-4 pt-3 pb-3 space-y-1 border-t border-border/30 mt-3">
+            {isVisible("base_url") && (
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span
+                  className="text-sm text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
+                  title="Clique para copiar Base URL"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const info = await callUazapiProxy("get-info" as any);
+                      if (info?.baseUrl) {
+                        await copyToClipboard(info.baseUrl);
+                        toast.success("Base URL copiada!");
+                      }
+                    } catch { toast.error("Erro ao copiar"); }
+                  }}
+                >
+                  {instance.uazapi_base_url || "Base URL"}
+                </span>
+              </div>
+            )}
+            {isVisible("token") && (
+              <div className="flex items-center gap-1.5 whitespace-nowrap">
+                <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
+                <span
+                  className="text-sm text-muted-foreground font-mono truncate max-w-[300px] cursor-pointer hover:text-foreground transition-colors"
+                  title="Clique para copiar o token"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const info = await callUazapiProxy("get-info" as any);
+                      if (info?.token) {
+                        await copyToClipboard(info.token);
+                        toast.success("Token copiado!");
+                      }
+                    } catch { toast.error("Erro ao copiar"); }
+                  }}
+                >
+                  {instance.uazapi_instance_token.slice(0, 12)}...{instance.uazapi_instance_token.slice(-4)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Status + Actions */}
           {isConnected ? (
-            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-              <Wifi className="h-4 w-4 text-emerald-400" />
-              <span className="text-emerald-400 font-medium text-sm">WhatsApp Conectado</span>
-            </div>
-          ) : isVisible("connect") ? (
-            <div 
-              className="mx-4 mb-3 flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-              onClick={handleConnect}
-            >
-              {connecting ? (
-                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-              ) : (
-                <>
-                  <QrCode className="h-10 w-10 text-muted-foreground mb-1.5" />
-                  <span className="text-sm text-muted-foreground">
-                    Clique para conectar
-                  </span>
-                </>
+            <div className="px-4 pb-3 flex flex-col items-center gap-2 mt-auto mb-1">
+              <div className="flex items-center justify-center gap-2 py-2 w-full bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                <Wifi className="h-4 w-4 text-emerald-400" />
+                <span className="text-emerald-400 font-medium text-sm">WhatsApp Conectado</span>
+              </div>
+              {isVisible("disconnect") && (
+                <Button
+                  size="sm"
+                  onClick={handleDisconnect}
+                  disabled={disconnecting}
+                  className="bg-red-900 text-white hover:bg-red-800 h-auto py-1.5 px-3 text-xs uppercase tracking-wider font-bold rounded-none border-none w-auto gap-1.5"
+                >
+                  <img src={powerIcon} alt="" className="h-4 w-4" />
+                  Desconectar
+                </Button>
               )}
             </div>
+          ) : isVisible("connect") ? (
+            <>
+              <div 
+                className="mx-4 mb-3 flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+                onClick={handleConnect}
+              >
+                {connecting ? (
+                  <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <QrCode className="h-10 w-10 text-muted-foreground mb-1.5" />
+                    <span className="text-sm text-muted-foreground">
+                      Clique para conectar
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="px-4 pb-4 flex items-center justify-center mt-auto">
+                <Button
+                  size="sm"
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  className="bg-primary hover:bg-primary/90 h-9 px-4"
+                >
+                  <QrCode className="h-3.5 w-3.5 mr-1.5" />
+                  Conectar
+                </Button>
+              </div>
+            </>
           ) : (
-            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-3 bg-muted/30 border border-border/30 rounded-lg">
+            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-3 bg-muted/30 border border-border/30 rounded-lg mt-auto">
               <WifiOff className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground font-medium text-sm">Desconectado</span>
             </div>
           )}
-
-          {/* Actions */}
-          <div className="px-4 pb-4 grid grid-cols-2 gap-2">
-            {isVisible("status") && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSyncStatus}
-              disabled={syncing}
-              className="w-full border-border/50 h-9"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
-              Status
-            </Button>
-            )}
-
-            {isConnected && isVisible("disconnect") ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDisconnect}
-                disabled={disconnecting}
-                className="w-full border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-400 h-9"
-              >
-                <Power className="h-3.5 w-3.5 mr-1.5" />
-                Desconectar
-              </Button>
-            ) : !isConnected && isVisible("connect") ? (
-              <Button
-                size="sm"
-                onClick={handleConnect}
-                disabled={connecting}
-                className="w-full bg-primary hover:bg-primary/90 h-9"
-              >
-                <QrCode className="h-3.5 w-3.5 mr-1.5" />
-                Conectar
-              </Button>
-            ) : null}
-          </div>
         </CardContent>
       </Card>
 
