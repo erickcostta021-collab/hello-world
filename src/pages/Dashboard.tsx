@@ -146,7 +146,7 @@ export default function Dashboard() {
             </div>
             
             {/* Subaccount Info */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-secondary/50 rounded-xl border border-border">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center justify-between p-3 sm:p-4 bg-secondary/50 rounded-xl border border-border">
               <div>
                 <p className="font-medium text-foreground">{selectedSubaccount.account_name}</p>
                 <p className="text-xs text-muted-foreground font-mono">{selectedSubaccount.location_id}</p>
@@ -157,7 +157,7 @@ export default function Dashboard() {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
