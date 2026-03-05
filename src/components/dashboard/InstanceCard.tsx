@@ -194,6 +194,16 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           setLocalStatus("connected");
           setQrDialogOpen(false);
           toast.success("WhatsApp conectado com sucesso!");
+          // Retry fetching profile pic after a delay if not available yet
+          if (!result?.profilePicUrl) {
+            setTimeout(async () => {
+              try {
+                const retry = await syncInstanceStatus.mutateAsync(instance);
+                if (retry?.profilePicUrl) setProfilePicUrl(retry.profilePicUrl);
+                if (retry?.phone) setConnectedPhone(retry.phone);
+              } catch {}
+            }, 3000);
+          }
         }
       } catch {
         // Ignore errors during auto-refresh
@@ -296,6 +306,16 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       }
       setLocalStatus(result.status);
       toast.success("Status atualizado!");
+      // Retry for profile pic if connected but pic not available
+      if (result.status === "connected" && !result?.profilePicUrl) {
+        setTimeout(async () => {
+          try {
+            const retry = await syncInstanceStatus.mutateAsync(instance);
+            if (retry?.profilePicUrl) setProfilePicUrl(retry.profilePicUrl);
+            if (retry?.phone) setConnectedPhone(retry.phone);
+          } catch {}
+        }, 3000);
+      }
     } catch (error: any) {
       toast.error(error.message);
     } finally {
