@@ -194,21 +194,22 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           setLocalStatus("connected");
           setQrDialogOpen(false);
           toast.success("WhatsApp conectado com sucesso!");
-          // Retry fetching profile pic after a delay if not available yet
-          if (!result?.profilePicUrl) {
+          // Multiple retries to fetch profile pic
+          const retryDelays = [2000, 5000, 10000];
+          retryDelays.forEach((delay) => {
             setTimeout(async () => {
               try {
                 const retry = await syncInstanceStatus.mutateAsync(instance);
                 if (retry?.profilePicUrl) setProfilePicUrl(retry.profilePicUrl);
                 if (retry?.phone) setConnectedPhone(retry.phone);
               } catch {}
-            }, 3000);
-          }
+            }, delay);
+          });
         }
       } catch {
         // Ignore errors during auto-refresh
       }
-    }, 30000); // 30 seconds
+    }, 5000); // Check every 5 seconds
 
     return () => clearInterval(interval);
   }, [qrDialogOpen]);
