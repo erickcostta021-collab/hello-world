@@ -562,32 +562,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             </div>
           </div>
 
-          {/* Status Section */}
+          {/* Status + Actions */}
           {isConnected ? (
-            <div className="mx-4 mb-3 flex items-center justify-center gap-2 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-              <Wifi className="h-4 w-4 text-emerald-400" />
-              <span className="text-emerald-400 font-medium text-sm">WhatsApp Conectado</span>
-            </div>
-          ) : (
-            <div 
-              className="mx-4 mb-3 flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-              onClick={handleConnect}
-            >
-              {loadingQR ? (
-                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-              ) : (
-                <>
-                  <QrCode className="h-10 w-10 text-muted-foreground mb-1.5" />
-                  <span className="text-sm text-muted-foreground">
-                    Clique para conectar
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-          {/* Actions */}
-          <div className="px-4 pb-4 flex items-center justify-center mt-auto">
-            {isConnected ? (
+            <div className="px-4 pb-4 flex flex-col items-center gap-2 mt-auto">
+              <div className="flex items-center justify-center gap-2 py-2 w-full bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                <Wifi className="h-4 w-4 text-emerald-400" />
+                <span className="text-emerald-400 font-medium text-sm">WhatsApp Conectado</span>
+              </div>
               <Button
                 size="sm"
                 onClick={handleDisconnect}
@@ -596,19 +577,37 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               >
                 Desconectar
               </Button>
-            ) : (
-              <Button
-                size="sm"
+            </div>
+          ) : (
+            <>
+              <div 
+                className="mx-4 mb-3 flex flex-col items-center justify-center py-5 border border-dashed border-border/70 rounded-lg cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
                 onClick={handleConnect}
-                disabled={loadingQR}
-                className="bg-primary hover:bg-primary/90 h-9 px-4"
               >
-                <QrCode className="h-3.5 w-3.5 mr-1.5" />
-                Conectar
-              </Button>
-            )}
-
-          </div>
+                {loadingQR ? (
+                  <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                ) : (
+                  <>
+                    <QrCode className="h-10 w-10 text-muted-foreground mb-1.5" />
+                    <span className="text-sm text-muted-foreground">
+                      Clique para conectar
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className="px-4 pb-4 flex items-center justify-center mt-auto">
+                <Button
+                  size="sm"
+                  onClick={handleConnect}
+                  disabled={loadingQR}
+                  className="bg-primary hover:bg-primary/90 h-9 px-4"
+                >
+                  <QrCode className="h-3.5 w-3.5 mr-1.5" />
+                  Conectar
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
