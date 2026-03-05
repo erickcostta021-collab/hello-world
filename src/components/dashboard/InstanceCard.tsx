@@ -185,34 +185,43 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       try {
         const result = await syncInstanceStatus.mutateAsync(instance);
         if (result?.status === "connected") {
-          if (result?.phone) {
-            setConnectedPhone(result.phone);
-          }
-          if (result?.profilePicUrl) {
-            setProfilePicUrl(result.profilePicUrl);
-          }
+          if (result?.phone) setConnectedPhone(result.phone);
+          if (result?.profilePicUrl) setProfilePicUrl(result.profilePicUrl);
           setLocalStatus("connected");
           setQrDialogOpen(false);
           toast.success("WhatsApp conectado com sucesso!");
-          // Multiple retries to fetch profile pic
-          const retryDelays = [2000, 5000, 10000];
-          retryDelays.forEach((delay) => {
-            setTimeout(async () => {
-              try {
-                const retry = await syncInstanceStatus.mutateAsync(instance);
-                if (retry?.profilePicUrl) setProfilePicUrl(retry.profilePicUrl);
-                if (retry?.phone) setConnectedPhone(retry.phone);
-              } catch {}
-            }, delay);
-          });
         }
       } catch {
         // Ignore errors during auto-refresh
       }
-    }, 5000); // Check every 5 seconds
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [qrDialogOpen]);
+
+  // After connection, retry fetching profile pic if missing
+  useEffect(() => {
+    if (localStatus !== "connected" || profilePicUrl) return;
+
+    let cancelled = false;
+    const retryDelays = [2000, 5000, 10000, 20000];
+
+    const retries = retryDelays.map((delay) =>
+      setTimeout(async () => {
+        if (cancelled || profilePicUrl) return;
+        try {
+          const result = await syncInstanceStatus.mutateAsync(instance);
+          if (result?.profilePicUrl) setProfilePicUrl(result.profilePicUrl);
+          if (result?.phone) setConnectedPhone(result.phone);
+        } catch {}
+      }, delay)
+    );
+
+    return () => {
+      cancelled = true;
+      retries.forEach(clearTimeout);
+    };
+  }, [localStatus, profilePicUrl]);
 
   const handleConnect = async () => {
     setLoadingQR(true);
@@ -307,16 +316,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       }
       setLocalStatus(result.status);
       toast.success("Status atualizado!");
-      // Retry for profile pic if connected but pic not available
-      if (result.status === "connected" && !result?.profilePicUrl) {
-        setTimeout(async () => {
-          try {
-            const retry = await syncInstanceStatus.mutateAsync(instance);
-            if (retry?.profilePicUrl) setProfilePicUrl(retry.profilePicUrl);
-            if (retry?.phone) setConnectedPhone(retry.phone);
-          } catch {}
-        }, 3000);
-      }
     } catch (error: any) {
       toast.error(error.message);
     } finally {
