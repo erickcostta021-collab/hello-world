@@ -146,14 +146,12 @@
   width: 200%;
   height: 200%;
   background: conic-gradient(
-    transparent 0deg,
-    transparent 270deg,
-    rgba(16, 185, 129, 0.5) 310deg,
-    rgba(16, 185, 129, 0.8) 330deg,
-    rgba(16, 185, 129, 0.5) 350deg,
-    transparent 360deg
+    rgba(16, 185, 129, 0.5) 0deg,
+    rgba(16, 185, 129, 0.8) 90deg,
+    rgba(16, 185, 129, 0.5) 180deg,
+    rgba(16, 185, 129, 0.8) 270deg,
+    rgba(16, 185, 129, 0.5) 360deg
   );
-  animation: snake-spin 4s linear infinite;
   z-index: 0;
   pointer-events: none;
 }
