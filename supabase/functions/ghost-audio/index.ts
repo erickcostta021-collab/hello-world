@@ -456,9 +456,29 @@ Deno.serve(async (req) => {
         const contactId = await resolveContactId(supabase, cleanPhone, locationId, ghlToken);
 
         if (contactId) {
-          const ghlMessageId = await mirrorAudioInGHL(contactId, ghlToken, audioUrl);
+          let result = await mirrorAudioInGHL(contactId, ghlToken, audioUrl);
+          let finalContactId = contactId;
+          let ghlMessageId = result.messageId;
 
-          // Register GHL messageId for dedup (prevent webhook-outbound from re-sending via UAZAPI)
+          // If contact was deleted/merged in GHL, search again via API and retry
+          if (result.contactNotFound) {
+            console.log("[ghost-audio] Contact stale in cache, searching GHL API directly...");
+            const freshContactId = await searchContactInGHL(cleanPhone, locationId, ghlToken);
+            if (freshContactId && freshContactId !== contactId) {
+              console.log("[ghost-audio] Found fresh contactId:", freshContactId);
+              // Update stale local cache
+              await supabase.from("ghl_contact_phone_mapping")
+                .update({ contact_id: freshContactId, updated_at: new Date().toISOString() })
+                .eq("location_id", locationId)
+                .eq("contact_id", contactId);
+              
+              result = await mirrorAudioInGHL(freshContactId, ghlToken, audioUrl);
+              finalContactId = freshContactId;
+              ghlMessageId = result.messageId;
+            }
+          }
+
+          // Register GHL messageId for dedup
           if (ghlMessageId) {
             await supabase.from("ghl_processed_messages").upsert(
               { message_id: `ghl:${ghlMessageId}` },
@@ -467,14 +487,14 @@ Deno.serve(async (req) => {
             console.log("[ghost-audio] Registered GHL dedup:", ghlMessageId);
           }
 
-          // Save message mapping so reply/edit/react work from GHL
+          // Save message mapping
           if (ghlMessageId && uazapiMessageId) {
             await supabase.from("message_map").upsert(
               {
                 ghl_message_id: ghlMessageId,
                 uazapi_message_id: uazapiMessageId,
                 location_id: locationId,
-                contact_id: contactId,
+                contact_id: finalContactId,
                 message_type: "audio",
                 from_me: true,
               },
