@@ -534,6 +534,104 @@ SELECT cron.schedule('cleanup-message-mappings', '*/30 * * * *', 'SELECT cleanup
 
 ---
 
+## 📬 Caixa de Entrada (Inbox) — Estilo Chatwoot
+
+O CRM precisa de uma **caixa de entrada por número/instância WhatsApp**, similar ao Chatwoot:
+
+- Cada instância WhatsApp conectada tem sua própria inbox
+- Lista de conversas à esquerda, chat aberto à direita (layout split-panel)
+- Indicadores de mensagens não lidas, último horário, preview da última mensagem
+- Busca de conversas por nome/telefone
+- Filtros: todas, não lidas, atribuídas a mim, não atribuídas
+- Atribuição de conversa a agentes/usuários
+- Suporte a texto, imagens, áudio, vídeo, documentos (envio e recebimento)
+- Mensagens em tempo real via Supabase Realtime (subscribe na tabela `message_map` ou canal dedicado)
+- Status de entrega/leitura quando disponível
+- Respostas rápidas / templates salvos
+
+---
+
+## 📋 Kanban — Estilo GHL (Pipeline de Vendas)
+
+O CRM precisa de um **quadro Kanban** para gerenciar leads/oportunidades:
+
+- Colunas configuráveis por pipeline (ex: Novo Lead → Qualificado → Proposta → Fechado)
+- Drag-and-drop de cards entre colunas
+- Cada card mostra: nome do contato, telefone, valor, tags, último contato
+- Múltiplos pipelines (ex: Vendas, Suporte, Onboarding)
+- Filtros por responsável, tags, data
+- Ações rápidas no card: enviar mensagem, agendar tarefa, mover etapa
+- Persistência no Supabase com tabelas `pipelines`, `pipeline_stages`, `opportunities`
+- RLS por `user_id` (cada usuário vê seus próprios pipelines, admin vê todos)
+
+---
+
+## 📅 Calendário — Estilo GHL
+
+O CRM precisa de um **calendário** para agendamentos:
+
+- Visualização mensal, semanal e diária
+- Criar, editar e excluir eventos/tarefas
+- Vincular eventos a contatos/oportunidades
+- Lembretes/notificações (pode usar scheduled messages ou cron)
+- Tipos de evento: reunião, ligação, tarefa, follow-up
+- Cores por tipo ou pipeline
+- Integração com a caixa de entrada (agendar mensagem a partir do calendário)
+- Persistência no Supabase com tabelas `calendar_events`
+- RLS por `user_id`
+
+---
+
+## 🔑 Sistema de Login e Senha
+
+O CRM precisa de autenticação completa:
+
+### Registro
+- Formulário com email, nome, telefone, senha
+- Verificação por código enviado via email (Edge Function `send-registration-code`)
+- Fluxo: email → código → validação → criação da conta (`create-user` com `email_confirm: true`)
+- O código deve ser marcado como `used` antes de criar o usuário
+
+### Login
+- Email + senha via `supabase.auth.signInWithPassword`
+- Verificação de conta pausada (`profiles.is_paused`)
+- Redirecionamento ao dashboard após login
+
+### Recuperação de Senha
+- Envio de link de reset via Edge Function (`send-reset-password`)
+- Página `/reset-password` que recebe `token_hash` e chama `supabase.auth.updateUser({ password })`
+
+### Alteração de Senha (logado)
+- Re-autenticação com senha atual
+- Atualização via `supabase.auth.updateUser`
+
+### Roles e Permissões
+- Tabela `user_roles` separada (NUNCA na tabela profiles)
+- Função `has_role()` com SECURITY DEFINER
+- Roles: `admin`, `moderator`, `user`
+
+---
+
+## 🌐 API Pública do CRM
+
+O CRM precisa expor uma **API REST** via Supabase Edge Functions:
+
+- Autenticação via API Key ou Bearer Token (gerado por usuário)
+- Endpoints principais:
+  - `POST /api/send-message` — Enviar mensagem WhatsApp
+  - `GET /api/contacts` — Listar contatos
+  - `POST /api/contacts` — Criar contato
+  - `GET /api/conversations` — Listar conversas
+  - `GET /api/instances` — Listar instâncias e status
+  - `POST /api/opportunities` — Criar oportunidade no Kanban
+  - `GET /api/pipelines` — Listar pipelines e estágios
+  - `POST /api/calendar-events` — Criar evento no calendário
+- Rate limiting básico (por API key)
+- Logs de uso por endpoint
+- Documentação Swagger/OpenAPI
+
+---
+
 ## 🎯 Pontos-Chave para o CRM
 
 1. **URL base é por-instância ou global** — prioridade: `instance.uazapi_base_url` > `user_settings.uazapi_base_url`
