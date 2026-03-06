@@ -12,21 +12,35 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
-// Lazy-loaded pages for code splitting
-const Index = lazy(() => import("./pages/Index"));
-const MainLogin = lazy(() => import("./pages/MainLogin"));
-const Login = lazy(() => import("./pages/Login"));
-const Register = lazy(() => import("./pages/Register"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const Checkout = lazy(() => import("./pages/Checkout"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Settings = lazy(() => import("./pages/Settings"));
-const SubaccountSettings = lazy(() => import("./pages/SubaccountSettings"));
-const EmbedInstances = lazy(() => import("./pages/EmbedInstances"));
-const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
-const OAuthSuccess = lazy(() => import("./pages/OAuthSuccess"));
-const AdminHealth = lazy(() => import("./pages/AdminHealth"));
-const NotFound = lazy(() => import("./pages/NotFound"));
+// Retry wrapper for lazy imports — handles chunk load failures after deploys
+function lazyRetry(factory: () => Promise<any>, retries = 2): Promise<any> {
+  return factory().catch((err) => {
+    if (retries > 0) {
+      return new Promise((resolve) => setTimeout(resolve, 500)).then(() =>
+        lazyRetry(factory, retries - 1)
+      );
+    }
+    // Force reload if all retries fail (new deploy likely changed chunk hashes)
+    window.location.reload();
+    throw err;
+  });
+}
+
+// Lazy-loaded pages with retry for chunk load resilience
+const Index = lazy(() => lazyRetry(() => import("./pages/Index")));
+const MainLogin = lazy(() => lazyRetry(() => import("./pages/MainLogin")));
+const Login = lazy(() => lazyRetry(() => import("./pages/Login")));
+const Register = lazy(() => lazyRetry(() => import("./pages/Register")));
+const ResetPassword = lazy(() => lazyRetry(() => import("./pages/ResetPassword")));
+const Checkout = lazy(() => lazyRetry(() => import("./pages/Checkout")));
+const Dashboard = lazy(() => lazyRetry(() => import("./pages/Dashboard")));
+const Settings = lazy(() => lazyRetry(() => import("./pages/Settings")));
+const SubaccountSettings = lazy(() => lazyRetry(() => import("./pages/SubaccountSettings")));
+const EmbedInstances = lazy(() => lazyRetry(() => import("./pages/EmbedInstances")));
+const OAuthCallback = lazy(() => lazyRetry(() => import("./pages/OAuthCallback")));
+const OAuthSuccess = lazy(() => lazyRetry(() => import("./pages/OAuthSuccess")));
+const AdminHealth = lazy(() => lazyRetry(() => import("./pages/AdminHealth")));
+const NotFound = lazy(() => lazyRetry(() => import("./pages/NotFound")));
 
 const queryClient = new QueryClient({
   defaultOptions: {
