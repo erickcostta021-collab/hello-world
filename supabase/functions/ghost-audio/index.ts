@@ -180,7 +180,7 @@ async function getPublicMediaUrl(baseUrl: string, instanceToken: string, message
 }
 
 // Mirror the audio as an outbound message in GHL conversation
-async function mirrorAudioInGHL(contactId: string, ghlToken: string, audioUrl: string | null): Promise<string | null> {
+async function mirrorAudioInGHL(contactId: string, ghlToken: string, audioUrl: string | null): Promise<{ messageId: string | null; contactNotFound: boolean }> {
   const payload: any = {
     type: "SMS",
     contactId,
@@ -211,14 +211,36 @@ async function mirrorAudioInGHL(contactId: string, ghlToken: string, audioUrl: s
   const responseText = await response.text();
   if (!response.ok) {
     console.error("[ghost-audio] Failed to mirror in GHL:", responseText);
-    return null;
+    const isContactGone = responseText.includes("not found") || responseText.includes("deleted");
+    return { messageId: null, contactNotFound: isContactGone };
   }
   
   console.log("[ghost-audio] ✅ Audio mirrored in GHL as outbound:", responseText.substring(0, 200));
   try {
     const data = JSON.parse(responseText);
-    return data.messageId || null;
-  } catch { return null; }
+    return { messageId: data.messageId || null, contactNotFound: false };
+  } catch { return { messageId: null, contactNotFound: false }; }
+}
+
+// Search contact directly from GHL API (bypasses local cache)
+async function searchContactInGHL(phone: string, locationId: string, ghlToken: string): Promise<string | null> {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const last10 = cleanPhone.slice(-10);
+  
+  for (const query of [cleanPhone, last10]) {
+    const res = await fetchGHL(
+      `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&query=${query}`,
+      { headers: { "Authorization": `Bearer ${ghlToken}`, "Version": "2021-07-28", "Accept": "application/json" } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.contacts?.length > 0) {
+        console.log("[ghost-audio] Contact found via GHL API search:", data.contacts[0].id);
+        return data.contacts[0].id;
+      }
+    }
+  }
+  return null;
 }
 
 Deno.serve(async (req) => {
