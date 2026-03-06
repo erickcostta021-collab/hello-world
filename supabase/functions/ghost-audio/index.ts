@@ -180,7 +180,7 @@ async function getPublicMediaUrl(baseUrl: string, instanceToken: string, message
 }
 
 // Mirror the audio as an outbound message in GHL conversation
-async function mirrorAudioInGHL(contactId: string, ghlToken: string, audioUrl: string | null): Promise<string | null> {
+async function mirrorAudioInGHL(contactId: string, ghlToken: string, audioUrl: string | null): Promise<{ messageId: string | null; contactNotFound: boolean }> {
   const payload: any = {
     type: "SMS",
     contactId,
@@ -211,14 +211,36 @@ async function mirrorAudioInGHL(contactId: string, ghlToken: string, audioUrl: s
   const responseText = await response.text();
   if (!response.ok) {
     console.error("[ghost-audio] Failed to mirror in GHL:", responseText);
-    return null;
+    const isContactGone = responseText.includes("not found") || responseText.includes("deleted");
+    return { messageId: null, contactNotFound: isContactGone };
   }
   
   console.log("[ghost-audio] ✅ Audio mirrored in GHL as outbound:", responseText.substring(0, 200));
   try {
     const data = JSON.parse(responseText);
-    return data.messageId || null;
-  } catch { return null; }
+    return { messageId: data.messageId || null, contactNotFound: false };
+  } catch { return { messageId: null, contactNotFound: false }; }
+}
+
+// Search contact directly from GHL API (bypasses local cache)
+async function searchContactInGHL(phone: string, locationId: string, ghlToken: string): Promise<string | null> {
+  const cleanPhone = phone.replace(/\D/g, "");
+  const last10 = cleanPhone.slice(-10);
+  
+  for (const query of [cleanPhone, last10]) {
+    const res = await fetchGHL(
+      `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&query=${query}`,
+      { headers: { "Authorization": `Bearer ${ghlToken}`, "Version": "2021-07-28", "Accept": "application/json" } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.contacts?.length > 0) {
+        console.log("[ghost-audio] Contact found via GHL API search:", data.contacts[0].id);
+        return data.contacts[0].id;
+      }
+    }
+  }
+  return null;
 }
 
 Deno.serve(async (req) => {
@@ -434,9 +456,29 @@ Deno.serve(async (req) => {
         const contactId = await resolveContactId(supabase, cleanPhone, locationId, ghlToken);
 
         if (contactId) {
-          const ghlMessageId = await mirrorAudioInGHL(contactId, ghlToken, audioUrl);
+          let result = await mirrorAudioInGHL(contactId, ghlToken, audioUrl);
+          let finalContactId = contactId;
+          let ghlMessageId = result.messageId;
 
-          // Register GHL messageId for dedup (prevent webhook-outbound from re-sending via UAZAPI)
+          // If contact was deleted/merged in GHL, search again via API and retry
+          if (result.contactNotFound) {
+            console.log("[ghost-audio] Contact stale in cache, searching GHL API directly...");
+            const freshContactId = await searchContactInGHL(cleanPhone, locationId, ghlToken);
+            if (freshContactId && freshContactId !== contactId) {
+              console.log("[ghost-audio] Found fresh contactId:", freshContactId);
+              // Update stale local cache
+              await supabase.from("ghl_contact_phone_mapping")
+                .update({ contact_id: freshContactId, updated_at: new Date().toISOString() })
+                .eq("location_id", locationId)
+                .eq("contact_id", contactId);
+              
+              result = await mirrorAudioInGHL(freshContactId, ghlToken, audioUrl);
+              finalContactId = freshContactId;
+              ghlMessageId = result.messageId;
+            }
+          }
+
+          // Register GHL messageId for dedup
           if (ghlMessageId) {
             await supabase.from("ghl_processed_messages").upsert(
               { message_id: `ghl:${ghlMessageId}` },
@@ -445,14 +487,14 @@ Deno.serve(async (req) => {
             console.log("[ghost-audio] Registered GHL dedup:", ghlMessageId);
           }
 
-          // Save message mapping so reply/edit/react work from GHL
+          // Save message mapping
           if (ghlMessageId && uazapiMessageId) {
             await supabase.from("message_map").upsert(
               {
                 ghl_message_id: ghlMessageId,
                 uazapi_message_id: uazapiMessageId,
                 location_id: locationId,
-                contact_id: contactId,
+                contact_id: finalContactId,
                 message_type: "audio",
                 from_me: true,
               },
