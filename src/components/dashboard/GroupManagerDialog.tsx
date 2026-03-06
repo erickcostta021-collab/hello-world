@@ -86,7 +86,14 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (data?.error) {
+        if (data?.timeout) {
+          toast.error("Servidor UAZAPI demorou demais para responder. Tente novamente em alguns segundos.", { duration: 6000 });
+        } else {
+          throw new Error(data.error);
+        }
+        return;
+      }
 
       setGroups(data?.groups || []);
       toast.success(`${data?.groups?.length || 0} grupos encontrados`);
