@@ -106,8 +106,8 @@ export default function Settings() {
   const oauthUrl = getOAuthUrl();
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const redirectUri = getOAuthRedirectUri();
-  const inboundWebhookUrl = `${supabaseUrl}/functions/v1/webhook-inbound`;
-  const outboundWebhookUrl = `${supabaseUrl}/functions/v1/webhook-outbound`;
+  const inboundWebhookUrl = `https://webhooks.bridgeapi.chat/webhook-inbound`;
+  const outboundWebhookUrl = `https://webhooks.bridgeapi.chat/webhook-outbound`;
   const isPreviewDomain = window.location.origin !== CANONICAL_APP_ORIGIN;
 
   const isWrongWebhookConfigured =
