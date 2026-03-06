@@ -491,7 +491,13 @@ Deno.serve(async (req) => {
           // If contact was deleted/merged in GHL, search again via API and retry
           if (result.contactNotFound) {
             console.log("[ghost-audio] Contact stale in cache, searching GHL API directly...");
-            const freshContactId = await searchContactInGHL(cleanPhone, locationId, ghlToken);
+            let freshContactId = await searchContactInGHL(cleanPhone, locationId, ghlToken);
+            
+            // Ultimate fallback: resolve from conversationId
+            if (!freshContactId && conversationId) {
+              freshContactId = await resolveContactFromConversation(conversationId, ghlToken);
+            }
+            
             if (freshContactId && freshContactId !== contactId) {
               console.log("[ghost-audio] Found fresh contactId:", freshContactId);
               // Update stale local cache
@@ -503,6 +509,8 @@ Deno.serve(async (req) => {
               result = await mirrorAudioInGHL(freshContactId, ghlToken, audioUrl);
               finalContactId = freshContactId;
               ghlMessageId = result.messageId;
+            } else if (freshContactId === contactId) {
+              console.log("[ghost-audio] Same contactId found, contact truly deleted in GHL");
             }
           }
 
