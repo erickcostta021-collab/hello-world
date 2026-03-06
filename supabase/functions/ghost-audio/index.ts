@@ -227,7 +227,13 @@ async function searchContactInGHL(phone: string, locationId: string, ghlToken: s
   const cleanPhone = phone.replace(/\D/g, "");
   const last10 = cleanPhone.slice(-10);
   
-  for (const query of [cleanPhone, last10]) {
+  // Try with country code prefix "55" if missing
+  const variants = [cleanPhone, last10];
+  if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
+    variants.unshift("55" + cleanPhone);
+  }
+  
+  for (const query of variants) {
     const res = await fetchGHL(
       `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&query=${query}`,
       { headers: { "Authorization": `Bearer ${ghlToken}`, "Version": "2021-07-28", "Accept": "application/json" } }
@@ -239,6 +245,28 @@ async function searchContactInGHL(phone: string, locationId: string, ghlToken: s
         return data.contacts[0].id;
       }
     }
+  }
+  return null;
+}
+
+// Resolve contactId from GHL conversation
+async function resolveContactFromConversation(conversationId: string, ghlToken: string): Promise<string | null> {
+  if (!conversationId) return null;
+  console.log("[ghost-audio] Resolving contact from conversationId:", conversationId);
+  const res = await fetchGHL(
+    `https://services.leadconnectorhq.com/conversations/${conversationId}`,
+    { headers: { "Authorization": `Bearer ${ghlToken}`, "Version": "2021-04-15", "Accept": "application/json" } }
+  );
+  if (res.ok) {
+    const data = await res.json();
+    const cid = data.conversation?.contactId || data.contactId;
+    if (cid) {
+      console.log("[ghost-audio] Contact resolved from conversation:", cid);
+      return cid;
+    }
+  } else {
+    const text = await res.text();
+    console.error("[ghost-audio] Conversation lookup failed:", text.substring(0, 200));
   }
   return null;
 }
