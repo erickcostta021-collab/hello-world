@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus } from "lucide-react";
+import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus, Search, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface RegisteredUser {
   id: string;
@@ -20,6 +21,15 @@ interface RegisteredUser {
   is_paused: boolean;
   paused_at: string | null;
   instance_limit: number;
+  full_name: string | null;
+}
+
+interface PendingRegistration {
+  id: string;
+  email: string;
+  created_at: string;
+  status: string;
+  expires_at: string;
 }
 
 export function RegisteredUsersPanel() {
@@ -27,19 +37,52 @@ export function RegisteredUsersPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [updatingLimitId, setUpdatingLimitId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const { data: users, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["registered-users"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, created_at, user_id, is_paused, paused_at, instance_limit")
+        .select("id, email, created_at, user_id, is_paused, paused_at, instance_limit, full_name")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data as RegisteredUser[];
     },
   });
+
+  const { data: pendingRegistrations, isLoading: isPendingLoading } = useQuery({
+    queryKey: ["pending-registrations"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("registration_requests")
+        .select("id, email, created_at, status, expires_at")
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data as PendingRegistration[];
+    },
+  });
+
+  const filteredUsers = useMemo(() => {
+    if (!users) return [];
+    if (!searchTerm.trim()) return users;
+    const term = searchTerm.toLowerCase();
+    return users.filter(
+      (u) =>
+        (u.email && u.email.toLowerCase().includes(term)) ||
+        (u.full_name && u.full_name.toLowerCase().includes(term))
+    );
+  }, [users, searchTerm]);
+
+  const filteredPending = useMemo(() => {
+    if (!pendingRegistrations) return [];
+    if (!searchTerm.trim()) return pendingRegistrations;
+    const term = searchTerm.toLowerCase();
+    return pendingRegistrations.filter((r) => r.email.toLowerCase().includes(term));
+  }, [pendingRegistrations, searchTerm]);
 
   const deleteUser = useMutation({
     mutationFn: async (userId: string) => {
@@ -158,6 +201,8 @@ export function RegisteredUsersPanel() {
     updateInstanceLimit.mutate({ userId, newLimit: num });
   };
 
+  const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
+
   return (
     <Card className="bg-card border-border">
       <CardHeader>
@@ -169,7 +214,10 @@ export function RegisteredUsersPanel() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => refetch()}
+            onClick={() => {
+              refetch();
+              queryClient.invalidateQueries({ queryKey: ["pending-registrations"] });
+            }}
             disabled={isRefetching}
             className="border-border"
           >
@@ -178,153 +226,240 @@ export function RegisteredUsersPanel() {
           </Button>
         </div>
         <CardDescription>
-          Lista de todos os usuários registrados na plataforma
+          Lista de todos os usuários registrados e cadastros pendentes
         </CardDescription>
+        <div className="relative mt-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por email ou nome..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 bg-secondary border-border"
+          />
+        </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          </div>
-        ) : users && users.length > 0 ? (
-          <div className="rounded-md border border-border">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border">
-                  <TableHead className="text-muted-foreground">Email</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="text-muted-foreground">Limite</TableHead>
-                  <TableHead className="text-muted-foreground">Cadastrado em</TableHead>
-                  <TableHead className="text-muted-foreground w-[140px]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id} className="border-border">
-                    <TableCell className="font-medium text-foreground">
-                      {user.email || "Email não definido"}
-                    </TableCell>
-                    <TableCell>
-                      {user.is_paused ? (
-                        <Badge variant="destructive" className="gap-1">
-                          <Pause className="h-3 w-3" />
-                          Pausado
-                        </Badge>
-                      ) : (
-                        <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
-                          <Play className="h-3 w-3" />
-                          Ativo
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7"
-                          disabled={updatingLimitId === user.user_id || user.instance_limit <= 0}
-                          onClick={() => handleUpdateLimit(user.user_id, user.instance_limit, -1)}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={user.instance_limit}
-                          onChange={(e) => handleSetLimit(user.user_id, e.target.value)}
-                          className="h-7 w-14 text-center text-sm bg-secondary border-border px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-7 w-7"
-                          disabled={updatingLimitId === user.user_id}
-                          onClick={() => handleUpdateLimit(user.user_id, user.instance_limit, 1)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {format(new Date(user.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {/* Toggle Pause Button */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-8 w-8 ${user.is_paused ? "text-green-600 hover:text-green-700 hover:bg-green-100" : "text-amber-600 hover:text-amber-700 hover:bg-amber-100"}`}
-                          disabled={togglingId === user.user_id}
-                          onClick={() => handleTogglePause(user.user_id, user.is_paused)}
-                          title={user.is_paused ? "Reativar usuário" : "Pausar usuário"}
-                        >
-                          {togglingId === user.user_id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : user.is_paused ? (
-                            <Play className="h-4 w-4" />
-                          ) : (
-                            <Pause className="h-4 w-4" />
-                          )}
-                        </Button>
+        <Tabs defaultValue="active">
+          <TabsList className="mb-4">
+            <TabsTrigger value="active" className="gap-1.5">
+              <Users className="h-3.5 w-3.5" />
+              Ativos ({users?.length ?? 0})
+            </TabsTrigger>
+            <TabsTrigger value="pending" className="gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Pendentes ({pendingRegistrations?.length ?? 0})
+            </TabsTrigger>
+          </TabsList>
 
-                        {/* Delete Button */}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+          <TabsContent value="active">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : filteredUsers.length > 0 ? (
+              <div className="rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border">
+                      <TableHead className="text-muted-foreground">Email</TableHead>
+                      <TableHead className="text-muted-foreground">Nome</TableHead>
+                      <TableHead className="text-muted-foreground">Status</TableHead>
+                      <TableHead className="text-muted-foreground">Limite</TableHead>
+                      <TableHead className="text-muted-foreground">Cadastrado em</TableHead>
+                      <TableHead className="text-muted-foreground w-[140px]">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id} className="border-border">
+                        <TableCell className="font-medium text-foreground">
+                          {user.email || "Email não definido"}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {user.full_name || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {user.is_paused ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <Pause className="h-3 w-3" />
+                              Pausado
+                            </Badge>
+                          ) : (
+                            <Badge variant="default" className="gap-1 bg-green-600 hover:bg-green-700">
+                              <Play className="h-3 w-3" />
+                              Ativo
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              disabled={updatingLimitId === user.user_id || user.instance_limit <= 0}
+                              onClick={() => handleUpdateLimit(user.user_id, user.instance_limit, -1)}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={user.instance_limit}
+                              onChange={(e) => handleSetLimit(user.user_id, e.target.value)}
+                              className="h-7 w-14 text-center text-sm bg-secondary border-border px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-7 w-7"
+                              disabled={updatingLimitId === user.user_id}
+                              onClick={() => handleUpdateLimit(user.user_id, user.instance_limit, 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(user.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                              disabled={deletingId === user.user_id}
+                              className={`h-8 w-8 ${user.is_paused ? "text-green-600 hover:text-green-700 hover:bg-green-100" : "text-amber-600 hover:text-amber-700 hover:bg-amber-100"}`}
+                              disabled={togglingId === user.user_id}
+                              onClick={() => handleTogglePause(user.user_id, user.is_paused)}
+                              title={user.is_paused ? "Reativar usuário" : "Pausar usuário"}
                             >
-                              {deletingId === user.user_id ? (
+                              {togglingId === user.user_id ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : user.is_paused ? (
+                                <Play className="h-4 w-4" />
                               ) : (
-                                <Trash2 className="h-4 w-4" />
+                                <Pause className="h-4 w-4" />
                               )}
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="bg-card border-border">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle className="text-foreground">
-                                Excluir usuário?
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta ação irá excluir o perfil do usuário <strong>{user.email}</strong> e todos os dados associados (instâncias, subcontas, configurações).
-                                <br /><br />
-                                <span className="text-destructive font-medium">Esta ação não pode ser desfeita.</span>
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(user.user_id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            Nenhum usuário cadastrado ainda.
-          </div>
-        )}
-        
-        {users && users.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-4">
-            Total: {users.length} usuário{users.length !== 1 ? "s" : ""}
-          </p>
-        )}
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  disabled={deletingId === user.user_id}
+                                >
+                                  {deletingId === user.user_id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent className="bg-card border-border">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle className="text-foreground">
+                                    Excluir usuário?
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação irá excluir o perfil do usuário <strong>{user.email}</strong> e todos os dados associados (instâncias, subcontas, configurações).
+                                    <br /><br />
+                                    <span className="text-destructive font-medium">Esta ação não pode ser desfeita.</span>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(user.user_id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? "Nenhum usuário encontrado para essa busca." : "Nenhum usuário cadastrado ainda."}
+              </div>
+            )}
+
+            {filteredUsers.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-4">
+                {searchTerm
+                  ? `Mostrando ${filteredUsers.length} de ${users?.length ?? 0} usuário${(users?.length ?? 0) !== 1 ? "s" : ""}`
+                  : `Total: ${users?.length ?? 0} usuário${(users?.length ?? 0) !== 1 ? "s" : ""}`}
+              </p>
+            )}
+          </TabsContent>
+
+          <TabsContent value="pending">
+            {isPendingLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : filteredPending.length > 0 ? (
+              <div className="rounded-md border border-border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border">
+                      <TableHead className="text-muted-foreground">Email</TableHead>
+                      <TableHead className="text-muted-foreground">Status</TableHead>
+                      <TableHead className="text-muted-foreground">Solicitado em</TableHead>
+                      <TableHead className="text-muted-foreground">Expira em</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPending.map((reg) => (
+                      <TableRow key={reg.id} className="border-border">
+                        <TableCell className="font-medium text-foreground">{reg.email}</TableCell>
+                        <TableCell>
+                          {isExpired(reg.expires_at) ? (
+                            <Badge variant="outline" className="gap-1 text-muted-foreground border-muted">
+                              <Clock className="h-3 w-3" />
+                              Expirado
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <Clock className="h-3 w-3" />
+                              Pendente
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(reg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {format(new Date(reg.expires_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? "Nenhum cadastro pendente encontrado para essa busca." : "Nenhum cadastro pendente."}
+              </div>
+            )}
+
+            {filteredPending.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-4">
+                {searchTerm
+                  ? `Mostrando ${filteredPending.length} de ${pendingRegistrations?.length ?? 0} pendente${(pendingRegistrations?.length ?? 0) !== 1 ? "s" : ""}`
+                  : `Total: ${pendingRegistrations?.length ?? 0} pendente${(pendingRegistrations?.length ?? 0) !== 1 ? "s" : ""}`}
+              </p>
+            )}
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
