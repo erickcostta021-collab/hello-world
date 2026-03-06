@@ -125,7 +125,7 @@ export function ManualConnectTab({
       }
 
       // Manual instances store their own base URL — do NOT sync to user_settings
-      const webhookUrl = settings?.global_webhook_url || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-inbound`;
+      const webhookUrl = settings?.global_webhook_url || `https://webhooks.bridgeapi.chat/webhook-inbound`;
       
       const { error } = await supabase.from("instances").insert({
         user_id: user.id,
