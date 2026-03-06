@@ -463,24 +463,76 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ======== LIST ALL GROUPS ========
-    const groupsUrl = `${baseUrl}/group/list?force=true&refresh=true`;
-    console.log(`Fetching groups from: ${groupsUrl}`);
+    // ======== LIST ALL GROUPS (with retry + timeout) ========
+    const MAX_RETRIES = 2;
+    const TIMEOUT_MS = 25000; // 25s per attempt
+    let response: Response | null = null;
+    let lastError = "";
 
-    const response = await fetch(groupsUrl, {
-      method: "GET",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "token": instanceData.uazapi_instance_token,
-      },
-    });
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      const groupsUrl = attempt === 0
+        ? `${baseUrl}/group/list?force=true&refresh=true`
+        : `${baseUrl}/group/list`; // skip force/refresh on retries (faster)
+      console.log(`Fetching groups (attempt ${attempt + 1}/${MAX_RETRIES + 1}): ${groupsUrl}`);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`UAZAPI error (${response.status}):`, errorText);
-      return new Response(JSON.stringify({ error: `Failed to fetch groups: ${errorText}` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+        const res = await fetch(groupsUrl, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "token": instanceData.uazapi_instance_token,
+          },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          response = res;
+          break;
+        }
+
+        // On 504/502/503, retry
+        if ([502, 503, 504].includes(res.status) && attempt < MAX_RETRIES) {
+          const errorText = await res.text();
+          console.warn(`UAZAPI error (${res.status}), retrying in 2s...`, errorText.substring(0, 200));
+          lastError = `UAZAPI ${res.status}: ${errorText.substring(0, 200)}`;
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+
+        // Non-retryable error
+        const errorText = await res.text();
+        console.error(`UAZAPI error (${res.status}):`, errorText);
+        return new Response(JSON.stringify({ error: `Falha ao buscar grupos: ${errorText}` }),
+          { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (e: any) {
+        if (e.name === "AbortError") {
+          console.warn(`Timeout na tentativa ${attempt + 1}/${MAX_RETRIES + 1}`);
+          lastError = "Timeout ao buscar grupos (servidor demorou demais)";
+          if (attempt < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+        } else {
+          lastError = String(e);
+          console.error(`Fetch error attempt ${attempt + 1}:`, e);
+          if (attempt < MAX_RETRIES) {
+            await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+        }
+      }
+    }
+
+    if (!response) {
+      return new Response(JSON.stringify({ 
+        error: `Servidor UAZAPI não respondeu após ${MAX_RETRIES + 1} tentativas. ${lastError}`,
+        timeout: true 
+      }), { status: 504, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const rawText = await response.text();
