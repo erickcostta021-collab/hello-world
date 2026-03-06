@@ -142,11 +142,11 @@ export default function Settings() {
         </div>
 
         <Tabs defaultValue={isAdmin ? "oauth" : "integrations"} className="w-full">
-          <TabsList className={`grid w-full ${isAdmin ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-1"}`}>
-            {isAdmin && <TabsTrigger value="oauth" className="text-xs sm:text-sm">OAuth GHL</TabsTrigger>}
-            <TabsTrigger value="integrations" className="text-xs sm:text-sm">Integrações</TabsTrigger>
-            {isAdmin && <TabsTrigger value="users" className="text-xs sm:text-sm">Usuários</TabsTrigger>}
-            {isAdmin && <TabsTrigger value="cdn" className="text-xs sm:text-sm">CDN</TabsTrigger>}
+          <TabsList className={`grid w-full ${isAdmin ? "grid-cols-4" : "grid-cols-1"}`}>
+            {isAdmin && <TabsTrigger value="oauth">OAuth GHL</TabsTrigger>}
+            <TabsTrigger value="integrations">Integrações</TabsTrigger>
+            {isAdmin && <TabsTrigger value="users">Usuários</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="cdn">CDN</TabsTrigger>}
           </TabsList>
 
           {isAdmin && (
@@ -487,7 +487,7 @@ export default function Settings() {
         </Tabs>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center justify-between">
           <Button
             variant="outline"
             onClick={() => setShowTokens(!showTokens)}

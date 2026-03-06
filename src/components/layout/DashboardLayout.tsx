@@ -22,8 +22,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <DashboardHeader />
       <div className="flex flex-1 overflow-hidden relative z-10">
         <Sidebar />
-        <main className="flex-1 overflow-auto overflow-x-hidden">
-          <div className="w-full max-w-7xl mx-auto px-3 py-4 sm:px-4 lg:px-8 lg:py-8">
+        <main className="flex-1 overflow-auto">
+          <div className="container max-w-7xl mx-auto p-4 lg:p-8">
             {children}
           </div>
         </main>
