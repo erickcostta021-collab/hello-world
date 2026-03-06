@@ -481,7 +481,12 @@ Deno.serve(async (req) => {
 
       if (settings?.[0]?.ghl_client_id && sub.ghl_access_token) {
         const ghlToken = await getValidToken(supabase, sub, settings[0]);
-        const contactId = await resolveContactId(supabase, cleanPhone, locationId, ghlToken);
+        let contactId = await resolveContactId(supabase, cleanPhone, locationId, ghlToken);
+
+        // Fallback: resolve from conversationId if phone-based resolution fails
+        if (!contactId && conversationId) {
+          contactId = await resolveContactFromConversation(conversationId, ghlToken);
+        }
 
         if (contactId) {
           let result = await mirrorAudioInGHL(contactId, ghlToken, audioUrl);
