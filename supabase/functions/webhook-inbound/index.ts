@@ -1483,7 +1483,7 @@ serve(async (req) => {
                 }
               }
             } catch (e) {
-              console.error("Error mirroring mobile edit as InternalComment:", e);
+              console.error("Error mirroring mobile edit as outbound SMS:", e);
             }
           }
 
