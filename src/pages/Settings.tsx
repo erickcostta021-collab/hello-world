@@ -13,7 +13,8 @@ import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { CANONICAL_APP_ORIGIN, getOAuthRedirectUri } from "@/lib/canonicalOrigin";
 import { supabase } from "@/integrations/supabase/client";
-import { Save, Loader2, Eye, EyeOff, Info, CheckCircle2, Wand2, Copy, Check, Lock } from "lucide-react";
+import { Save, Loader2, Eye, EyeOff, Info, CheckCircle2, Wand2, Copy, Check, Lock, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { RegisteredUsersPanel } from "@/components/settings/RegisteredUsersPanel";
 import { ChangePasswordDialog } from "@/components/settings/ChangePasswordDialog";
@@ -28,6 +29,8 @@ export default function Settings() {
   const isAdmin = ADMIN_EMAILS.includes(user?.email || "");
   const [showTokens, setShowTokens] = useState(false);
   const [copiedTrackId, setCopiedTrackId] = useState(false);
+  const [showTrackId, setShowTrackId] = useState(false);
+  const [isRegeneratingTrackId, setIsRegeneratingTrackId] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   // For non-admins, fetch the admin's webhook URL to display
@@ -430,44 +433,83 @@ export default function Settings() {
 
             {/* Track ID - Installation Identifier */}
             <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-card-foreground">Identificador da Instalação</CardTitle>
-                <CardDescription>
-                  Código único da sua conta para identificar mensagens de APIs
-                </CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between space-y-0">
+                <div className="space-y-1.5">
+                  <CardTitle className="text-card-foreground">Track ID</CardTitle>
+                  <CardDescription>
+                    Identificador único usado para evitar loops de mensagens no webhook.
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary" className="shrink-0">
+                  Sistema
+                </Badge>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <Label>Track ID</Label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 p-3 bg-secondary rounded text-sm font-mono break-all select-all">
-                      {settings?.track_id || "Gerando..."}
-                    </code>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="border-border shrink-0"
-                      onClick={() => {
-                        if (settings?.track_id) {
-                          navigator.clipboard.writeText(settings.track_id);
-                          setCopiedTrackId(true);
-                          toast.success("Track ID copiado!");
-                          setTimeout(() => setCopiedTrackId(false), 2000);
-                        }
-                      }}
-                      disabled={!settings?.track_id}
-                    >
-                      {copiedTrackId ? (
-                        <Check className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Use este código no campo <code className="bg-secondary px-1 rounded">track_id</code> ao enviar mensagens via API para sincronizar com o GHL.
-                  </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    type={showTrackId ? "text" : "password"}
+                    value={settings?.track_id || ""}
+                    placeholder="Gerando..."
+                    className="bg-secondary border-border font-mono text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => setShowTrackId(!showTrackId)}
+                  >
+                    {showTrackId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => {
+                      if (settings?.track_id) {
+                        navigator.clipboard.writeText(settings.track_id);
+                        setCopiedTrackId(true);
+                        toast.success("Track ID copiado!");
+                        setTimeout(() => setCopiedTrackId(false), 2000);
+                      }
+                    }}
+                    disabled={!settings?.track_id}
+                  >
+                    {copiedTrackId ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 border-border gap-1.5"
+                    disabled={isRegeneratingTrackId}
+                    onClick={async () => {
+                      if (!user) return;
+                      setIsRegeneratingTrackId(true);
+                      try {
+                        const newTrackId = crypto.randomUUID();
+                        await updateSettings.mutateAsync({ track_id: newTrackId } as any);
+                        toast.success("Track ID regenerado com sucesso!");
+                      } catch {
+                        toast.error("Erro ao regenerar Track ID");
+                      } finally {
+                        setIsRegeneratingTrackId(false);
+                      }
+                    }}
+                  >
+                    {isRegeneratingTrackId ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                    Regenerar
+                  </Button>
                 </div>
               </CardContent>
             </Card>
