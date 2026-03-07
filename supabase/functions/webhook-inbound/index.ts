@@ -1248,10 +1248,8 @@ serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseKey);
       
       // === DEDUPLICATION FOR EDITS ===
-      // Use the edit EVENT's message ID (unique per edit), not the original message ID
-      // This allows re-edits of the same message to be processed
-      const editEventId = messageDataForEvents.messageid || messageDataForEvents.id || "";
-      const editDedupeKey = `edit:${editEventId || editedOriginalMsgId}`;
+      // Multiple instances may receive the same edit event - deduplicate by original message ID
+      const editDedupeKey = `edit:${editedOriginalMsgId || messageDataForEvents.messageid || messageDataForEvents.id}`;
       
       // Use INSERT with ON CONFLICT to atomically claim this edit event
       // Only the first insert succeeds - others get count=0
@@ -1309,150 +1307,170 @@ serve(async (req) => {
           // Store original text before updating
           const originalText = mapping.message_text || "";
           
-          console.log("📝 Mapping found for edit:", {
-            mappingId: mapping.id,
-            from_me: mapping.from_me,
-            contact_id: mapping.contact_id?.substring(0, 10),
-            location_id: mapping.location_id?.substring(0, 10),
-            originalText: originalText?.substring(0, 30),
-          });
-          
           // Update in database
           await supabase
             .from("message_map")
             .update({ message_text: newText, is_edited: true })
             .eq("id", mapping.id);
           
-          // === SEND EDIT TO GHL ===
-          // For both inbound (lead) and outbound (agent) edits
-          if (mapping.contact_id && mapping.location_id) {
-            // Check if this edit was already handled by map-messages (Bridge Toolkit flow)
-            let editAlreadyHandled = false;
-            if (mapping.from_me && mapping.uazapi_message_id) {
-              const editIcKey = `edit-ic:${mapping.uazapi_message_id}`;
-              const { data: existing } = await supabase
-                .from("ghl_processed_messages")
-                .select("id")
-                .eq("message_id", editIcKey)
-                .maybeSingle();
-              if (existing) {
-                editAlreadyHandled = true;
-                console.log("⏭️ Edit already sent by map-messages, skipping:", editIcKey);
+          // === SEND EDIT AS FORMATTED INBOUND MESSAGE TO GHL ===
+          // Only send formatted message for lead edits (not our own outbound edits)
+          if (!mapping.from_me && mapping.contact_id && mapping.location_id) {
+            // Get instance and token for this location to send message to GHL
+            const { data: instanceData } = await supabase
+              .from("instances")
+              .select("*, ghl_subaccounts!inner(*)")
+              .eq("ghl_subaccounts.location_id", mapping.location_id)
+              .eq("instance_status", "connected")
+              .limit(1)
+              .maybeSingle();
+            
+            if (instanceData?.ghl_subaccounts) {
+              const subaccount = instanceData.ghl_subaccounts;
+              
+              // Get user settings for OAuth credentials
+              const { data: settings } = await supabase
+                .from("user_settings")
+                .select("ghl_client_id, ghl_client_secret")
+                .eq("user_id", subaccount.user_id)
+                .single();
+              
+              if (settings?.ghl_client_id && subaccount.ghl_access_token) {
+                // Get valid token (refresh if needed)
+                const token = await getValidToken(supabase, subaccount, settings);
+                
+                // Format the edit message:
+                // ✏️ Editado: "texto original"
+                //
+                // texto editado
+                const formattedEditMessage = `✏️ Editado: "${originalText}"\n\n${newText}`;
+                
+                console.log("📝 Sending formatted edit message to GHL:", {
+                  contactId: mapping.contact_id,
+                  originalText: originalText?.substring(0, 30),
+                  newText: newText?.substring(0, 30),
+                });
+                
+                // Send as inbound message (from lead)
+                const response = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages/inbound", {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Version": "2021-04-15",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                  },
+                  body: JSON.stringify({
+                    type: "SMS",
+                    contactId: mapping.contact_id,
+                    message: formattedEditMessage,
+                  }),
+                });
+                
+                const responseText = await response.text();
+                if (!response.ok) {
+                  console.error("Failed to send edit message to GHL:", responseText);
+                } else {
+                  console.log("✅ Edit message sent to GHL successfully:", responseText.substring(0, 200));
+                  
+                  // Map the new formatted message to the same UAZAPI message ID
+                  // so replies to the edited message work correctly
+                  try {
+                    const responseData = JSON.parse(responseText);
+                    const newGhlMessageId = responseData.messageId || responseData.id;
+                    
+                    if (newGhlMessageId && mapping.uazapi_message_id) {
+                      console.log("📝 Mapping formatted edit message:", { newGhlMessageId, uazapiId: mapping.uazapi_message_id });
+                      
+                      await supabase
+                        .from("message_map")
+                        .upsert({
+                          ghl_message_id: newGhlMessageId,
+                          uazapi_message_id: mapping.uazapi_message_id,
+                          location_id: mapping.location_id,
+                          contact_id: mapping.contact_id,
+                          message_text: formattedEditMessage,
+                          message_type: "text",
+                          from_me: false,
+                          original_timestamp: new Date().toISOString(),
+                        }, { onConflict: "ghl_message_id" });
+                      
+                      console.log("✅ Formatted edit message mapped successfully");
+                    }
+                  } catch (e) {
+                    console.error("Failed to map formatted edit message:", e);
+                  }
+                }
               }
             }
+          }
+          
+          // If this was an OUTBOUND edit (agent edited on mobile), mirror the action in GHL using InternalComment
+          // (same UX as when the edit is made inside GHL via the Toolkit)
+          // BUT: skip if map-messages already handled this edit (Bridge Toolkit flow)
+          // to prevent duplicate InternalComments.
+          let editAlreadyHandled = false;
+          if (mapping.from_me && mapping.uazapi_message_id) {
+            const editIcKey = `edit-ic:${mapping.uazapi_message_id}`;
+            const { data: existing } = await supabase
+              .from("ghl_processed_messages")
+              .select("id")
+              .eq("message_id", editIcKey)
+              .maybeSingle();
+            if (existing) {
+              editAlreadyHandled = true;
+              console.log("⏭️ Edit InternalComment already sent by map-messages, skipping duplicate:", editIcKey);
+            }
+          }
 
-            if (!editAlreadyHandled) {
-              try {
-                // Get instance and token for this location
-                const { data: instanceData } = await supabase
-                  .from("instances")
-                  .select("*, ghl_subaccounts!inner(*)")
-                  .eq("ghl_subaccounts.location_id", mapping.location_id)
-                  .eq("instance_status", "connected")
-                  .limit(1)
+          if (mapping.from_me && mapping.contact_id && mapping.location_id && !editAlreadyHandled) {
+            try {
+              const { data: instanceData } = await supabase
+                .from("instances")
+                .select("ghl_user_id, ghl_subaccounts!inner(*)")
+                .eq("ghl_subaccounts.location_id", mapping.location_id)
+                .eq("instance_status", "connected")
+                .limit(1)
+                .maybeSingle();
+
+              if (instanceData?.ghl_subaccounts) {
+                const subaccount = instanceData.ghl_subaccounts;
+                const { data: settings } = await supabase
+                  .from("user_settings")
+                  .select("ghl_client_id, ghl_client_secret")
+                  .eq("user_id", subaccount.user_id)
                   .maybeSingle();
-                
-                console.log("📝 Instance lookup for edit:", {
-                  found: !!instanceData,
-                  hasSubaccount: !!instanceData?.ghl_subaccounts,
-                  ghl_user_id: instanceData?.ghl_user_id,
-                });
 
-                if (instanceData?.ghl_subaccounts) {
-                  const subaccount = instanceData.ghl_subaccounts as any;
-                  
-                  let settings: any = null;
-                  const { data: userSettings } = await supabase
-                    .from("user_settings")
-                    .select("ghl_client_id, ghl_client_secret")
-                    .eq("user_id", subaccount.user_id)
-                    .maybeSingle();
-                  settings = userSettings;
-                  
-                  // Fallback to admin OAuth credentials if user doesn't have their own
-                  if (!settings?.ghl_client_id || !settings?.ghl_client_secret) {
-                    const { data: adminCreds } = await supabase.rpc("get_admin_oauth_credentials");
-                    if (adminCreds?.[0]?.ghl_client_id && adminCreds?.[0]?.ghl_client_secret) {
-                      settings = settings || {};
-                      settings.ghl_client_id = adminCreds[0].ghl_client_id;
-                      settings.ghl_client_secret = adminCreds[0].ghl_client_secret;
-                      console.log("📝 Using admin OAuth credentials for edit");
-                    }
-                  }
-                  
-                  console.log("📝 Settings lookup for edit:", {
-                    hasClientId: !!settings?.ghl_client_id,
-                    hasAccessToken: !!subaccount.ghl_access_token,
+                if (settings?.ghl_client_id && subaccount.ghl_access_token) {
+                  const token = await getValidToken(supabase, subaccount, settings);
+                  const formattedEditComment = `✏️ Editado: "${originalText}"\n\n${newText}`;
+
+                  const icRes = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages", {
+                    method: "POST",
+                    headers: {
+                      "Authorization": `Bearer ${token}`,
+                      "Version": "2021-04-15",
+                      "Content-Type": "application/json",
+                      "Accept": "application/json",
+                    },
+                    body: JSON.stringify({
+                      type: "InternalComment",
+                      contactId: mapping.contact_id,
+                      message: formattedEditComment,
+                      ...(instanceData.ghl_user_id && { userId: instanceData.ghl_user_id }),
+                    }),
                   });
 
-                  if (settings?.ghl_client_id && subaccount.ghl_access_token) {
-                    // Use the existing access_token directly.
-                    // The main message flow keeps this token refreshed;
-                    // calling getValidToken here can fail if the refresh_token is stale.
-                    const token = subaccount.ghl_access_token;
-                    const formattedEditMessage = `✏️ Editado: "${originalText}"\n\n${newText}`;
-                    
-                    // Use appropriate endpoint: inbound for lead edits, outbound for agent edits
-                    const isFromMe = !!mapping.from_me;
-                    const ghlUrl = isFromMe
-                      ? "https://services.leadconnectorhq.com/conversations/messages"
-                      : "https://services.leadconnectorhq.com/conversations/messages/inbound";
-                    
-                    const bodyPayload: any = {
-                      type: "SMS",
-                      contactId: mapping.contact_id,
-                      message: formattedEditMessage,
-                    };
-                    // Add userId for outbound edits (agent attribution)
-                    if (isFromMe && instanceData.ghl_user_id) {
-                      bodyPayload.userId = instanceData.ghl_user_id;
-                    }
-
-                    console.log("📝 Sending edit to GHL:", {
-                      isFromMe,
-                      endpoint: isFromMe ? "outbound" : "inbound",
-                      contactId: mapping.contact_id,
-                    });
-                    
-                    const response = await fetchGHL(ghlUrl, {
-                      method: "POST",
-                      headers: {
-                        "Authorization": `Bearer ${token}`,
-                        "Version": "2021-04-15",
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                      },
-                      body: JSON.stringify(bodyPayload),
-                    });
-                    
-                    const responseText = await response.text();
-                    if (!response.ok) {
-                      console.error("Failed to send edit to GHL:", responseText.substring(0, 300));
-                    } else {
-                      console.log("✅ Edit sent to GHL:", responseText.substring(0, 200));
-                      
-                      // Register dedup so webhook-outbound doesn't re-send to WhatsApp
-                      try {
-                        const responseData = JSON.parse(responseText);
-                        const editMsgId = responseData.messageId || responseData.id;
-                        if (editMsgId) {
-                          await supabase
-                            .from("ghl_processed_messages")
-                            .insert({ message_id: `ghl:${editMsgId}` })
-                            .select("id");
-                          console.log("✅ Edit dedup registered:", editMsgId);
-                        }
-                      } catch (_e) { /* ignore */ }
-                    }
+                  const icText = await icRes.text();
+                  if (!icRes.ok) {
+                    console.error("Failed to send edit InternalComment (mobile) to GHL:", icText.substring(0, 300));
                   } else {
-                    console.log("⚠️ Missing credentials for edit GHL sync");
+                    console.log("✅ Edit InternalComment mirrored (mobile):", icText.substring(0, 200));
                   }
-                } else {
-                  console.log("⚠️ No connected instance found for edit location:", mapping.location_id);
                 }
-              } catch (e) {
-                console.error("Error sending edit to GHL:", e);
               }
+            } catch (e) {
+              console.error("Error mirroring mobile edit as InternalComment:", e);
             }
           }
 
