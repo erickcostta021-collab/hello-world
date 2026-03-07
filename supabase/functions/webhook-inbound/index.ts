@@ -1324,7 +1324,6 @@ serve(async (req) => {
           // === SEND EDIT TO GHL ===
           // For both inbound (lead) and outbound (agent) edits
           if (mapping.contact_id && mapping.location_id) {
-          if (mapping.contact_id && mapping.location_id) {
             // Check if this edit was already handled by map-messages (Bridge Toolkit flow)
             let editAlreadyHandled = false;
             if (mapping.from_me && mapping.uazapi_message_id) {
