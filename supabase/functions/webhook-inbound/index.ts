@@ -1307,15 +1307,23 @@ serve(async (req) => {
           // Store original text before updating
           const originalText = mapping.message_text || "";
           
+          console.log("📝 Mapping found for edit:", {
+            mappingId: mapping.id,
+            from_me: mapping.from_me,
+            contact_id: mapping.contact_id?.substring(0, 10),
+            location_id: mapping.location_id?.substring(0, 10),
+            originalText: originalText?.substring(0, 30),
+          });
+          
           // Update in database
           await supabase
             .from("message_map")
             .update({ message_text: newText, is_edited: true })
             .eq("id", mapping.id);
           
-          // === SEND EDIT AS FORMATTED INBOUND MESSAGE TO GHL ===
-          // Only send formatted message for lead edits (not our own outbound edits)
-          if (!mapping.from_me && mapping.contact_id && mapping.location_id) {
+          // === SEND EDIT TO GHL ===
+          // For both inbound (lead) and outbound (agent) edits
+          if (mapping.contact_id && mapping.location_id) {
             // Get instance and token for this location to send message to GHL
             const { data: instanceData } = await supabase
               .from("instances")
