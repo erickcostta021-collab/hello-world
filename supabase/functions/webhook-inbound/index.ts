@@ -1361,11 +1361,24 @@ serve(async (req) => {
                 if (instanceData?.ghl_subaccounts) {
                   const subaccount = instanceData.ghl_subaccounts as any;
                   
-                  const { data: settings } = await supabase
+                  let settings: any = null;
+                  const { data: userSettings } = await supabase
                     .from("user_settings")
                     .select("ghl_client_id, ghl_client_secret")
                     .eq("user_id", subaccount.user_id)
                     .maybeSingle();
+                  settings = userSettings;
+                  
+                  // Fallback to admin OAuth credentials if user doesn't have their own
+                  if (!settings?.ghl_client_id || !settings?.ghl_client_secret) {
+                    const { data: adminCreds } = await supabase.rpc("get_admin_oauth_credentials");
+                    if (adminCreds?.[0]?.ghl_client_id && adminCreds?.[0]?.ghl_client_secret) {
+                      settings = settings || {};
+                      settings.ghl_client_id = adminCreds[0].ghl_client_id;
+                      settings.ghl_client_secret = adminCreds[0].ghl_client_secret;
+                      console.log("📝 Using admin OAuth credentials for edit");
+                    }
+                  }
                   
                   console.log("📝 Settings lookup for edit:", {
                     hasClientId: !!settings?.ghl_client_id,
