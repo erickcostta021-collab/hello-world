@@ -2901,7 +2901,8 @@ serve(async (req: Request) => {
       const mediaType = detectMediaType(attachment);
       console.log("Sending media:", { attachment, mediaType, phone: targetPhone, isGroup });
       
-      const result = await sendMediaMessage(base, instanceToken, targetPhone, attachment, mediaType, messageText || undefined);
+      const outboundTrackId = settings?.track_id || "";
+      const result = await sendMediaMessage(base, instanceToken, targetPhone, attachment, mediaType, messageText || undefined, outboundTrackId);
       results.push({ type: `media:${mediaType}`, sent: result.sent, status: result.status });
       
       if (!result.sent) {
@@ -2947,7 +2948,8 @@ serve(async (req: Request) => {
     // If there were attachments, text was already sent as caption
     if (messageText && attachments.length === 0) {
       console.log("Sending text:", { text: messageText.substring(0, 50), phone: targetPhone, isGroup });
-      const result = await sendTextMessage(base, instanceToken, targetPhone, messageText);
+      const outboundTrackId = settings?.track_id || "";
+      const result = await sendTextMessage(base, instanceToken, targetPhone, messageText, outboundTrackId);
       results.push({ type: "text", sent: result.sent, status: result.status });
       
       if (!result.sent) {
