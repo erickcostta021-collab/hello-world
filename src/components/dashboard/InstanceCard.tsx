@@ -525,6 +525,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                       Copiar Track ID
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Configurar Webhook
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Mensagem em massa (beta)
