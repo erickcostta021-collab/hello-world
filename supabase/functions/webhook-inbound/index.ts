@@ -1386,14 +1386,10 @@ serve(async (req) => {
                   });
 
                   if (settings?.ghl_client_id && subaccount.ghl_access_token) {
-                    // Try getValidToken, fallback to raw access_token if refresh fails
-                    let token: string;
-                    try {
-                      token = await getValidToken(supabase, subaccount, settings);
-                    } catch (tokenErr) {
-                      console.log("⚠️ Token refresh failed for edit, using existing access_token as fallback");
-                      token = subaccount.ghl_access_token;
-                    }
+                    // Use the existing access_token directly.
+                    // The main message flow keeps this token refreshed;
+                    // calling getValidToken here can fail if the refresh_token is stale.
+                    const token = subaccount.ghl_access_token;
                     const formattedEditMessage = `✏️ Editado: "${originalText}"\n\n${newText}`;
                     
                     // Use appropriate endpoint: inbound for lead edits, outbound for agent edits
