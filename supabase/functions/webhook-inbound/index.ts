@@ -1607,29 +1607,12 @@ serve(async (req) => {
     
     console.log("API Agent check:", { wasSentByApi, trackId, isFromMe });
 
-    // IMPORTANT:
-    // If UAZAPI marks the message as API-sent but there's no track_id,
-    // discard it to avoid infinite loops (e.g., messages mirrored from GHL -> UAZAPI).
-    // Mass sends now include track_id, so legitimate campaigns pass through.
-    if (wasSentByApi && !trackId) {
-      console.log("Discarding API-sent message without track_id:", {
-        wasSentByApi,
-        trackId,
-        isFromMe,
-        messageid: messageData.messageid || messageData.id,
-      });
-
-      return new Response(
-        JSON.stringify({
-          received: true,
-          ignored: true,
-          reason: "discard_api_message_no_track_id",
-          wasSentByApi,
-          trackId,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // INVERTED LOGIC:
+    // Messages WITH track_id were sent by GHL (webhook-outbound injects it).
+    // Their echo should be DISCARDED — GHL already has them.
+    // Messages WITHOUT track_id (bulk sends, group msgs, external bots, phone msgs)
+    // should PASS THROUGH to render in GHL.
+    // We validate the track_id against the user's configured one AFTER fetching settings.
     
     // Get sender info - PRIORITY: chatid/wa_chatid contains the real phone number
     // The "sender" field often contains internal LID (linked ID) which is NOT a valid phone
