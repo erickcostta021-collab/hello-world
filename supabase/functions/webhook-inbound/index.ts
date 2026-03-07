@@ -1445,6 +1445,7 @@ serve(async (req) => {
                   const token = await getValidToken(supabase, subaccount, settings);
                   const formattedEditComment = `✏️ Editado: "${originalText}"\n\n${newText}`;
 
+                  // Send as outbound SMS so it appears in the main chat view (not just notes)
                   const icRes = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages", {
                     method: "POST",
                     headers: {
@@ -1454,7 +1455,7 @@ serve(async (req) => {
                       "Accept": "application/json",
                     },
                     body: JSON.stringify({
-                      type: "InternalComment",
+                      type: "SMS",
                       contactId: mapping.contact_id,
                       message: formattedEditComment,
                       ...(instanceData.ghl_user_id && { userId: instanceData.ghl_user_id }),
@@ -1463,9 +1464,21 @@ serve(async (req) => {
 
                   const icText = await icRes.text();
                   if (!icRes.ok) {
-                    console.error("Failed to send edit InternalComment (mobile) to GHL:", icText.substring(0, 300));
+                    console.error("Failed to send edit outbound message to GHL:", icText.substring(0, 300));
                   } else {
-                    console.log("✅ Edit InternalComment mirrored (mobile):", icText.substring(0, 200));
+                    console.log("✅ Edit mirrored as outbound SMS (mobile):", icText.substring(0, 200));
+
+                    // Register dedup so webhook-outbound doesn't re-send this to WhatsApp
+                    try {
+                      const responseData = JSON.parse(icText);
+                      const editMsgId = responseData.messageId || responseData.id;
+                      if (editMsgId) {
+                        await supabase
+                          .from("ghl_processed_messages")
+                          .insert({ message_id: `ghl:${editMsgId}` })
+                          .select("id");
+                      }
+                    } catch (_e) { /* ignore */ }
                   }
                 }
               }
