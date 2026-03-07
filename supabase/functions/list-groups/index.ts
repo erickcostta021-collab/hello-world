@@ -465,7 +465,7 @@ serve(async (req) => {
 
     // ======== LIST ALL GROUPS (with retry + timeout) ========
     const MAX_RETRIES = 2;
-    const TIMEOUT_MS = 25000; // 25s per attempt
+    const TIMEOUT_MS = 15000; // 15s per attempt
     let response: Response | null = null;
     let lastError = "";
 

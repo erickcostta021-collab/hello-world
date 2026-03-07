@@ -12,6 +12,19 @@ function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
 }
 
+const MAX_RETRIES = 2;
+const FETCH_TIMEOUT_MS = 15000; // 15s per attempt
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function tryFetchJson(
   baseUrl: string,
   candidatePaths: string[],
@@ -20,21 +33,42 @@ async function tryFetchJson(
 {
   const base = normalizeBaseUrl(baseUrl);
   let lastText = "";
-  for (const path of candidatePaths) {
-    const url = `${base}${path}`;
-    try {
-      const res = await fetch(url, init);
-      if (res.status === 404) continue;
 
-      const text = await res.text().catch(() => "");
-      lastText = text;
-      const data = text ? JSON.parse(text) : {};
-      return { ok: res.ok, status: res.status, data, usedUrl: url };
-    } catch (e) {
-      lastText = e instanceof Error ? e.message : String(e);
-      continue;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    for (const path of candidatePaths) {
+      const url = `${base}${path}`;
+      try {
+        const res = await fetchWithTimeout(url, init);
+        if (res.status === 404) continue;
+
+        // Retry on server errors
+        if ([502, 503, 504].includes(res.status)) {
+          lastText = `${res.status} gateway error`;
+          break; // break inner loop to retry
+        }
+
+        const text = await res.text().catch(() => "");
+        lastText = text;
+        const data = text ? JSON.parse(text) : {};
+        return { ok: res.ok, status: res.status, data, usedUrl: url };
+      } catch (e: any) {
+        if (e.name === "AbortError") {
+          lastText = "Timeout (servidor demorou demais)";
+          console.warn(`[uazapi-proxy-embed] Timeout on ${url}, attempt ${attempt + 1}`);
+          break; // break inner loop to retry
+        }
+        lastText = e instanceof Error ? e.message : String(e);
+        continue;
+      }
+    }
+
+    // If we got here without returning, we're retrying
+    if (attempt < MAX_RETRIES) {
+      console.log(`[uazapi-proxy-embed] Retrying (${attempt + 2}/${MAX_RETRIES + 1})...`);
+      await new Promise(r => setTimeout(r, 1500));
     }
   }
+
   return { ok: false, status: 0, data: { error: "No endpoint matched", details: lastText } };
 }
 

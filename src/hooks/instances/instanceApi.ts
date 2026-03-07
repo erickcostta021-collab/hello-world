@@ -33,6 +33,48 @@ export interface UazapiInstance {
 }
 
 // ---------------------------------------------------------------------------
+// Resilient fetch with timeout + retry
+// ---------------------------------------------------------------------------
+
+const DEFAULT_TIMEOUT_MS = 15000; // 15s
+const DEFAULT_MAX_RETRIES = 2;
+
+async function resilientFetch(
+  url: string,
+  init: RequestInit,
+  { timeoutMs = DEFAULT_TIMEOUT_MS, maxRetries = DEFAULT_MAX_RETRIES } = {},
+): Promise<Response> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      // Retry on gateway errors
+      if ([502, 503, 504].includes(res.status) && attempt < maxRetries) {
+        console.warn(`[UAZAPI] ${res.status} on ${url}, retry ${attempt + 1}/${maxRetries}`);
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      return res;
+    } catch (e: any) {
+      clearTimeout(timeoutId);
+      lastError = e;
+      if (e.name === "AbortError" && attempt < maxRetries) {
+        console.warn(`[UAZAPI] Timeout on ${url}, retry ${attempt + 1}/${maxRetries}`);
+        await new Promise((r) => setTimeout(r, 1500));
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastError || new Error("resilientFetch failed");
+}
+
+// ---------------------------------------------------------------------------
 // URL Resolution
 // ---------------------------------------------------------------------------
 
