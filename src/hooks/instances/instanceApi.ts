@@ -101,10 +101,10 @@ export async function fetchAllUazapiInstances(
 
   let response: Response | null = null;
   for (const path of candidatePaths) {
-    const r = await fetch(`${base}${path}`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json", admintoken: adminToken },
-    });
+      const r = await resilientFetch(`${base}${path}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", admintoken: adminToken },
+      });
     if (r.status === 404) continue;
     response = r;
     break;
@@ -152,7 +152,7 @@ export async function fetchInstanceStatus(
 
     let response: Response | null = null;
     for (const path of candidatePaths) {
-      const r = await fetch(`${base}${path}`, {
+      const r = await resilientFetch(`${base}${path}`, {
         method: "GET",
         headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
       });
@@ -245,7 +245,7 @@ export async function connectInstanceOnApi(
   globalBaseUrl?: string | null,
 ): Promise<string | null> {
   const base = getBaseUrlForInstance(instance, globalBaseUrl);
-  const response = await fetch(`${base}/instance/connect`, {
+  const response = await resilientFetch(`${base}/instance/connect`, {
     method: "POST",
     headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
   });
