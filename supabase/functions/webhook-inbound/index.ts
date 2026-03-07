@@ -1941,14 +1941,33 @@ serve(async (req) => {
       }
     }
 
-    // Validate track_id: if message was sent by API but doesn't match user's configured track_id, discard it
-    // This prevents loops from other systems while allowing authorized AI agent messages through
+    // INVERTED LOGIC: Messages WITH matching track_id were sent from GHL → UAZAPI.
+    // Their echo should be DISCARDED since GHL already has them.
+    // Messages WITHOUT track_id (bulk, groups, phone, external bots) pass through to GHL.
     const userTrackId = settings.track_id || "";
-    const isAgentIaMessage = wasSentByApi && trackId && trackId === userTrackId;
     
-    if (wasSentByApi && trackId && trackId !== userTrackId) {
-      console.log("Discarding API-sent message with mismatched track_id:", {
-        wasSentByApi,
+    if (trackId && userTrackId && trackId === userTrackId) {
+      console.log("🛑 Discarding GHL-originated echo (track_id matches):", {
+        trackId,
+        userTrackId,
+        isFromMe,
+        messageid: messageData.messageid || messageData.id,
+      });
+
+      return new Response(
+        JSON.stringify({
+          received: true,
+          ignored: true,
+          reason: "discard_ghl_echo_matching_track_id",
+          trackId,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Also discard messages with a track_id that doesn't match (from other systems)
+    if (trackId && userTrackId && trackId !== userTrackId) {
+      console.log("🛑 Discarding message with foreign track_id:", {
         incomingTrackId: trackId,
         expectedTrackId: userTrackId,
         messageid: messageData.messageid || messageData.id,
@@ -1958,14 +1977,16 @@ serve(async (req) => {
         JSON.stringify({
           received: true,
           ignored: true,
-          reason: "discard_mismatched_track_id",
+          reason: "discard_foreign_track_id",
           incomingTrackId: trackId,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Track ID validation:", { incomingTrackId: trackId, userTrackId, isAgentIaMessage });
+    // No track_id = message should be rendered in GHL (bulk sends, group msgs, phone msgs, etc.)
+    const isAgentIaMessage = false; // No longer used in inverted logic
+    console.log("Track ID validation (inverted):", { incomingTrackId: trackId, userTrackId, willRenderInGHL: !trackId });
 
     // Get valid token
     const token = await getValidToken(supabase, subaccount, settings);
