@@ -356,7 +356,7 @@ Deno.serve(async (req) => {
       }
 
       try {
-        const res = await fetch(url, fetchInit);
+        const res = await fetchWithTimeout(url, fetchInit);
         const text = await res.text();
         let data;
         try { data = JSON.parse(text); } catch { data = text; }
