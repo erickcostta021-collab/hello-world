@@ -1248,8 +1248,10 @@ serve(async (req) => {
       const supabase = createClient(supabaseUrl, supabaseKey);
       
       // === DEDUPLICATION FOR EDITS ===
-      // Multiple instances may receive the same edit event - deduplicate by original message ID
-      const editDedupeKey = `edit:${editedOriginalMsgId || messageDataForEvents.messageid || messageDataForEvents.id}`;
+      // Use the edit EVENT's message ID (unique per edit), not the original message ID
+      // This allows re-edits of the same message to be processed
+      const editEventId = messageDataForEvents.messageid || messageDataForEvents.id || "";
+      const editDedupeKey = `edit:${editEventId || editedOriginalMsgId}`;
       
       // Use INSERT with ON CONFLICT to atomically claim this edit event
       // Only the first insert succeeds - others get count=0
