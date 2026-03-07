@@ -2430,9 +2430,10 @@ serve(async (req) => {
       console.error("[QUEUE] Error in enqueue (proceeding without queue):", qErr);
     }
 
-    // Send message to GHL - differentiate between inbound (from lead) and outbound (from us/agent)
-    // isAgentIaMessage: message sent by API with track_id="agente_ia" - render as outbound (attendant message)
-    const shouldSyncAsOutbound = isFromMe || isAgentIaMessage;
+    // Send message to GHL - differentiate between inbound (from lead) and outbound (from us)
+    // With inverted logic: all messages here have NO track_id, so they need rendering in GHL.
+    // isFromMe messages (sent from phone/bulk) sync as outbound; others as inbound.
+    const shouldSyncAsOutbound = isFromMe;
     
     // Wrap GHL send in try/finally to ensure queue entry is always marked done
     try {
@@ -2787,7 +2788,7 @@ serve(async (req) => {
         success: true, 
         contactId: contact.id,
         direction: shouldSyncAsOutbound ? "outbound" : "inbound",
-        source: isAgentIaMessage ? "agent_ia" : (isFromMe ? "manual" : "lead"),
+        source: isFromMe ? "manual" : "lead",
         message: shouldSyncAsOutbound ? "Outbound message synced to GHL" : "Inbound message forwarded to GHL"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
