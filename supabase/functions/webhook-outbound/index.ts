@@ -292,43 +292,44 @@ function detectMediaType(url: string): string {
 
 // Send text message via UAZAPI
 // Returns { sent, status, body, uazapiMessageId }
-async function sendTextMessage(base: string, instanceToken: string, phone: string, text: string): Promise<{ sent: boolean; status: number; body: string; uazapiMessageId: string | null }> {
-  const attempts: Array<{ path: string; headers: Record<string, string>; body: Record<string, string> }> = [
+async function sendTextMessage(base: string, instanceToken: string, phone: string, text: string, trackId?: string): Promise<{ sent: boolean; status: number; body: string; uazapiMessageId: string | null }> {
+  const trackFields = trackId ? { track_id: trackId } : {};
+  const attempts: Array<{ path: string; headers: Record<string, string>; body: Record<string, any> }> = [
     // n8n style - primary
     {
       path: "/send/text",
       headers: { token: instanceToken },
-      body: { number: phone, text, readchat: "true" },
+      body: { number: phone, text, readchat: "true", ...trackFields },
     },
     {
       path: "/send/text",
       headers: { token: instanceToken },
-      body: { number: phone, text, readchat: "1" },
+      body: { number: phone, text, readchat: "1", ...trackFields },
     },
     {
       path: "/chat/send/text",
       headers: { Token: instanceToken },
-      body: { Phone: phone, Body: text },
+      body: { Phone: phone, Body: text, ...trackFields },
     },
     {
       path: "/chat/send/text",
       headers: { Token: instanceToken },
-      body: { Phone: `${phone}@s.whatsapp.net`, Body: text },
+      body: { Phone: `${phone}@s.whatsapp.net`, Body: text, ...trackFields },
     },
     {
       path: "/chat/send/text",
       headers: { Authorization: `Bearer ${instanceToken}` },
-      body: { Phone: phone, Body: text },
+      body: { Phone: phone, Body: text, ...trackFields },
     },
     {
       path: "/message/text",
       headers: { Token: instanceToken },
-      body: { id: phone, message: text },
+      body: { id: phone, message: text, ...trackFields },
     },
     {
       path: "/api/sendText",
       headers: { Authorization: `Bearer ${instanceToken}` },
-      body: { chatId: `${phone}@c.us`, text },
+      body: { chatId: `${phone}@c.us`, text, ...trackFields },
     },
   ];
 
@@ -367,42 +368,43 @@ async function sendTextMessage(base: string, instanceToken: string, phone: strin
 
 // Send media message via UAZAPI (based on n8n flow)
 // Returns { sent, status, body, uazapiMessageId }
-async function sendMediaMessage(base: string, instanceToken: string, phone: string, fileUrl: string, mediaType: string, caption?: string): Promise<{ sent: boolean; status: number; body: string; uazapiMessageId: string | null }> {
+async function sendMediaMessage(base: string, instanceToken: string, phone: string, fileUrl: string, mediaType: string, caption?: string, trackId?: string): Promise<{ sent: boolean; status: number; body: string; uazapiMessageId: string | null }> {
+  const trackFields = trackId ? { track_id: trackId } : {};
   // Based on n8n: POST {base}/send/media with header token and body { number, type, file, readchat, text (optional caption) }
   const attempts: Array<{ path: string; headers: Record<string, string>; body: Record<string, any> }> = [
     // n8n style - primary
     {
       path: "/send/media",
       headers: { token: instanceToken },
-      body: { number: phone, type: mediaType, file: fileUrl, readchat: "true", ...(caption ? { text: caption } : {}) },
+      body: { number: phone, type: mediaType, file: fileUrl, readchat: "true", ...(caption ? { text: caption } : {}), ...trackFields },
     },
     {
       path: "/send/media",
       headers: { token: instanceToken },
-      body: { number: phone, type: mediaType, file: fileUrl, readchat: "1", ...(caption ? { text: caption } : {}) },
+      body: { number: phone, type: mediaType, file: fileUrl, readchat: "1", ...(caption ? { text: caption } : {}), ...trackFields },
     },
     // Alternative without type
     {
       path: "/send/media",
       headers: { token: instanceToken },
-      body: { number: phone, file: fileUrl, readchat: "true", ...(caption ? { text: caption } : {}) },
+      body: { number: phone, file: fileUrl, readchat: "true", ...(caption ? { text: caption } : {}), ...trackFields },
     },
     // Wuzapi style
     {
       path: "/chat/send/media",
       headers: { Token: instanceToken },
-      body: { Phone: phone, Url: fileUrl, Caption: caption || "" },
+      body: { Phone: phone, Url: fileUrl, Caption: caption || "", ...trackFields },
     },
     {
       path: "/chat/send/document",
       headers: { Token: instanceToken },
-      body: { Phone: phone, Url: fileUrl },
+      body: { Phone: phone, Url: fileUrl, ...trackFields },
     },
     // For audio specifically
     {
       path: "/send/audio",
       headers: { token: instanceToken },
-      body: { number: phone, file: fileUrl, readchat: "true" },
+      body: { number: phone, file: fileUrl, readchat: "true", ...trackFields },
     },
   ];
 
@@ -2485,10 +2487,10 @@ serve(async (req: Request) => {
       return;
     }
 
-    // Now fetch settings for the chosen subaccount's user
+    // Now fetch settings for the chosen subaccount's user (include track_id for anti-loop)
     const settingsResult = await supabase
       .from("user_settings")
-      .select("uazapi_base_url, uazapi_admin_token, ghl_client_id, ghl_client_secret")
+      .select("uazapi_base_url, uazapi_admin_token, ghl_client_id, ghl_client_secret, track_id")
       .eq("user_id", subaccount.user_id)
       .single();
 
@@ -2899,7 +2901,8 @@ serve(async (req: Request) => {
       const mediaType = detectMediaType(attachment);
       console.log("Sending media:", { attachment, mediaType, phone: targetPhone, isGroup });
       
-      const result = await sendMediaMessage(base, instanceToken, targetPhone, attachment, mediaType, messageText || undefined);
+      const outboundTrackId = settings?.track_id || "";
+      const result = await sendMediaMessage(base, instanceToken, targetPhone, attachment, mediaType, messageText || undefined, outboundTrackId);
       results.push({ type: `media:${mediaType}`, sent: result.sent, status: result.status });
       
       if (!result.sent) {
@@ -2945,7 +2948,8 @@ serve(async (req: Request) => {
     // If there were attachments, text was already sent as caption
     if (messageText && attachments.length === 0) {
       console.log("Sending text:", { text: messageText.substring(0, 50), phone: targetPhone, isGroup });
-      const result = await sendTextMessage(base, instanceToken, targetPhone, messageText);
+      const outboundTrackId = settings?.track_id || "";
+      const result = await sendTextMessage(base, instanceToken, targetPhone, messageText, outboundTrackId);
       results.push({ type: "text", sent: result.sent, status: result.status });
       
       if (!result.sent) {

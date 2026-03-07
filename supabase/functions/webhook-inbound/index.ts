@@ -1607,29 +1607,12 @@ serve(async (req) => {
     
     console.log("API Agent check:", { wasSentByApi, trackId, isFromMe });
 
-    // IMPORTANT:
-    // If UAZAPI marks the message as API-sent but there's no track_id,
-    // discard it to avoid infinite loops (e.g., messages mirrored from GHL -> UAZAPI).
-    // Mass sends now include track_id, so legitimate campaigns pass through.
-    if (wasSentByApi && !trackId) {
-      console.log("Discarding API-sent message without track_id:", {
-        wasSentByApi,
-        trackId,
-        isFromMe,
-        messageid: messageData.messageid || messageData.id,
-      });
-
-      return new Response(
-        JSON.stringify({
-          received: true,
-          ignored: true,
-          reason: "discard_api_message_no_track_id",
-          wasSentByApi,
-          trackId,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // INVERTED LOGIC:
+    // Messages WITH track_id were sent by GHL (webhook-outbound injects it).
+    // Their echo should be DISCARDED — GHL already has them.
+    // Messages WITHOUT track_id (bulk sends, group msgs, external bots, phone msgs)
+    // should PASS THROUGH to render in GHL.
+    // We validate the track_id against the user's configured one AFTER fetching settings.
     
     // Get sender info - PRIORITY: chatid/wa_chatid contains the real phone number
     // The "sender" field often contains internal LID (linked ID) which is NOT a valid phone
@@ -1958,14 +1941,33 @@ serve(async (req) => {
       }
     }
 
-    // Validate track_id: if message was sent by API but doesn't match user's configured track_id, discard it
-    // This prevents loops from other systems while allowing authorized AI agent messages through
+    // INVERTED LOGIC: Messages WITH matching track_id were sent from GHL → UAZAPI.
+    // Their echo should be DISCARDED since GHL already has them.
+    // Messages WITHOUT track_id (bulk, groups, phone, external bots) pass through to GHL.
     const userTrackId = settings.track_id || "";
-    const isAgentIaMessage = wasSentByApi && trackId && trackId === userTrackId;
     
-    if (wasSentByApi && trackId && trackId !== userTrackId) {
-      console.log("Discarding API-sent message with mismatched track_id:", {
-        wasSentByApi,
+    if (trackId && userTrackId && trackId === userTrackId) {
+      console.log("🛑 Discarding GHL-originated echo (track_id matches):", {
+        trackId,
+        userTrackId,
+        isFromMe,
+        messageid: messageData.messageid || messageData.id,
+      });
+
+      return new Response(
+        JSON.stringify({
+          received: true,
+          ignored: true,
+          reason: "discard_ghl_echo_matching_track_id",
+          trackId,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Also discard messages with a track_id that doesn't match (from other systems)
+    if (trackId && userTrackId && trackId !== userTrackId) {
+      console.log("🛑 Discarding message with foreign track_id:", {
         incomingTrackId: trackId,
         expectedTrackId: userTrackId,
         messageid: messageData.messageid || messageData.id,
@@ -1975,14 +1977,16 @@ serve(async (req) => {
         JSON.stringify({
           received: true,
           ignored: true,
-          reason: "discard_mismatched_track_id",
+          reason: "discard_foreign_track_id",
           incomingTrackId: trackId,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Track ID validation:", { incomingTrackId: trackId, userTrackId, isAgentIaMessage });
+    // No track_id = message should be rendered in GHL (bulk sends, group msgs, phone msgs, etc.)
+    const isAgentIaMessage = false; // No longer used in inverted logic
+    console.log("Track ID validation (inverted):", { incomingTrackId: trackId, userTrackId, willRenderInGHL: !trackId });
 
     // Get valid token
     const token = await getValidToken(supabase, subaccount, settings);
@@ -2426,9 +2430,10 @@ serve(async (req) => {
       console.error("[QUEUE] Error in enqueue (proceeding without queue):", qErr);
     }
 
-    // Send message to GHL - differentiate between inbound (from lead) and outbound (from us/agent)
-    // isAgentIaMessage: message sent by API with track_id="agente_ia" - render as outbound (attendant message)
-    const shouldSyncAsOutbound = isFromMe || isAgentIaMessage;
+    // Send message to GHL - differentiate between inbound (from lead) and outbound (from us)
+    // With inverted logic: all messages here have NO track_id, so they need rendering in GHL.
+    // isFromMe messages (sent from phone/bulk) sync as outbound; others as inbound.
+    const shouldSyncAsOutbound = isFromMe;
     
     // Wrap GHL send in try/finally to ensure queue entry is always marked done
     try {
@@ -2783,7 +2788,7 @@ serve(async (req) => {
         success: true, 
         contactId: contact.id,
         direction: shouldSyncAsOutbound ? "outbound" : "inbound",
-        source: isAgentIaMessage ? "agent_ia" : (isFromMe ? "manual" : "lead"),
+        source: isFromMe ? "manual" : "lead",
         message: shouldSyncAsOutbound ? "Outbound message synced to GHL" : "Inbound message forwarded to GHL"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -444,10 +444,10 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
   // Proxy-aware fetch for any instance (used in bulk sends with round-robin)
   const fetchForInstance = async (inst: Instance, path: string, method: string, payload: any): Promise<any> => {
-    // Inject track_id into sender payloads so webhook-inbound recognizes them
-    const enrichedPayload = (path.startsWith("/sender/") && effectiveTrackId)
-      ? { ...payload, track_id: effectiveTrackId }
-      : payload;
+    // INVERTED LOGIC: Do NOT inject track_id into bulk/group sends.
+    // Messages without track_id will pass through webhook-inbound and render in GHL.
+    // Only webhook-outbound (GHL chat) injects track_id to mark GHL-originated messages.
+    const enrichedPayload = payload;
 
     if (!embedToken) {
       const url = `${getBaseUrlFor(inst)}${path}`;
