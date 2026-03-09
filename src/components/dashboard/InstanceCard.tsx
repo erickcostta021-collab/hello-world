@@ -292,7 +292,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     } catch (error: any) {
       const errorMsg = error.message || "Erro ao conectar";
       if (errorMsg.includes("Maximum number of instances") || errorMsg.includes("limite")) {
-        toast.error("Limite de instâncias atingido na UAZAPI");
+        toast.error("Limite de instâncias atingido no servidor");
       } else {
         toast.error(errorMsg);
       }
