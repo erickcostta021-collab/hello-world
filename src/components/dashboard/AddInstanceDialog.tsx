@@ -332,7 +332,16 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
         )}
 
         {/* Tabs */}
-        {hasUAZAPIConfig ? (
+        {isManagedMode ? (
+          // In managed mode, only show create tab (no import/manual)
+          <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
+            <button
+              className="flex-1 py-2.5 text-sm font-medium bg-primary text-primary-foreground"
+            >
+              Criar Nova
+            </button>
+          </div>
+        ) : hasUAZAPIConfig ? (
           <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
             <button
               className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
