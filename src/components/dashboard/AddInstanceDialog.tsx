@@ -53,6 +53,8 @@ interface AddInstanceDialogProps {
 
 type TabType = "create" | "import" | "manual";
 
+// In managed mode, only "create" tab is available
+
 export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddInstanceDialogProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>(hasUAZAPIConfig ? "create" : "manual");
