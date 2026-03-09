@@ -715,7 +715,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             <AlertDialogDescription>
               {deleteFromUazapi ? (
                 <>
-                  A instância <strong>{instance.instance_name}</strong> será excluída permanentemente do sistema e do servidor UAZAPI.
+                  A instância <strong>{instance.instance_name}</strong> será excluída permanentemente do sistema e do servidor.
                   <br /><br />
                   <span className="text-destructive font-medium">Esta ação não pode ser desfeita.</span>
                 </>
