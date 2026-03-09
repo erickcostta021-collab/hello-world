@@ -4,6 +4,8 @@ import { useAuth } from "./useAuth";
 
 const GRACE_PERIOD_DAYS = 3;
 
+export type AccountMode = "connections" | "instances";
+
 export interface ProfileData {
   id: string;
   user_id: string;
@@ -13,6 +15,7 @@ export interface ProfileData {
   is_paused: boolean;
   paused_at: string | null;
   instance_limit: number;
+  account_mode: AccountMode | null;
   created_at: string;
   updated_at: string;
 }
