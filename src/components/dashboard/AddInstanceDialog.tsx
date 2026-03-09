@@ -378,7 +378,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
           <Alert className="border-muted bg-muted/30">
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             <AlertDescription className="text-sm text-muted-foreground">
-              Configure seu token UAZAPI nas configurações para criar e gerenciar instâncias.
+              Entre em contato com o administrador para configurar sua conta.
             </AlertDescription>
           </Alert>
         )}
