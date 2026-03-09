@@ -522,7 +522,7 @@ export default function Dashboard() {
                     ? "Crie instâncias aqui ou a partir de uma subconta."
                     : "Tente ajustar sua busca."}
                 </p>
-                {allInstances.length === 0 && !isSharedAccount && hasActiveSubscription && isManagedMode && (
+                {allInstances.length === 0 && !isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
                   <CreateUnlinkedInstanceDialog />
                 )}
               </div>
