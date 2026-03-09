@@ -119,8 +119,6 @@ export default function Dashboard() {
   };
 
   const hasGHLToken = !!settings?.ghl_agency_token;
-  const { accountMode } = useAccountStatus();
-  const isManagedMode = accountMode === "instances";
   const hasUAZAPIConfig = isManagedMode || (!!settings?.uazapi_admin_token && !!settings?.uazapi_base_url);
 
   if (selectedSubaccount) {
