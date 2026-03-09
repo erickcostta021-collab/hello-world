@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { SubaccountCard } from "@/components/dashboard/SubaccountCard";
 import { InstanceCard } from "@/components/dashboard/InstanceCard";
 import { AddInstanceDialog } from "@/components/dashboard/AddInstanceDialog";
+import { CreateUnlinkedInstanceDialog } from "@/components/dashboard/CreateUnlinkedInstanceDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSubaccounts, Subaccount } from "@/hooks/useSubaccounts";
@@ -22,7 +23,7 @@ import { toast } from "sonner";
 import { CANONICAL_APP_ORIGIN } from "@/lib/canonicalOrigin";
 import { useAuth } from "@/hooks/useAuth";
 import { getEffectiveUserId } from "@/hooks/useSettings";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Instance } from "@/hooks/instances/instanceApi";
 
 export default function Dashboard() {
@@ -469,15 +470,20 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            {/* All Instances Search */}
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar instâncias por nome ou telefone..."
-                value={instanceSearch}
-                onChange={(e) => setInstanceSearch(e.target.value)}
-                className="pl-10 bg-secondary border-border"
-              />
+            {/* All Instances Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar instâncias por nome ou telefone..."
+                  value={instanceSearch}
+                  onChange={(e) => setInstanceSearch(e.target.value)}
+                  className="pl-10 bg-secondary border-border"
+                />
+              </div>
+              {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
+                <CreateUnlinkedInstanceDialog />
+              )}
             </div>
 
             {/* Stats */}
@@ -493,6 +499,7 @@ export default function Dashboard() {
                 </span>
                 <span className="text-muted-foreground/60">
                   {allInstances.length} total
+                  {` · ${allInstances.filter(i => !i.subaccount_id).length} não vinculadas`}
                 </span>
               </div>
             )}
@@ -510,11 +517,14 @@ export default function Dashboard() {
                 <h3 className="text-lg font-medium text-foreground mb-2">
                   {allInstances.length === 0 ? "Nenhuma instância" : "Nenhum resultado"}
                 </h3>
-                <p className="text-muted-foreground max-w-md">
+                <p className="text-muted-foreground max-w-md mb-4">
                   {allInstances.length === 0
-                    ? "Crie instâncias a partir de uma subconta para vê-las aqui."
+                    ? "Crie instâncias aqui ou a partir de uma subconta."
                     : "Tente ajustar sua busca."}
                 </p>
+                {allInstances.length === 0 && !isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
+                  <CreateUnlinkedInstanceDialog />
+                )}
               </div>
             ) : (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -522,10 +532,16 @@ export default function Dashboard() {
                   const subName = getSubaccountName(inst.subaccount_id);
                   return (
                     <div key={inst.id} className="relative">
-                      {subName && (
+                      {subName ? (
                         <div className="absolute -top-2.5 left-3 z-10">
                           <Badge variant="secondary" className="text-[10px] px-2 py-0 bg-secondary border border-border shadow-sm">
                             {subName}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="absolute -top-2.5 left-3 z-10">
+                          <Badge variant="outline" className="text-[10px] px-2 py-0 border-muted-foreground/30 text-muted-foreground shadow-sm">
+                            Sem subconta
                           </Badge>
                         </div>
                       )}

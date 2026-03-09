@@ -51,7 +51,8 @@ import {
   MessageSquare,
   Users,
   Eye,
-  EyeOff
+  EyeOff,
+  Link2
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -68,6 +69,7 @@ const WebhookConfigDialog = lazy(() => import("./WebhookConfigDialog").then(m =>
 const ManageMessagesDialog = lazy(() => import("./ManageMessagesDialog").then(m => ({ default: m.ManageMessagesDialog })));
 const GroupManagerDialog = lazy(() => import("./GroupManagerDialog").then(m => ({ default: m.GroupManagerDialog })));
 const ConfigureEmbedTabsDialog = lazy(() => import("./ConfigureEmbedTabsDialog").then(m => ({ default: m.ConfigureEmbedTabsDialog })));
+const LinkToSubaccountDialog = lazy(() => import("./LinkToSubaccountDialog").then(m => ({ default: m.LinkToSubaccountDialog })));
 
 const DialogFallback = () => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
@@ -116,6 +118,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [showToken, setShowToken] = useState(false);
   const [localStatus, setLocalStatus] = useState<"connected" | "connecting" | "disconnected" | null>(null);
   const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
   );
@@ -358,7 +361,12 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   };
 
   const handleDelete = () => {
-    deleteInstance.mutate({ instance, deleteFromUazapi });
+    if (deleteFromUazapi) {
+      deleteInstance.mutate({ instance, deleteFromUazapi: true });
+    } else {
+      // Unlink: remove subaccount_id but keep instance
+      unlinkInstance.mutate(instance);
+    }
     setDeleteDialogOpen(false);
   };
 
@@ -551,6 +559,16 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     {instance.is_official_api ? "Desativar API Oficial" : "Ativar API Oficial"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  {!instance.subaccount_id && (
+                    <DropdownMenuItem 
+                      onClick={() => setLinkDialogOpen(true)}
+                      className="text-primary"
+                    >
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Vincular a Subconta
+                    </DropdownMenuItem>
+                  )}
+                  {instance.subaccount_id && (
                   <DropdownMenuItem 
                     onClick={() => {
                       setDeleteFromUazapi(false);
@@ -561,6 +579,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     <Unlink className="h-4 w-4 mr-2" />
                     Desvincular
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem 
                     onClick={() => {
                       setDeleteFromUazapi(true);
@@ -699,7 +718,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 </>
               ) : (
                 <>
-                  A instância <strong>{instance.instance_name}</strong> será removida do sistema, mas continuará disponível no servidor para uma nova importação.
+                  A instância <strong>{instance.instance_name}</strong> será desvinculada da subconta, mas continuará disponível na aba "Todas as Instâncias" para vincular novamente.
                 </>
               )}
             </AlertDialogDescription>
@@ -709,9 +728,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             <AlertDialogAction
               onClick={handleDelete}
               className={deleteFromUazapi ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-orange-500 hover:bg-orange-600 text-white"}
-              disabled={deleteInstance.isPending}
+              disabled={deleteInstance.isPending || unlinkInstance.isPending}
             >
-              {deleteInstance.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(deleteInstance.isPending || unlinkInstance.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {deleteFromUazapi ? "Excluir" : "Desvincular"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -812,6 +831,14 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           <GroupManagerDialog
             open={groupManagerDialogOpen}
             onOpenChange={setGroupManagerDialogOpen}
+            instance={instance}
+          />
+        )}
+
+        {linkDialogOpen && (
+          <LinkToSubaccountDialog
+            open={linkDialogOpen}
+            onOpenChange={setLinkDialogOpen}
             instance={instance}
           />
         )}
