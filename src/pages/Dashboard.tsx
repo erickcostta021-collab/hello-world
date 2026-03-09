@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { SubaccountCard } from "@/components/dashboard/SubaccountCard";
 import { InstanceCard } from "@/components/dashboard/InstanceCard";
 import { AddInstanceDialog } from "@/components/dashboard/AddInstanceDialog";
+import { CreateUnlinkedInstanceDialog } from "@/components/dashboard/CreateUnlinkedInstanceDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSubaccounts, Subaccount } from "@/hooks/useSubaccounts";
@@ -22,7 +23,7 @@ import { toast } from "sonner";
 import { CANONICAL_APP_ORIGIN } from "@/lib/canonicalOrigin";
 import { useAuth } from "@/hooks/useAuth";
 import { getEffectiveUserId } from "@/hooks/useSettings";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Instance } from "@/hooks/instances/instanceApi";
 
 export default function Dashboard() {
