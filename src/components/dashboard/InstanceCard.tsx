@@ -118,6 +118,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [showToken, setShowToken] = useState(false);
   const [localStatus, setLocalStatus] = useState<"connected" | "connecting" | "disconnected" | null>(null);
   const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
   );
