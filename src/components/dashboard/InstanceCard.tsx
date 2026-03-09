@@ -94,7 +94,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     updateInstanceGHLUser,
     updateInstanceOfficialApi,
     reconfigureWebhook,
-    unlinkInstance
+    unlinkInstance,
+    isManagedMode
   } = useInstances();
   const { fetchLocationUsers } = useGHLUsers();
   const { settings } = useSettings();
@@ -285,13 +286,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           setQrCode(qrFallback);
           setQrDialogOpen(true);
         } else {
-          throw new Error("QR Code não disponível. Verifique se a instância existe na UAZAPI.");
+          throw new Error("QR Code não disponível. Verifique se a instância existe no servidor.");
         }
       }
     } catch (error: any) {
       const errorMsg = error.message || "Erro ao conectar";
       if (errorMsg.includes("Maximum number of instances") || errorMsg.includes("limite")) {
-        toast.error("Limite de instâncias atingido na UAZAPI");
+        toast.error("Limite de instâncias atingido no servidor");
       } else {
         toast.error(errorMsg);
       }
@@ -450,7 +451,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                         className={`h-2.5 w-2.5 rounded-full shrink-0 ${
                           serverOnline ? "bg-emerald-500" : "bg-destructive"
                         }`}
-                        title={serverOnline ? "Servidor UAZAPI online" : "Servidor UAZAPI offline"}
+                        title={serverOnline ? "Servidor online" : "Servidor offline"}
                       />
                     )}
                     {!isConnected && (
@@ -607,7 +608,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             </div>
           </div>
 
-          {/* Credentials Section */}
+          {/* Credentials Section - hidden in managed mode (white label) */}
+          {!isManagedMode && (
           <div className="px-4 pt-3 pb-3 space-y-1 border-t border-border/30 mt-3">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -648,6 +650,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               </button>
             </div>
           </div>
+          )}
 
           {/* Status + Actions */}
           {isConnected ? (
@@ -712,7 +715,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             <AlertDialogDescription>
               {deleteFromUazapi ? (
                 <>
-                  A instância <strong>{instance.instance_name}</strong> será excluída permanentemente do sistema e do servidor UAZAPI.
+                  A instância <strong>{instance.instance_name}</strong> será excluída permanentemente do sistema e do servidor.
                   <br /><br />
                   <span className="text-destructive font-medium">Esta ação não pode ser desfeita.</span>
                 </>

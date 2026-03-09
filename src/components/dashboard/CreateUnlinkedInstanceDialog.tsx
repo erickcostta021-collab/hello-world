@@ -83,7 +83,9 @@ export function CreateUnlinkedInstanceDialog() {
           
           {!hasUAZAPIConfig && (
             <p className="text-xs text-muted-foreground text-center">
-              Configure as credenciais UAZAPI nas configurações para criar instâncias.
+              {isManagedMode
+                ? "Entre em contato com o administrador para configurar sua conta."
+                : "Configure as credenciais nas configurações para criar instâncias."}
             </p>
           )}
         </div>

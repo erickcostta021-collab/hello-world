@@ -274,12 +274,14 @@ export default function Dashboard() {
             </Alert>
           )}
 
-          {/* Alert if UAZAPI not configured */}
+          {/* Alert if API not configured */}
           {!hasUAZAPIConfig && !isSharedAccount && hasActiveSubscription && (
             <Alert className="border-warning bg-warning/10">
               <AlertCircle className="h-4 w-4 text-warning" />
               <AlertDescription className="text-warning">
-                Configure seu token UAZAPI nas configurações para criar e gerenciar instâncias.
+                {isManagedMode
+                  ? "Entre em contato com o administrador para configurar sua conta."
+                  : "Configure seu token UAZAPI nas configurações para criar e gerenciar instâncias."}
               </AlertDescription>
             </Alert>
           )}
@@ -302,7 +304,9 @@ export default function Dashboard() {
                 Nenhuma instância
               </h3>
               <p className="text-muted-foreground max-w-md">
-                Configure a UAZAPI nas configurações para começar a criar instâncias.
+                {isManagedMode
+                  ? "Entre em contato com o administrador para configurar suas instâncias."
+                  : "Configure a UAZAPI nas configurações para começar a criar instâncias."}
               </p>
             </div>
           )}
