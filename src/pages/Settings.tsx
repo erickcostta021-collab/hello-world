@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { CANONICAL_APP_ORIGIN, getOAuthRedirectUri } from "@/lib/canonicalOrigin";
 import { supabase } from "@/integrations/supabase/client";
 import { Save, Loader2, Eye, EyeOff, Info, CheckCircle2, Wand2, Copy, Check, Lock, RefreshCw } from "lucide-react";
