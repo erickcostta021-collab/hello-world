@@ -23,6 +23,7 @@ interface RegisteredUser {
   paused_at: string | null;
   instance_limit: number;
   full_name: string | null;
+  account_mode: string | null;
 }
 
 interface PendingRegistration {
