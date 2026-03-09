@@ -387,6 +387,15 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
           {/* Create Tab Content */}
           {activeTab === "create" && (hasUAZAPIConfig || isManagedMode) && (
             <div className="space-y-4 py-2">
+              {!canCreateInstance && instanceLimit > 0 && (
+                <Alert className="border-destructive/50 bg-destructive/10">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <AlertDescription className="text-sm text-destructive">
+                    Limite de {instanceLimit} instância(s) atingido ({linkedInstanceCount + unlinkedInstanceCount}/{instanceLimit}). Não é possível criar mais instâncias.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="instance-name">Nome da Instância</Label>
                 <Input
@@ -395,6 +404,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Ex: [Cliente][01]"
                   className="bg-secondary border-border"
+                  disabled={!canCreateInstance}
                 />
               </div>
 
@@ -418,6 +428,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
                   onChange={(e) => setSystemName(e.target.value)}
                   placeholder={name || "Nome interno"}
                   className="bg-secondary border-border"
+                  disabled={!canCreateInstance}
                 />
               </div>
 
@@ -429,6 +440,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
                 <Select
                   value={selectedUserId}
                   onValueChange={setSelectedUserId}
+                  disabled={!canCreateInstance}
                 >
                   <SelectTrigger className="bg-secondary border-border">
                     <SelectValue placeholder="Nenhum usuário" />
@@ -467,7 +479,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 )}
                 <Plus className="h-4 w-4 mr-2" />
-                {canCreateInstance ? "Criar Instância" : "Limite Atingido"}
+                {canCreateInstance ? "Criar Instância" : `Limite Atingido (${linkedInstanceCount + unlinkedInstanceCount}/${instanceLimit})`}
               </Button>
             </div>
           )}
