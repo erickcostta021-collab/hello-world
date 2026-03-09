@@ -649,7 +649,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               </button>
             </div>
           </div>
-          )}
 
           {/* Status + Actions */}
           {isConnected ? (
