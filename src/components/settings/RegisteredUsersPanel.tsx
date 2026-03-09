@@ -325,6 +325,39 @@ export function RegisteredUsersPanel() {
                           )}
                         </TableCell>
                         <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2"
+                                  disabled={togglingModeId === user.user_id}
+                                  onClick={() => handleToggleAccountMode(user.user_id, user.account_mode)}
+                                >
+                                  {togglingModeId === user.user_id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : user.account_mode === "connections" ? (
+                                    <ToggleLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                                  ) : (
+                                    <ToggleRight className="h-3.5 w-3.5 text-primary" />
+                                  )}
+                                  <span className="text-xs">
+                                    {user.account_mode === "connections" ? "Conexões" : "Instâncias"}
+                                  </span>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">
+                                  {user.account_mode === "connections" 
+                                    ? "Modo Conexões: usuário configura credenciais próprias" 
+                                    : "Modo Instâncias: usa credenciais do admin (gerenciado)"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-1">
                             <Button
                               variant="outline"
