@@ -48,6 +48,7 @@ const DEFAULT_STATUS: AccountStatus = {
  */
 export function useAccountStatus() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["account-status", user?.id],
@@ -79,7 +80,6 @@ export function useAccountStatus() {
           isInGracePeriod = true;
           gracePeriodEndsAt = endsAt;
         } else {
-          // Grace period expired locally but cron hasn't run yet
           isPaused = true;
         }
       }
@@ -98,8 +98,33 @@ export function useAccountStatus() {
       };
     },
     enabled: !!user,
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 1000 * 60,
   });
+
+  // Realtime subscription: instantly reflect admin changes to profile
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`profile-changes-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["account-status", user.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
 
   return {
     ...(data ?? DEFAULT_STATUS),
