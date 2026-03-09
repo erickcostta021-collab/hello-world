@@ -47,7 +47,7 @@ export function RegisteredUsersPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, created_at, user_id, is_paused, paused_at, instance_limit, full_name")
+        .select("id, email, created_at, user_id, is_paused, paused_at, instance_limit, full_name, account_mode")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
