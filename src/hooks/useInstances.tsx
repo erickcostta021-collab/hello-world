@@ -525,6 +525,7 @@ export function useInstances(subaccountId?: string) {
     createInstance,
     deleteInstance,
     unlinkInstance,
+    linkInstanceToSubaccount,
     importInstance,
     getQRCode,
     connectInstance,
