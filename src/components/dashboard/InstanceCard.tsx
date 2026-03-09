@@ -551,6 +551,16 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     {instance.is_official_api ? "Desativar API Oficial" : "Ativar API Oficial"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  {!instance.subaccount_id && (
+                    <DropdownMenuItem 
+                      onClick={() => setLinkDialogOpen(true)}
+                      className="text-primary"
+                    >
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Vincular a Subconta
+                    </DropdownMenuItem>
+                  )}
+                  {instance.subaccount_id && (
                   <DropdownMenuItem 
                     onClick={() => {
                       setDeleteFromUazapi(false);
@@ -561,6 +571,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     <Unlink className="h-4 w-4 mr-2" />
                     Desvincular
                   </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem 
                     onClick={() => {
                       setDeleteFromUazapi(true);
