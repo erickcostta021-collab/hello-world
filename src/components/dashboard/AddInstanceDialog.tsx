@@ -172,6 +172,10 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
 
   const handleCreate = () => {
     if (!name.trim()) return;
+    if (!canCreateInstance) {
+      toast.error(`Limite de ${instanceLimit} instância(s) atingido.`);
+      return;
+    }
     
     const ghlUserId = selectedUserId && selectedUserId !== "none" ? selectedUserId : null;
     
