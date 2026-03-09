@@ -210,6 +210,7 @@ export function Sidebar() {
                     <span className="whitespace-nowrap">Conectar subconta GHL</span>
                   </button>
                 )}
+                {!isManagedMode && (
                 <button
                   onClick={() => setCredentialsOpen(true)}
                   className={cn(
@@ -223,6 +224,7 @@ export function Sidebar() {
                   </span>
                   <span className="whitespace-nowrap">Configurar Credenciais</span>
                 </button>
+                )}
                 <button
                   onClick={() => setScriptsOpen(true)}
                   className={cn(
