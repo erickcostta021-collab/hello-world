@@ -506,5 +506,6 @@ export function useInstances(subaccountId?: string) {
     unlinkedInstanceCount,
     totalInstanceCount: linkedInstanceCount + unlinkedInstanceCount,
     canCreateInstance: instanceLimit === 0 || linkedInstanceCount < instanceLimit,
+    isManagedMode,
   };
 }
