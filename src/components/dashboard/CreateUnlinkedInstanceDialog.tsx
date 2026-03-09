@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Loader2 } from "lucide-react";
 import { useInstances } from "@/hooks/useInstances";
+import { useSettings } from "@/hooks/useSettings";
 
 export function CreateUnlinkedInstanceDialog() {
   const [open, setOpen] = useState(false);
