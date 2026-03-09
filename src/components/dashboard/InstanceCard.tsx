@@ -51,7 +51,8 @@ import {
   MessageSquare,
   Users,
   Eye,
-  EyeOff
+  EyeOff,
+  Link2
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
