@@ -37,6 +37,7 @@ const DEFAULT_STATUS: AccountStatus = {
   isInGracePeriod: false,
   gracePeriodEndsAt: null,
   hasActiveSubscription: false,
+  accountMode: "instances",
 };
 
 /**
