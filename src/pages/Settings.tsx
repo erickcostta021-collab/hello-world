@@ -261,8 +261,7 @@ export default function Settings() {
           )}
 
           <TabsContent value="integrations" className="space-y-6 mt-6">
-            {/* GHL Settings - Hidden for managed mode users */}
-            {!isManagedMode && (
+            {/* GHL Settings - Always visible for all users */}
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-card-foreground">GoHighLevel (GHL)</CardTitle>
@@ -289,7 +288,6 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
-            )}
 
             {/* UAZAPI Settings - Hidden for managed mode users */}
             {!isManagedMode && (
