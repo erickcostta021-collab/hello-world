@@ -61,6 +61,10 @@ export function useInstances(subaccountId?: string) {
 
   // ── Helper: fetch UAZAPI instances list ──────────────────────────────
   const fetchUazapiInstances = async (): Promise<UazapiInstance[]> => {
+    // For managed mode, this should not be used (import is disabled)
+    if (isManagedMode) {
+      throw new Error("Importação de instâncias não disponível no modo gerenciado");
+    }
     if (!settings?.uazapi_admin_token || !settings?.uazapi_base_url) {
       throw new Error("Configurações UAZAPI não encontradas");
     }
