@@ -728,9 +728,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             <AlertDialogAction
               onClick={handleDelete}
               className={deleteFromUazapi ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-orange-500 hover:bg-orange-600 text-white"}
-              disabled={deleteInstance.isPending}
+              disabled={deleteInstance.isPending || unlinkInstance.isPending}
             >
-              {deleteInstance.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {(deleteInstance.isPending || unlinkInstance.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {deleteFromUazapi ? "Excluir" : "Desvincular"}
             </AlertDialogAction>
           </AlertDialogFooter>
