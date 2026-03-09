@@ -44,7 +44,9 @@ const adminNavItems = [
 export function Sidebar() {
   const { collapsed, toggle } = useSidebarState();
   const { getOAuthUrl } = useSettings();
+  const { accountMode } = useAccountStatus();
   const { hasActiveSubscription } = useSubscription();
+  const isManagedMode = accountMode === "instances";
   const location = useLocation();
   const [utilitiesOpen, setUtilitiesOpen] = useState(false);
   const [startHereOpen, setStartHereOpen] = useState(false);
