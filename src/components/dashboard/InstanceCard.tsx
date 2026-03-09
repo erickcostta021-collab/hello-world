@@ -718,7 +718,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 </>
               ) : (
                 <>
-                  A instância <strong>{instance.instance_name}</strong> será removida do sistema, mas continuará disponível no servidor para uma nova importação.
+                  A instância <strong>{instance.instance_name}</strong> será desvinculada da subconta, mas continuará disponível na aba "Todas as Instâncias" para vincular novamente.
                 </>
               )}
             </AlertDialogDescription>
