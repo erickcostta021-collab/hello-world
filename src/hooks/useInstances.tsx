@@ -47,9 +47,11 @@ export function useInstances(subaccountId?: string) {
   const { user } = useAuth();
   const { settings } = useSettings();
   const { instanceLimit } = useProfile();
+  const { accountMode } = useAccountStatus();
   const queryClient = useQueryClient();
 
   const isSharedAccount = !!settings?.shared_from_user_id;
+  const isManagedMode = accountMode === "instances";
   const globalBaseUrl = settings?.uazapi_base_url ?? null;
 
   // ── Queries ──────────────────────────────────────────────────────────
