@@ -361,20 +361,55 @@ export function useInstances(subaccountId?: string) {
 
   const unlinkInstance = useMutation({
     mutationFn: async (instance: Instance) => {
-      // Delete the instance entirely from the database to avoid ghost references
-      // that cause message loops with duplicate subaccounts
+      // Remove subaccount_id to unlink, but keep the instance in the system
       const { error } = await supabase
         .from("instances")
-        .delete()
+        .update({ subaccount_id: null })
         .eq("id", instance.id);
       if (error) throw error;
     },
     onSuccess: () => {
       invalidateInstanceQueries(queryClient);
-      toast.success("Instância desvinculada e removida do sistema!");
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
+      toast.success("Instância desvinculada! Agora disponível em 'Todas as Instâncias'.");
     },
     onError: (error) => {
       toast.error("Erro ao desvincular: " + error.message);
+    },
+  });
+
+  // Link an existing instance to a subaccount
+  const linkInstanceToSubaccount = useMutation({
+    mutationFn: async ({ instanceId, subaccountId }: { instanceId: string; subaccountId: string }) => {
+      if (!user) throw new Error("Não autenticado");
+
+      // Check instance limit
+      if (instanceLimit > 0) {
+        const effectiveUserId = await getEffectiveUserId(user.id);
+        const { count, error: countError } = await supabase
+          .from("instances")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", effectiveUserId)
+          .not("subaccount_id", "is", null);
+        if (countError) throw countError;
+        if ((count ?? 0) >= instanceLimit) {
+          throw new Error(`Limite de instâncias atingido (${instanceLimit}). Faça upgrade do seu plano.`);
+        }
+      }
+
+      const { error } = await supabase
+        .from("instances")
+        .update({ subaccount_id: subaccountId })
+        .eq("id", instanceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateInstanceQueries(queryClient);
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
+      toast.success("Instância vinculada à subconta!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao vincular: " + error.message);
     },
   });
 
