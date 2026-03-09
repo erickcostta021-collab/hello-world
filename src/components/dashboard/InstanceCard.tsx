@@ -94,7 +94,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     updateInstanceGHLUser,
     updateInstanceOfficialApi,
     reconfigureWebhook,
-    unlinkInstance
+    unlinkInstance,
+    isManagedMode
   } = useInstances();
   const { fetchLocationUsers } = useGHLUsers();
   const { settings } = useSettings();
