@@ -41,6 +41,7 @@ function invalidateInstanceQueries(queryClient: ReturnType<typeof useQueryClient
   queryClient.invalidateQueries({ queryKey: ["instance-count-linked"] });
   queryClient.invalidateQueries({ queryKey: ["instance-count-unlinked"] });
   queryClient.invalidateQueries({ queryKey: ["all-user-instances"] });
+  queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
 }
 
 export function useInstances(subaccountId?: string) {
