@@ -608,7 +608,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             </div>
           </div>
 
-          {/* Credentials Section */}
+          {/* Credentials Section - hidden in managed mode (white label) */}
+          {!isManagedMode && (
           <div className="px-4 pt-3 pb-3 space-y-1 border-t border-border/30 mt-3">
             <div className="flex items-center gap-1.5 whitespace-nowrap">
               <Copy className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -649,6 +650,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               </button>
             </div>
           </div>
+          )}
 
           {/* Status + Actions */}
           {isConnected ? (
