@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useSubaccounts, Subaccount } from "@/hooks/useSubaccounts";
 import { useInstances } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
-import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
 import { RefreshCw, Search, ArrowLeft, Loader2, AlertCircle, Plus, Smartphone, Link2, Eye, Lock, CreditCard, Clock, ChevronDown, RotateCw, KeyRound, LayoutGrid, Building2 } from "lucide-react";
