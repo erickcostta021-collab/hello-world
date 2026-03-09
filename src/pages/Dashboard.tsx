@@ -304,7 +304,9 @@ export default function Dashboard() {
                 Nenhuma instância
               </h3>
               <p className="text-muted-foreground max-w-md">
-                Configure a UAZAPI nas configurações para começar a criar instâncias.
+                {isManagedMode
+                  ? "Entre em contato com o administrador para configurar suas instâncias."
+                  : "Configure a UAZAPI nas configurações para começar a criar instâncias."}
               </p>
             </div>
           )}

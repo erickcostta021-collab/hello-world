@@ -286,7 +286,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           setQrCode(qrFallback);
           setQrDialogOpen(true);
         } else {
-          throw new Error("QR Code não disponível. Verifique se a instância existe na UAZAPI.");
+          throw new Error("QR Code não disponível. Verifique se a instância existe no servidor.");
         }
       }
     } catch (error: any) {
