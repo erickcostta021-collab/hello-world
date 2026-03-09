@@ -451,7 +451,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                         className={`h-2.5 w-2.5 rounded-full shrink-0 ${
                           serverOnline ? "bg-emerald-500" : "bg-destructive"
                         }`}
-                        title={serverOnline ? "Servidor UAZAPI online" : "Servidor UAZAPI offline"}
+                        title={serverOnline ? "Servidor online" : "Servidor offline"}
                       />
                     )}
                     {!isConnected && (
