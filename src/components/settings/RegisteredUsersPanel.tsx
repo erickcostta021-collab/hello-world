@@ -182,6 +182,30 @@ export function RegisteredUsersPanel() {
     },
   });
 
+  const toggleAccountMode = useMutation({
+    mutationFn: async ({ userId, currentMode }: { userId: string; currentMode: string | null }) => {
+      const newMode = currentMode === "connections" ? "instances" : "connections";
+      const { error } = await supabase
+        .from("profiles")
+        .update({ account_mode: newMode })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      return { userId, newMode };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["registered-users"] });
+      toast.success(data.newMode === "instances" 
+        ? "Modo alterado para Instâncias Gerenciadas" 
+        : "Modo alterado para Conexões");
+      setTogglingModeId(null);
+    },
+    onError: (error) => {
+      toast.error("Erro ao alterar modo: " + error.message);
+      setTogglingModeId(null);
+    },
+  });
+
   const handleDelete = (userId: string) => {
     setDeletingId(userId);
     deleteUser.mutate(userId);
@@ -202,6 +226,11 @@ export function RegisteredUsersPanel() {
     if (isNaN(num) || num < 0) return;
     setUpdatingLimitId(userId);
     updateInstanceLimit.mutate({ userId, newLimit: num });
+  };
+
+  const handleToggleAccountMode = (userId: string, currentMode: string | null) => {
+    setTogglingModeId(userId);
+    toggleAccountMode.mutate({ userId, currentMode });
   };
 
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
