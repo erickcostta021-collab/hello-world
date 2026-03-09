@@ -19,6 +19,7 @@ export function CreateUnlinkedInstanceDialog() {
   const [name, setName] = useState("");
 
   const { createInstance, isManagedMode } = useInstances();
+  const { settings } = useSettings();
 
   const handleCreate = () => {
     if (!name.trim()) return;
