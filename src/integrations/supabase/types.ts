@@ -341,6 +341,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_mode: Database["public"]["Enums"]["account_mode"] | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -353,6 +354,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_mode?: Database["public"]["Enums"]["account_mode"] | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -365,6 +367,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_mode?: Database["public"]["Enums"]["account_mode"] | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -713,6 +716,7 @@ export type Database = {
       }
     }
     Enums: {
+      account_mode: "connections" | "instances"
       app_role: "admin" | "moderator" | "user"
       instance_status: "connected" | "connecting" | "disconnected"
     }
@@ -842,6 +846,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_mode: ["connections", "instances"],
       app_role: ["admin", "moderator", "user"],
       instance_status: ["connected", "connecting", "disconnected"],
     },
