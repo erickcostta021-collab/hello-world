@@ -75,16 +75,25 @@ export function CreateUnlinkedInstanceDialog() {
             />
           </div>
 
+          {!canCreateInstance && instanceLimit > 0 && (
+            <Alert className="border-destructive/50 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-sm text-destructive">
+                Limite de {instanceLimit} instância(s) atingido ({totalCount}/{instanceLimit}). Não é possível criar mais instâncias.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Button
             className="w-full bg-primary hover:bg-primary/90"
             onClick={handleCreate}
-            disabled={!name.trim() || createInstance.isPending || !hasUAZAPIConfig}
+            disabled={!name.trim() || createInstance.isPending || !hasUAZAPIConfig || !canCreateInstance}
           >
             {createInstance.isPending && (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             )}
             <Plus className="h-4 w-4 mr-2" />
-            Criar Instância
+            {canCreateInstance ? "Criar Instância" : `Limite Atingido (${totalCount}/${instanceLimit})`}
           </Button>
           
           {!hasUAZAPIConfig && (
