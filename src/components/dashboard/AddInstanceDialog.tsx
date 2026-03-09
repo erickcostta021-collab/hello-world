@@ -385,7 +385,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Create Tab Content */}
-          {activeTab === "create" && hasUAZAPIConfig && (
+          {activeTab === "create" && (hasUAZAPIConfig || isManagedMode) && (
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label htmlFor="instance-name">Nome da Instância</Label>
