@@ -829,6 +829,14 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             instance={instance}
           />
         )}
+
+        {linkDialogOpen && (
+          <LinkToSubaccountDialog
+            open={linkDialogOpen}
+            onOpenChange={setLinkDialogOpen}
+            instance={instance}
+          />
+        )}
       </Suspense>
     </>
   );
