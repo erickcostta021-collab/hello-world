@@ -250,7 +250,23 @@ export function useInstances(subaccountId?: string) {
 
   const createInstance = useMutation({
     mutationFn: async ({ name, subaccountId }: { name: string; subaccountId: string }) => {
-      if (!user || !settings?.uazapi_admin_token || !settings?.uazapi_base_url) {
+      if (!user) throw new Error("Não autenticado");
+
+      // Determine credentials based on account mode
+      let baseUrl = settings?.uazapi_base_url;
+      let adminToken = settings?.uazapi_admin_token;
+
+      // If managed mode (instances), fetch admin credentials
+      if (isManagedMode) {
+        const { data: adminCreds, error: credsError } = await supabase.rpc("get_admin_uazapi_credentials");
+        if (credsError || !adminCreds || adminCreds.length === 0) {
+          throw new Error("Credenciais do administrador não configuradas. Contate o suporte.");
+        }
+        baseUrl = adminCreds[0].uazapi_base_url;
+        adminToken = adminCreds[0].uazapi_admin_token;
+      }
+
+      if (!adminToken || !baseUrl) {
         throw new Error("Configurações UAZAPI não encontradas");
       }
 
@@ -268,8 +284,9 @@ export function useInstances(subaccountId?: string) {
         }
       }
 
-      const instanceToken = await createInstanceOnApi(settings.uazapi_base_url, settings.uazapi_admin_token, name);
+      const instanceToken = await createInstanceOnApi(baseUrl, adminToken, name);
 
+      // For managed mode, store the admin's base URL in the instance
       const { data, error } = await supabase
         .from("instances")
         .insert({
@@ -278,8 +295,9 @@ export function useInstances(subaccountId?: string) {
           instance_name: name,
           uazapi_instance_token: instanceToken,
           instance_status: "disconnected" as InstanceStatus,
-          webhook_url: settings.global_webhook_url,
+          webhook_url: settings?.global_webhook_url,
           ignore_groups: false,
+          uazapi_base_url: isManagedMode ? baseUrl : null,
         })
         .select()
         .single();
