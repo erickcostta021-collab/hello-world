@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useSettings, getEffectiveUserId } from "./useSettings";
 import { useProfile } from "./useProfile";
+import { useAccountStatus } from "./useAccountStatus";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
