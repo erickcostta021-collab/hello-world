@@ -84,6 +84,7 @@ export function useAccountStatus() {
       }
 
       const hasActiveSubscription = instanceLimit > 0 && !isPaused;
+      const accountMode: AccountMode = (profile.account_mode as AccountMode) || "instances";
 
       return {
         profile: profile as ProfileData,
@@ -92,6 +93,7 @@ export function useAccountStatus() {
         isInGracePeriod,
         gracePeriodEndsAt,
         hasActiveSubscription,
+        accountMode,
       };
     },
     enabled: !!user,
