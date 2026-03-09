@@ -361,7 +361,12 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   };
 
   const handleDelete = () => {
-    deleteInstance.mutate({ instance, deleteFromUazapi });
+    if (deleteFromUazapi) {
+      deleteInstance.mutate({ instance, deleteFromUazapi: true });
+    } else {
+      // Unlink: remove subaccount_id but keep instance
+      unlinkInstance.mutate(instance);
+    }
     setDeleteDialogOpen(false);
   };
 
