@@ -27,6 +27,7 @@ export interface AccountStatus {
   isInGracePeriod: boolean;
   gracePeriodEndsAt: Date | null;
   hasActiveSubscription: boolean;
+  accountMode: AccountMode;
 }
 
 const DEFAULT_STATUS: AccountStatus = {
