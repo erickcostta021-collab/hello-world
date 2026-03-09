@@ -36,7 +36,7 @@ export default function Dashboard() {
   const [instanceSearch, setInstanceSearch] = useState("");
   const { user } = useAuth();
   const { subaccounts, isLoading, syncSubaccounts, isSharedAccount } = useSubaccounts();
-  const { instances, syncAllInstancesStatus, linkedInstanceCount, unlinkedInstanceCount, instanceLimit } = useInstances(selectedSubaccount?.id);
+  const { instances, syncAllInstancesStatus, linkedInstanceCount, unlinkedInstanceCount, instanceLimit, isManagedMode } = useInstances(selectedSubaccount?.id);
   const { settings } = useSettings();
   const { hasActiveSubscription, isInGracePeriod, gracePeriodEndsAt } = useSubscription();
 
