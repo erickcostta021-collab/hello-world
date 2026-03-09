@@ -69,6 +69,7 @@ const WebhookConfigDialog = lazy(() => import("./WebhookConfigDialog").then(m =>
 const ManageMessagesDialog = lazy(() => import("./ManageMessagesDialog").then(m => ({ default: m.ManageMessagesDialog })));
 const GroupManagerDialog = lazy(() => import("./GroupManagerDialog").then(m => ({ default: m.GroupManagerDialog })));
 const ConfigureEmbedTabsDialog = lazy(() => import("./ConfigureEmbedTabsDialog").then(m => ({ default: m.ConfigureEmbedTabsDialog })));
+const LinkToSubaccountDialog = lazy(() => import("./LinkToSubaccountDialog").then(m => ({ default: m.LinkToSubaccountDialog })));
 
 const DialogFallback = () => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
