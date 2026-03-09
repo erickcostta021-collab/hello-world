@@ -470,15 +470,20 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            {/* All Instances Search */}
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar instâncias por nome ou telefone..."
-                value={instanceSearch}
-                onChange={(e) => setInstanceSearch(e.target.value)}
-                className="pl-10 bg-secondary border-border"
-              />
+            {/* All Instances Header */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar instâncias por nome ou telefone..."
+                  value={instanceSearch}
+                  onChange={(e) => setInstanceSearch(e.target.value)}
+                  className="pl-10 bg-secondary border-border"
+                />
+              </div>
+              {!isSharedAccount && hasActiveSubscription && isManagedMode && (
+                <CreateUnlinkedInstanceDialog />
+              )}
             </div>
 
             {/* Stats */}
@@ -494,6 +499,7 @@ export default function Dashboard() {
                 </span>
                 <span className="text-muted-foreground/60">
                   {allInstances.length} total
+                  {` · ${allInstances.filter(i => !i.subaccount_id).length} não vinculadas`}
                 </span>
               </div>
             )}
@@ -511,11 +517,14 @@ export default function Dashboard() {
                 <h3 className="text-lg font-medium text-foreground mb-2">
                   {allInstances.length === 0 ? "Nenhuma instância" : "Nenhum resultado"}
                 </h3>
-                <p className="text-muted-foreground max-w-md">
+                <p className="text-muted-foreground max-w-md mb-4">
                   {allInstances.length === 0
-                    ? "Crie instâncias a partir de uma subconta para vê-las aqui."
+                    ? "Crie instâncias aqui ou a partir de uma subconta."
                     : "Tente ajustar sua busca."}
                 </p>
+                {allInstances.length === 0 && !isSharedAccount && hasActiveSubscription && isManagedMode && (
+                  <CreateUnlinkedInstanceDialog />
+                )}
               </div>
             ) : (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
