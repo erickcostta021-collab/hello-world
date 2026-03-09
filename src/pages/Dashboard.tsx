@@ -481,7 +481,7 @@ export default function Dashboard() {
                   className="pl-10 bg-secondary border-border"
                 />
               </div>
-              {!isSharedAccount && hasActiveSubscription && isManagedMode && (
+              {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
                 <CreateUnlinkedInstanceDialog />
               )}
             </div>
