@@ -88,6 +88,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
     linkedInstanceCount,
     unlinkedInstanceCount,
     canCreateInstance,
+    isManagedMode,
   } = useInstances(subaccount.id);
   const { fetchLocationUsers } = useGHLUsers();
   const { user } = useAuth();
