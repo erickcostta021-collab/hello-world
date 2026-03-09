@@ -4,6 +4,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSettings } from "@/hooks/useSettings";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -43,7 +44,9 @@ const adminNavItems = [
 export function Sidebar() {
   const { collapsed, toggle } = useSidebarState();
   const { getOAuthUrl } = useSettings();
+  const { accountMode } = useAccountStatus();
   const { hasActiveSubscription } = useSubscription();
+  const isManagedMode = accountMode === "instances";
   const location = useLocation();
   const [utilitiesOpen, setUtilitiesOpen] = useState(false);
   const [startHereOpen, setStartHereOpen] = useState(false);
@@ -207,6 +210,7 @@ export function Sidebar() {
                     <span className="whitespace-nowrap">Conectar subconta GHL</span>
                   </button>
                 )}
+                {!isManagedMode && (
                 <button
                   onClick={() => setCredentialsOpen(true)}
                   className={cn(
@@ -220,6 +224,7 @@ export function Sidebar() {
                   </span>
                   <span className="whitespace-nowrap">Configurar Credenciais</span>
                 </button>
+                )}
                 <button
                   onClick={() => setScriptsOpen(true)}
                   className={cn(

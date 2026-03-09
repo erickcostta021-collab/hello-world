@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
 import { useSettings } from "@/hooks/useSettings";
 import { useAuth } from "@/hooks/useAuth";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { CANONICAL_APP_ORIGIN, getOAuthRedirectUri } from "@/lib/canonicalOrigin";
 import { supabase } from "@/integrations/supabase/client";
 import { Save, Loader2, Eye, EyeOff, Info, CheckCircle2, Wand2, Copy, Check, Lock, RefreshCw } from "lucide-react";
@@ -25,8 +26,10 @@ const ADMIN_EMAILS = ["erickcostta021@gmail.com", "erickcostta.br@gmail.com"];
 export default function Settings() {
   const { settings, isLoading, updateSettings, applyGlobalWebhook, getOAuthUrl } = useSettings();
   const { user } = useAuth();
+  const { accountMode } = useAccountStatus();
   const location = useLocation();
   const isAdmin = ADMIN_EMAILS.includes(user?.email || "");
+  const isManagedMode = accountMode === "instances" && !isAdmin;
   const [showTokens, setShowTokens] = useState(false);
   const [copiedTrackId, setCopiedTrackId] = useState(false);
   const [showTrackId, setShowTrackId] = useState(false);
@@ -258,7 +261,8 @@ export default function Settings() {
           )}
 
           <TabsContent value="integrations" className="space-y-6 mt-6">
-            {/* GHL Settings */}
+            {/* GHL Settings - Hidden for managed mode users */}
+            {!isManagedMode && (
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-card-foreground">GoHighLevel (GHL)</CardTitle>
@@ -285,8 +289,10 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
-            {/* UAZAPI Settings */}
+            {/* UAZAPI Settings - Hidden for managed mode users */}
+            {!isManagedMode && (
             <Card className="bg-card border-border">
               <CardHeader>
                 <CardTitle className="text-card-foreground">UAZAPI</CardTitle>
@@ -386,6 +392,7 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {isAdmin && (
             <Card className="bg-card border-border">

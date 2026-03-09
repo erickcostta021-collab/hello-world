@@ -341,6 +341,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_mode: Database["public"]["Enums"]["account_mode"] | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -353,6 +354,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_mode?: Database["public"]["Enums"]["account_mode"] | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -365,6 +367,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_mode?: Database["public"]["Enums"]["account_mode"] | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -692,6 +695,13 @@ export type Database = {
           ghl_conversation_provider_id: string
         }[]
       }
+      get_admin_uazapi_credentials: {
+        Args: never
+        Returns: {
+          uazapi_admin_token: string
+          uazapi_base_url: string
+        }[]
+      }
       get_admin_webhook_url: { Args: never; Returns: string }
       get_effective_user_id: { Args: { p_user_id: string }; Returns: string }
       get_token_owner: { Args: { p_agency_token: string }; Returns: string }
@@ -713,6 +723,7 @@ export type Database = {
       }
     }
     Enums: {
+      account_mode: "connections" | "instances"
       app_role: "admin" | "moderator" | "user"
       instance_status: "connected" | "connecting" | "disconnected"
     }
@@ -842,6 +853,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      account_mode: ["connections", "instances"],
       app_role: ["admin", "moderator", "user"],
       instance_status: ["connected", "connecting", "disconnected"],
     },

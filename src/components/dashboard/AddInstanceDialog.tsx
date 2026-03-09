@@ -53,9 +53,12 @@ interface AddInstanceDialogProps {
 
 type TabType = "create" | "import" | "manual";
 
+// In managed mode, only "create" tab is available
+
 export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddInstanceDialogProps) {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabType>(hasUAZAPIConfig ? "create" : "manual");
+  // In managed mode, always default to "create" and force hasUAZAPIConfig true
+  const [activeTab, setActiveTab] = useState<TabType>("create");
   
   // Create state
   const [name, setName] = useState("");
@@ -88,6 +91,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
     linkedInstanceCount,
     unlinkedInstanceCount,
     canCreateInstance,
+    isManagedMode,
   } = useInstances(subaccount.id);
   const { fetchLocationUsers } = useGHLUsers();
   const { user } = useAuth();
@@ -328,7 +332,16 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
         )}
 
         {/* Tabs */}
-        {hasUAZAPIConfig ? (
+        {isManagedMode ? (
+          // In managed mode, only show create tab (no import/manual)
+          <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
+            <button
+              className="flex-1 py-2.5 text-sm font-medium bg-primary text-primary-foreground"
+            >
+              Criar Nova
+            </button>
+          </div>
+        ) : hasUAZAPIConfig ? (
           <div className="flex border border-border rounded-lg overflow-hidden shrink-0">
             <button
               className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
@@ -372,7 +385,7 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
 
         <div className="flex-1 overflow-y-auto min-h-0">
           {/* Create Tab Content */}
-          {activeTab === "create" && hasUAZAPIConfig && (
+          {activeTab === "create" && (hasUAZAPIConfig || isManagedMode) && (
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label htmlFor="instance-name">Nome da Instância</Label>

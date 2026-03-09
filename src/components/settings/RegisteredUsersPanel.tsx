@@ -5,13 +5,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus, Search, Clock } from "lucide-react";
+import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus, Search, Clock, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface RegisteredUser {
   id: string;
@@ -22,6 +23,7 @@ interface RegisteredUser {
   paused_at: string | null;
   instance_limit: number;
   full_name: string | null;
+  account_mode: string | null;
 }
 
 interface PendingRegistration {
@@ -37,6 +39,7 @@ export function RegisteredUsersPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [updatingLimitId, setUpdatingLimitId] = useState<string | null>(null);
+  const [togglingModeId, setTogglingModeId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: users, isLoading, refetch, isRefetching } = useQuery({
@@ -44,7 +47,7 @@ export function RegisteredUsersPanel() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, created_at, user_id, is_paused, paused_at, instance_limit, full_name")
+        .select("id, email, created_at, user_id, is_paused, paused_at, instance_limit, full_name, account_mode")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -179,6 +182,30 @@ export function RegisteredUsersPanel() {
     },
   });
 
+  const toggleAccountMode = useMutation({
+    mutationFn: async ({ userId, currentMode }: { userId: string; currentMode: string | null }) => {
+      const newMode = currentMode === "connections" ? "instances" : "connections";
+      const { error } = await supabase
+        .from("profiles")
+        .update({ account_mode: newMode })
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      return { userId, newMode };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["registered-users"] });
+      toast.success(data.newMode === "instances" 
+        ? "Modo alterado para Instâncias Gerenciadas" 
+        : "Modo alterado para Conexões");
+      setTogglingModeId(null);
+    },
+    onError: (error) => {
+      toast.error("Erro ao alterar modo: " + error.message);
+      setTogglingModeId(null);
+    },
+  });
+
   const handleDelete = (userId: string) => {
     setDeletingId(userId);
     deleteUser.mutate(userId);
@@ -199,6 +226,11 @@ export function RegisteredUsersPanel() {
     if (isNaN(num) || num < 0) return;
     setUpdatingLimitId(userId);
     updateInstanceLimit.mutate({ userId, newLimit: num });
+  };
+
+  const handleToggleAccountMode = (userId: string, currentMode: string | null) => {
+    setTogglingModeId(userId);
+    toggleAccountMode.mutate({ userId, currentMode });
   };
 
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
@@ -264,6 +296,7 @@ export function RegisteredUsersPanel() {
                       <TableHead className="text-muted-foreground">Email</TableHead>
                       <TableHead className="text-muted-foreground">Nome</TableHead>
                       <TableHead className="text-muted-foreground">Status</TableHead>
+                      <TableHead className="text-muted-foreground">Modo</TableHead>
                       <TableHead className="text-muted-foreground">Limite</TableHead>
                       <TableHead className="text-muted-foreground">Cadastrado em</TableHead>
                       <TableHead className="text-muted-foreground w-[140px]">Ações</TableHead>
@@ -290,6 +323,39 @@ export function RegisteredUsersPanel() {
                               Ativo
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2"
+                                  disabled={togglingModeId === user.user_id}
+                                  onClick={() => handleToggleAccountMode(user.user_id, user.account_mode)}
+                                >
+                                  {togglingModeId === user.user_id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : user.account_mode === "connections" ? (
+                                    <ToggleLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                                  ) : (
+                                    <ToggleRight className="h-3.5 w-3.5 text-primary" />
+                                  )}
+                                  <span className="text-xs">
+                                    {user.account_mode === "connections" ? "Conexões" : "Instâncias"}
+                                  </span>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">
+                                  {user.account_mode === "connections" 
+                                    ? "Modo Conexões: usuário configura credenciais próprias" 
+                                    : "Modo Instâncias: usa credenciais do admin (gerenciado)"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">

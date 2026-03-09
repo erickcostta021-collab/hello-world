@@ -35,7 +35,7 @@ export default function Dashboard() {
   const [instanceSearch, setInstanceSearch] = useState("");
   const { user } = useAuth();
   const { subaccounts, isLoading, syncSubaccounts, isSharedAccount } = useSubaccounts();
-  const { instances, syncAllInstancesStatus, linkedInstanceCount, unlinkedInstanceCount, instanceLimit } = useInstances(selectedSubaccount?.id);
+  const { instances, syncAllInstancesStatus, linkedInstanceCount, unlinkedInstanceCount, instanceLimit, isManagedMode } = useInstances(selectedSubaccount?.id);
   const { settings } = useSettings();
   const { hasActiveSubscription, isInGracePeriod, gracePeriodEndsAt } = useSubscription();
 
@@ -118,7 +118,7 @@ export default function Dashboard() {
   };
 
   const hasGHLToken = !!settings?.ghl_agency_token;
-  const hasUAZAPIConfig = !!settings?.uazapi_admin_token && !!settings?.uazapi_base_url;
+  const hasUAZAPIConfig = isManagedMode || (!!settings?.uazapi_admin_token && !!settings?.uazapi_base_url);
 
   if (selectedSubaccount) {
     return (

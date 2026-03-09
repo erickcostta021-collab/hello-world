@@ -4,6 +4,8 @@ import { useAuth } from "./useAuth";
 
 const GRACE_PERIOD_DAYS = 3;
 
+export type AccountMode = "connections" | "instances";
+
 export interface ProfileData {
   id: string;
   user_id: string;
@@ -13,6 +15,7 @@ export interface ProfileData {
   is_paused: boolean;
   paused_at: string | null;
   instance_limit: number;
+  account_mode: AccountMode | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +27,7 @@ export interface AccountStatus {
   isInGracePeriod: boolean;
   gracePeriodEndsAt: Date | null;
   hasActiveSubscription: boolean;
+  accountMode: AccountMode;
 }
 
 const DEFAULT_STATUS: AccountStatus = {
@@ -33,6 +37,7 @@ const DEFAULT_STATUS: AccountStatus = {
   isInGracePeriod: false,
   gracePeriodEndsAt: null,
   hasActiveSubscription: false,
+  accountMode: "instances",
 };
 
 /**
@@ -79,6 +84,7 @@ export function useAccountStatus() {
       }
 
       const hasActiveSubscription = instanceLimit > 0 && !isPaused;
+      const accountMode: AccountMode = (profile.account_mode as AccountMode) || "instances";
 
       return {
         profile: profile as ProfileData,
@@ -87,6 +93,7 @@ export function useAccountStatus() {
         isInGracePeriod,
         gracePeriodEndsAt,
         hasActiveSubscription,
+        accountMode,
       };
     },
     enabled: !!user,
