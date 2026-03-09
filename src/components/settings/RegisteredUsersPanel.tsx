@@ -39,6 +39,7 @@ export function RegisteredUsersPanel() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [updatingLimitId, setUpdatingLimitId] = useState<string | null>(null);
+  const [togglingModeId, setTogglingModeId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: users, isLoading, refetch, isRefetching } = useQuery({
