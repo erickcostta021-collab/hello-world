@@ -253,7 +253,7 @@ export function useInstances(subaccountId?: string) {
   });
 
   const createInstance = useMutation({
-    mutationFn: async ({ name, subaccountId }: { name: string; subaccountId: string }) => {
+    mutationFn: async ({ name, subaccountId }: { name: string; subaccountId?: string | null }) => {
       if (!user) throw new Error("Não autenticado");
 
       // Determine credentials based on account mode
@@ -274,8 +274,8 @@ export function useInstances(subaccountId?: string) {
         throw new Error("Configurações UAZAPI não encontradas");
       }
 
-      // Fresh count from DB
-      if (instanceLimit > 0) {
+      // Fresh count from DB - only check limit for linked instances
+      if (instanceLimit > 0 && subaccountId) {
         const effectiveUserId = await getEffectiveUserId(user.id);
         const { count, error: countError } = await supabase
           .from("instances")
@@ -295,7 +295,7 @@ export function useInstances(subaccountId?: string) {
         .from("instances")
         .insert({
           user_id: user.id,
-          subaccount_id: subaccountId,
+          subaccount_id: subaccountId || null,
           instance_name: name,
           uazapi_instance_token: instanceToken,
           instance_status: "disconnected" as InstanceStatus,
