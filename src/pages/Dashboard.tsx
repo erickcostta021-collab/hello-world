@@ -532,10 +532,16 @@ export default function Dashboard() {
                   const subName = getSubaccountName(inst.subaccount_id);
                   return (
                     <div key={inst.id} className="relative">
-                      {subName && (
+                      {subName ? (
                         <div className="absolute -top-2.5 left-3 z-10">
                           <Badge variant="secondary" className="text-[10px] px-2 py-0 bg-secondary border border-border shadow-sm">
                             {subName}
+                          </Badge>
+                        </div>
+                      ) : (
+                        <div className="absolute -top-2.5 left-3 z-10">
+                          <Badge variant="outline" className="text-[10px] px-2 py-0 border-muted-foreground/30 text-muted-foreground shadow-sm">
+                            Sem subconta
                           </Badge>
                         </div>
                       )}
