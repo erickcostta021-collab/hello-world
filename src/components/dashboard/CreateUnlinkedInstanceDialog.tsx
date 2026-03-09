@@ -18,11 +18,16 @@ export function CreateUnlinkedInstanceDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
 
-  const { createInstance, isManagedMode } = useInstances();
+  const { createInstance, isManagedMode, canCreateInstance, instanceLimit, linkedInstanceCount, unlinkedInstanceCount } = useInstances();
   const { settings } = useSettings();
+
+  const totalCount = linkedInstanceCount + unlinkedInstanceCount;
 
   const handleCreate = () => {
     if (!name.trim()) return;
+    if (!canCreateInstance) {
+      return;
+    }
 
     createInstance.mutate(
       { name: name.trim(), subaccountId: null },
