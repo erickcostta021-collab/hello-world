@@ -36,7 +36,7 @@ export function CreateUnlinkedInstanceDialog() {
   };
 
   // Check if UAZAPI is configured (in managed mode, credentials come from admin)
-  const hasUAZAPIConfig = isManagedMode;
+  const hasUAZAPIConfig = isManagedMode || (!!settings?.uazapi_admin_token && !!settings?.uazapi_base_url);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
