@@ -233,7 +233,7 @@ export function Sidebar() {
                   )}
                 >
                   <span className="flex items-center gap-1 flex-shrink-0">
-                    <span className="text-xs font-bold text-primary">3</span>
+                    <span className="text-xs font-bold text-primary">{isManagedMode ? "2" : "3"}</span>
                     <Code className="h-4 w-4" />
                   </span>
                   <span className="whitespace-nowrap">Scripts</span>
