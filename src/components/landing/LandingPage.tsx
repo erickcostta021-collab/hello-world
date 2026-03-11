@@ -30,7 +30,7 @@ const EXCHANGE_RATE = 5.50;
 const LandingPage = () => {
   const [instanceCount, setInstanceCount] = useState(1);
   const [currency, setCurrency] = useState<'BRL' | 'USD'>('BRL');
-  const totalPrice = instanceCount <= 4 ? 29 + 10 * (instanceCount - 1) * instanceCount / 2 : 89 + 20 * (instanceCount - 4);
+  const totalPrice = instanceCount <= 4 ? 29 + 10 * (instanceCount - 1) * instanceCount / 2 : 89 + 25 * (instanceCount - 4);
 
   const formatPrice = useCallback((brlValue: number) => {
     if (currency === 'BRL') {

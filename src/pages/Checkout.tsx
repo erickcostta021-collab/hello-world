@@ -65,7 +65,7 @@ const Checkout = () => {
   const isFlexible = planParam === "flexible";
   
   const totalPrice = isFlexible 
-    ? (quantity <= 4 ? 29 + 10 * (quantity - 1) * quantity / 2 : 89 + 20 * (quantity - 4))
+    ? (quantity <= 4 ? 29 + 10 * (quantity - 1) * quantity / 2 : 89 + 25 * (quantity - 4))
     : (plan as { price: number }).price;
   
   const totalInstances = isFlexible 
