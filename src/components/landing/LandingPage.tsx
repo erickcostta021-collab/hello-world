@@ -121,7 +121,7 @@ const LandingPage = () => {
           </div>
           
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 sm:mb-6 text-foreground">
-            Conecte o WhatsApp ao GoHighLevel{" "}
+            Conecte o WhatsApp ao GHL{" "}
             <span className="text-brand-green">Com estabilidade e melhor custo benefício</span>
           </h1>
           
@@ -174,7 +174,7 @@ const LandingPage = () => {
               Como Funciona a Bridge API?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Uma ponte inteligente que conecta o WhatsApp ao GoHighLevel, usando a UAZAPI como motor de integração.
+              Uma ponte inteligente que conecta o WhatsApp ao GHL, usando a UAZAPI como motor de integração.
             </p>
           </div>
 
@@ -243,9 +243,9 @@ const LandingPage = () => {
             {/* GHL Side */}
             <div className="flex flex-col items-center text-center lg:w-1/5 relative z-10">
               <div className="w-20 h-20 rounded-2xl bg-card shadow-lg flex items-center justify-center border border-border mb-4 overflow-hidden">
-                <img src={ghlIcon} alt="GoHighLevel" className="h-12 w-12 rounded-lg" />
+                <img src={ghlIcon} alt="GHL" className="h-12 w-12 rounded-lg" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">GoHighLevel</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-1">GHL</h3>
               <p className="text-sm text-muted-foreground">Seu CRM para gerenciar tudo em um só lugar</p>
             </div>
           </div>
@@ -321,7 +321,7 @@ const LandingPage = () => {
               Funcionalidades Poderosas
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Tudo o que você precisa para gerenciar suas conversas do WhatsApp diretamente do GoHighLevel.
+              Tudo o que você precisa para gerenciar suas conversas do WhatsApp diretamente do GHL.
             </p>
           </div>
 
@@ -336,7 +336,7 @@ const LandingPage = () => {
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Tenha controle total sobre suas conversas. Reaja com emojis, edite textos enviados, 
-                responda a mensagens específicas e apague o que foi dito, tudo dentro do GoHighLevel.
+                responda a mensagens específicas e apague o que foi dito, tudo dentro do GHL.
               </p>
             </div>
 
@@ -377,7 +377,7 @@ const LandingPage = () => {
                 Gestão de Grupos
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Gerencie seus grupos de WhatsApp diretamente do GoHighLevel, facilitando 
+                Gerencie seus grupos de WhatsApp diretamente do GHL, facilitando 
                 campanhas e comunicações em massa com comandos simples.
               </p>
             </div>
@@ -406,7 +406,7 @@ const LandingPage = () => {
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Gere um link personalizado para que seus clientes conectem o WhatsApp diretamente 
-                por dentro do GoHighLevel, sem sair do CRM. Experiência integrada e profissional.
+                por dentro do GHL, sem sair do CRM. Experiência integrada e profissional.
               </p>
             </div>
 
@@ -420,7 +420,7 @@ const LandingPage = () => {
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Envie botões de resposta rápida, listas interativas, enquetes e botões de pagamento PIX 
-                diretamente pelo chat do GoHighLevel com comandos simples.
+                diretamente pelo chat do GHL com comandos simples.
               </p>
             </div>
 
@@ -439,7 +439,7 @@ const LandingPage = () => {
                 Ligações por Voz
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Realize e receba chamadas de voz diretamente pelo GoHighLevel, 
+                Realize e receba chamadas de voz diretamente pelo GHL, 
                 integrando telefonia ao seu fluxo de atendimento via WhatsApp.
               </p>
             </div>
