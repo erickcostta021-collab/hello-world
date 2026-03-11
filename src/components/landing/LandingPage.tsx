@@ -420,7 +420,7 @@ const LandingPage = () => {
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Envie botões de resposta rápida, listas interativas, enquetes e botões de pagamento PIX 
-                diretamente pelo chat do GoHighLevel com comandos simples.
+                diretamente pelo chat do GHL com comandos simples.
               </p>
             </div>
 
