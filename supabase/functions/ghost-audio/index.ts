@@ -560,17 +560,27 @@ Deno.serve(async (req) => {
             );
             console.log("[ghost-audio] Registered GHL dedup:", ghlMessageId);
 
-            // Delete audio from Storage after successful GHL mirror
+            // Delete audio from Storage after a delay so GHL has time to download/render it
             if (uazapiMessageId) {
-              try {
-                const { data: files } = await supabase.storage.from("ghost-audio").list("", { search: uazapiMessageId });
-                if (files?.length) {
-                  const filePaths = files.map((f: any) => f.name);
-                  await supabase.storage.from("ghost-audio").remove(filePaths);
-                  console.log("[ghost-audio] 🗑️ Deleted audio from storage:", filePaths);
+              const msgIdForCleanup = uazapiMessageId;
+              const cleanupFn = async () => {
+                await new Promise((r) => setTimeout(r, 90_000)); // Wait 90 seconds
+                try {
+                  const { data: files } = await supabase.storage.from("ghost-audio").list("", { search: msgIdForCleanup });
+                  if (files?.length) {
+                    const filePaths = files.map((f: any) => f.name);
+                    await supabase.storage.from("ghost-audio").remove(filePaths);
+                    console.log("[ghost-audio] 🗑️ Deleted audio from storage after delay:", filePaths);
+                  }
+                } catch (delErr) {
+                  console.error("[ghost-audio] Storage delete error (non-fatal):", delErr);
                 }
-              } catch (delErr) {
-                console.error("[ghost-audio] Storage delete error (non-fatal):", delErr);
+              };
+              // Use EdgeRuntime.waitUntil if available, otherwise fire-and-forget
+              if (typeof (globalThis as any).EdgeRuntime?.waitUntil === "function") {
+                (globalThis as any).EdgeRuntime.waitUntil(cleanupFn());
+              } else {
+                cleanupFn().catch(() => {});
               }
             }
           }
