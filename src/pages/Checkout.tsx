@@ -15,7 +15,7 @@ const PLANS = {
     name: "Flexível",
     description: "Escolha a quantidade ideal",
     firstUnitPrice: 29,
-    extraUnitPrice: 20,
+    extraUnitPrice: 25,
     minQuantity: 1,
     maxQuantity: 10,
   },
