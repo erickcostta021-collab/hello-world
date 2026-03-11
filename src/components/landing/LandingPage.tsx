@@ -749,8 +749,8 @@ const LandingPage = () => {
             <span className="text-muted-foreground">Bridge API © {new Date().getFullYear()} - Todos os direitos reservados.</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors duration-300">Termos de Serviço</a>
-            <a href="#" className="hover:text-foreground transition-colors duration-300">Política de Privacidade</a>
+            <Link to="/termos-de-servico" className="hover:text-foreground transition-colors duration-300">Termos de Serviço</Link>
+            <Link to="/politica-privacidade" className="hover:text-foreground transition-colors duration-300">Política de Privacidade</Link>
           </div>
         </div>
       </footer>
