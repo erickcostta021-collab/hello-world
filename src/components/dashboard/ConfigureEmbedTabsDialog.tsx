@@ -18,7 +18,7 @@ import { toast } from "sonner";
 export interface EmbedVisibleOptions {
   assign_user: boolean;
   webhook: boolean;
-  track_id: boolean;
+  
   base_url: boolean;
   token: boolean;
   connect: boolean;
@@ -32,7 +32,7 @@ export interface EmbedVisibleOptions {
 const DEFAULT_OPTIONS: EmbedVisibleOptions = {
   assign_user: true,
   webhook: true,
-  track_id: true,
+  
   base_url: true,
   token: true,
   connect: true,
@@ -46,7 +46,7 @@ const DEFAULT_OPTIONS: EmbedVisibleOptions = {
 const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   assign_user: "Atribuir Usuário GHL",
   webhook: "Configurar Webhooks",
-  track_id: "Copiar Track ID",
+  
   base_url: "Exibir Base URL",
   token: "Exibir Token",
   connect: "Conectar / QR Code",

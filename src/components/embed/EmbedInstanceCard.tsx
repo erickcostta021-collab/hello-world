@@ -40,7 +40,7 @@ const GroupManagerDialog = lazy(() => import("@/components/dashboard/GroupManage
 export interface EmbedVisibleOptions {
   assign_user?: boolean;
   webhook?: boolean;
-  track_id?: boolean;
+  
   base_url?: boolean;
   token?: boolean;
   connect?: boolean;
@@ -580,19 +580,6 @@ export function EmbedInstanceCard({
                       <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
                         <Webhook className="h-4 w-4 mr-2" />
                         Configurar Webhooks
-                      </DropdownMenuItem>
-                    )}
-                    {isVisible("track_id") && trackId && (
-                      <DropdownMenuItem onClick={async () => {
-                        try {
-                          await copyToClipboard(trackId);
-                          toast.success("Track ID copiado!");
-                        } catch {
-                          toast.error("Erro ao copiar Track ID");
-                        }
-                      }}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copiar Track ID
                       </DropdownMenuItem>
                     )}
                     {isVisible("messages") && (

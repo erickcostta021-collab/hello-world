@@ -513,27 +513,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                       </Button>
                     </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-popover border-border">
-                  {settings?.track_id && (
-                    <DropdownMenuItem onClick={async () => {
-                      const trackId = settings.track_id!;
-                      try {
-                        await navigator.clipboard.writeText(trackId);
-                      } catch {
-                        const ta = document.createElement("textarea");
-                        ta.value = trackId;
-                        ta.style.position = "fixed";
-                        ta.style.opacity = "0";
-                        document.body.appendChild(ta);
-                        ta.select();
-                        document.execCommand("copy");
-                        document.body.removeChild(ta);
-                      }
-                      toast.success("Track ID copiado!");
-                    }}>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copiar Track ID
-                    </DropdownMenuItem>
-                  )}
                   <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
                     <Settings2 className="h-4 w-4 mr-2" />
                     Configurar Webhook
