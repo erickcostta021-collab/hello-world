@@ -41,6 +41,8 @@ const OAuthCallback = lazy(() => lazyRetry(() => import("./pages/OAuthCallback")
 const OAuthSuccess = lazy(() => lazyRetry(() => import("./pages/OAuthSuccess")));
 const AdminHealth = lazy(() => lazyRetry(() => import("./pages/AdminHealth")));
 const NotFound = lazy(() => lazyRetry(() => import("./pages/NotFound")));
+const PrivacyPolicy = lazy(() => lazyRetry(() => import("./pages/PrivacyPolicy")));
+const TermsOfService = lazy(() => lazyRetry(() => import("./pages/TermsOfService")));
 
 const queryClient = new QueryClient({
   defaultOptions: {
