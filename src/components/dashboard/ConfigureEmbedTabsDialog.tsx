@@ -32,7 +32,7 @@ export interface EmbedVisibleOptions {
 const DEFAULT_OPTIONS: EmbedVisibleOptions = {
   assign_user: true,
   webhook: true,
-  track_id: true,
+  
   base_url: true,
   token: true,
   connect: true,
