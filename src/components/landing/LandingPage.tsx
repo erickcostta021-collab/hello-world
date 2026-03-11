@@ -377,7 +377,7 @@ const LandingPage = () => {
                 Gestão de Grupos
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Gerencie seus grupos de WhatsApp diretamente do GoHighLevel, facilitando 
+                Gerencie seus grupos de WhatsApp diretamente do GHL, facilitando 
                 campanhas e comunicações em massa com comandos simples.
               </p>
             </div>
