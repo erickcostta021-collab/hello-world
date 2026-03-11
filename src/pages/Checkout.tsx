@@ -64,8 +64,9 @@ const Checkout = () => {
   const plan = PLANS[planParam as keyof typeof PLANS] || PLANS.flexible;
   const isFlexible = planParam === "flexible";
   
+  const FLEXIBLE_PRICES = [0, 29, 49, 75, 99, 125, 149, 175, 199, 225, 249];
   const totalPrice = isFlexible 
-    ? (quantity <= 4 ? 29 + 10 * (quantity - 1) * quantity / 2 : 89 + 20 * (quantity - 4))
+    ? FLEXIBLE_PRICES[quantity]
     : (plan as { price: number }).price;
   
   const totalInstances = isFlexible 

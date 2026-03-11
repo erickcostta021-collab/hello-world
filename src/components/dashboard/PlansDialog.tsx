@@ -131,7 +131,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
                     <span className="text-muted-foreground text-sm">/mês</span>
                     {isFlexible && (
                       <p className="text-xs text-primary mt-1">
-                        {flexibleQuantity === 1 ? "R$29 a primeira conexão" : "R$20 por conexão adicional"}
+                        {flexibleQuantity === 1 ? "R$29 a primeira conexão" : "R$25 por conexão adicional"}
                       </p>
                     )}
                     {isFlexible && flexibleQuantity <= 2 && (
