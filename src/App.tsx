@@ -133,6 +133,8 @@ const AppRoutes = () => (
       <Route path="/oauth/callback" element={<OAuthCallback />} />
       <Route path="/oauth/success/:locationId" element={<OAuthSuccess />} />
       <Route path="/oauth/success" element={<OAuthSuccess />} />
+      <Route path="/politica-privacidade" element={<PrivacyPolicy />} />
+      <Route path="/termos-de-servico" element={<TermsOfService />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Suspense>
