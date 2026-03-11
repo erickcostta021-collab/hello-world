@@ -174,7 +174,7 @@ const LandingPage = () => {
               Como Funciona a Bridge API?
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Uma ponte inteligente que conecta o WhatsApp ao GoHighLevel, usando a UAZAPI como motor de integração.
+              Uma ponte inteligente que conecta o WhatsApp ao GHL, usando a UAZAPI como motor de integração.
             </p>
           </div>
 
