@@ -76,8 +76,9 @@ export function PlansDialog({ children }: PlansDialogProps) {
           <div className="grid gap-4 md:grid-cols-3 pt-4">
             {PLANS.map((plan) => {
               const isFlexible = plan.isFlexible;
+              const FLEXIBLE_PRICES = [0, 29, 49, 75, 99, 125, 149, 175, 199, 225, 249];
               const price = isFlexible
-                ? (flexibleQuantity <= 4 ? 29 + 10 * (flexibleQuantity - 1) * flexibleQuantity / 2 : 89 + 20 * (flexibleQuantity - 4))
+                ? FLEXIBLE_PRICES[flexibleQuantity]
                 : plan.price!;
               const instances = isFlexible ? flexibleQuantity : plan.instances!;
 
