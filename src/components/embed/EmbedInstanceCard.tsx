@@ -582,19 +582,6 @@ export function EmbedInstanceCard({
                         Configurar Webhooks
                       </DropdownMenuItem>
                     )}
-                    {isVisible("track_id") && trackId && (
-                      <DropdownMenuItem onClick={async () => {
-                        try {
-                          await copyToClipboard(trackId);
-                          toast.success("Track ID copiado!");
-                        } catch {
-                          toast.error("Erro ao copiar Track ID");
-                        }
-                      }}>
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copiar Track ID
-                      </DropdownMenuItem>
-                    )}
                     {isVisible("messages") && (
                       <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
                         <MessageSquare className="h-4 w-4 mr-2" />
