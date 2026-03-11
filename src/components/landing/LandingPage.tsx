@@ -439,7 +439,7 @@ const LandingPage = () => {
                 Ligações por Voz
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Realize e receba chamadas de voz diretamente pelo GoHighLevel, 
+                Realize e receba chamadas de voz diretamente pelo GHL, 
                 integrando telefonia ao seu fluxo de atendimento via WhatsApp.
               </p>
             </div>
