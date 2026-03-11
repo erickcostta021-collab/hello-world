@@ -40,7 +40,7 @@ const GroupManagerDialog = lazy(() => import("@/components/dashboard/GroupManage
 export interface EmbedVisibleOptions {
   assign_user?: boolean;
   webhook?: boolean;
-  track_id?: boolean;
+  
   base_url?: boolean;
   token?: boolean;
   connect?: boolean;
