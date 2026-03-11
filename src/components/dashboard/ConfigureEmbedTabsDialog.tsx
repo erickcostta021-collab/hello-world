@@ -18,7 +18,7 @@ import { toast } from "sonner";
 export interface EmbedVisibleOptions {
   assign_user: boolean;
   webhook: boolean;
-  track_id: boolean;
+  
   base_url: boolean;
   token: boolean;
   connect: boolean;
