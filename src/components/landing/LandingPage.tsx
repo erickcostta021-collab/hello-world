@@ -595,7 +595,7 @@ const LandingPage = () => {
                 <p className="text-muted-foreground text-sm">Para negócios em crescimento</p>
               </div>
               <div className="mb-2">
-                <span className="text-4xl font-bold text-foreground transition-opacity duration-300">{formatPrice(798)}</span>
+                <span className="text-4xl font-bold text-foreground transition-opacity duration-300"><span className="text-4xl font-bold text-foreground transition-opacity duration-300">{formatPrice(898)}</span></span>
                 <span className="text-muted-foreground">/mês</span>
               </div>
               <div className="mb-6 flex items-center gap-2">
