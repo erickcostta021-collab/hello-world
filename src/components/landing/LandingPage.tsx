@@ -527,7 +527,7 @@ const LandingPage = () => {
                 <p className="text-sm text-brand-green font-medium mt-1">
                   {instanceCount === 1 ? formatPerUnit(30) : formatPerUnit(20)}
                 </p>
-                {instanceCount <= 5 && (
+                {instanceCount <= 2 && (
                   <p className="text-xs text-green-500 font-medium mt-0.5">
                     Cobrado apenas após o trial
                   </p>
