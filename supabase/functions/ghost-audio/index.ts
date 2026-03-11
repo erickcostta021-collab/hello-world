@@ -144,8 +144,8 @@ async function resolveContactId(
   return null;
 }
 
-// Download media from UAZAPI to get public URL
-async function getPublicMediaUrl(baseUrl: string, instanceToken: string, messageId: string): Promise<string | null> {
+// Download media from UAZAPI, upload to Supabase Storage, return public URL
+async function getPublicMediaUrl(baseUrl: string, instanceToken: string, messageId: string, supabase: any): Promise<string | null> {
   const downloadUrl = `${baseUrl}/message/download`;
   console.log("[ghost-audio] Downloading media URL:", { downloadUrl, messageId });
 
@@ -160,17 +160,50 @@ async function getPublicMediaUrl(baseUrl: string, instanceToken: string, message
     console.log("[ghost-audio] Download response:", { status: res.status, body: responseText.substring(0, 300) });
 
     if (res.ok) {
+      let uazapiFileUrl: string | null = null;
       try {
         const data = JSON.parse(responseText);
-        const fileUrl = data.fileURL || data.fileUrl || data.url || data.URL || data.file || null;
-        if (fileUrl) {
-          console.log("[ghost-audio] Got public media URL:", fileUrl);
-          return fileUrl;
-        }
+        uazapiFileUrl = data.fileURL || data.fileUrl || data.url || data.URL || data.file || null;
       } catch {
         if (responseText.startsWith("http")) {
-          return responseText.trim();
+          uazapiFileUrl = responseText.trim();
         }
+      }
+
+      if (uazapiFileUrl) {
+        console.log("[ghost-audio] Got UAZAPI file URL:", uazapiFileUrl);
+
+        // Download the actual audio file and upload to Supabase Storage for a persistent public URL
+        try {
+          const audioRes = await fetch(uazapiFileUrl);
+          if (audioRes.ok) {
+            const audioBlob = await audioRes.blob();
+            const ext = uazapiFileUrl.match(/\.(mp3|ogg|m4a|wav|webm|aac)/) ? uazapiFileUrl.match(/\.(mp3|ogg|m4a|wav|webm|aac)/)![1] : "mp3";
+            const fileName = `${messageId}.${ext}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from("ghost-audio")
+              .upload(fileName, audioBlob, {
+                contentType: audioBlob.type || "audio/mpeg",
+                upsert: true,
+              });
+
+            if (!uploadError) {
+              const { data: publicData } = supabase.storage.from("ghost-audio").getPublicUrl(fileName);
+              if (publicData?.publicUrl) {
+                console.log("[ghost-audio] Uploaded to Storage, public URL:", publicData.publicUrl);
+                return publicData.publicUrl;
+              }
+            } else {
+              console.error("[ghost-audio] Storage upload error:", uploadError.message);
+            }
+          }
+        } catch (storageErr) {
+          console.error("[ghost-audio] Storage upload failed:", storageErr);
+        }
+
+        // Fallback to UAZAPI URL if storage upload fails
+        return uazapiFileUrl;
       }
     }
   } catch (err) {
