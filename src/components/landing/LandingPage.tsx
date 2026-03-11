@@ -336,7 +336,7 @@ const LandingPage = () => {
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Tenha controle total sobre suas conversas. Reaja com emojis, edite textos enviados, 
-                responda a mensagens específicas e apague o que foi dito, tudo dentro do GoHighLevel.
+                responda a mensagens específicas e apague o que foi dito, tudo dentro do GHL.
               </p>
             </div>
 
