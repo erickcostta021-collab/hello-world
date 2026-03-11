@@ -22,13 +22,13 @@ const PLANS = {
   plan_50: {
     name: "50 Conexões",
     description: "Para negócios em crescimento",
-    price: 798,
+    price: 898,
     instances: 50,
   },
   plan_100: {
     name: "100 Conexões",
     description: "Para agências e equipes",
-    price: 1298,
+    price: 1498,
     instances: 100,
     popular: true,
   },
