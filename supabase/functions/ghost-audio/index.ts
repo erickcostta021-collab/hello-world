@@ -559,6 +559,20 @@ Deno.serve(async (req) => {
               { onConflict: "message_id" }
             );
             console.log("[ghost-audio] Registered GHL dedup:", ghlMessageId);
+
+            // Delete audio from Storage after successful GHL mirror
+            if (uazapiMessageId) {
+              try {
+                const { data: files } = await supabase.storage.from("ghost-audio").list("", { search: uazapiMessageId });
+                if (files?.length) {
+                  const filePaths = files.map((f: any) => f.name);
+                  await supabase.storage.from("ghost-audio").remove(filePaths);
+                  console.log("[ghost-audio] 🗑️ Deleted audio from storage:", filePaths);
+                }
+              } catch (delErr) {
+                console.error("[ghost-audio] Storage delete error (non-fatal):", delErr);
+              }
+            }
           }
 
           // Save message mapping
