@@ -550,9 +550,9 @@ const LandingPage = () => {
                   <span>1</span>
                   <span>10</span>
                 </div>
-                {instanceCount <= 5 && (
+                {instanceCount <= 2 && (
                   <p className="text-[11px] text-muted-foreground mt-1.5">
-                    Até 5 conexões: teste grátis. A partir de 6: cobrança imediata.
+                    Até 2 conexões: teste grátis. A partir de 3: cobrança imediata.
                   </p>
                 )}
               </div>
