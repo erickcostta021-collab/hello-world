@@ -243,9 +243,9 @@ const LandingPage = () => {
             {/* GHL Side */}
             <div className="flex flex-col items-center text-center lg:w-1/5 relative z-10">
               <div className="w-20 h-20 rounded-2xl bg-card shadow-lg flex items-center justify-center border border-border mb-4 overflow-hidden">
-                <img src={ghlIcon} alt="GoHighLevel" className="h-12 w-12 rounded-lg" />
+                <img src={ghlIcon} alt="GHL" className="h-12 w-12 rounded-lg" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground mb-1">GoHighLevel</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-1">GHL</h3>
               <p className="text-sm text-muted-foreground">Seu CRM para gerenciar tudo em um só lugar</p>
             </div>
           </div>
