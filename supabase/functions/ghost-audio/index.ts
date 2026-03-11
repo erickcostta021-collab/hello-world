@@ -492,7 +492,7 @@ Deno.serve(async (req) => {
     try {
       let audioUrl: string | null = null;
       if (uazapiMessageId) {
-        audioUrl = await getPublicMediaUrl(baseUrl, token, uazapiMessageId);
+        audioUrl = await getPublicMediaUrl(baseUrl, token, uazapiMessageId, supabase);
       }
 
       // Get user_settings for OAuth credentials
