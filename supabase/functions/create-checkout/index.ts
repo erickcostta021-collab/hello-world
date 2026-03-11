@@ -142,10 +142,10 @@ serve(async (req) => {
 
     const origin = req.headers.get("origin") || "https://bridge-api.lovable.app";
     
-    // Trial for flexible plan with up to 5 instances
+    // Trial for flexible plan with up to 2 instances
     // Only eligible if customer has NO prior payment methods (first-time user)
     const qty = quantity || 1;
-    let isTrialEligible = plan === "flexible" && qty >= 1 && qty <= 5;
+    let isTrialEligible = plan === "flexible" && qty >= 1 && qty <= 2;
 
     if (isTrialEligible && customerId) {
       // Check if customer already has payment methods registered
