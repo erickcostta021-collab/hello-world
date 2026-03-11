@@ -506,7 +506,7 @@ const LandingPage = () => {
 
           <div className="text-center mb-6">
             <p className="text-lg font-semibold text-brand-green">
-              Comece com até 5 conexões grátis por 5 dias
+              Comece com até 2 conexões grátis por 5 dias
             </p>
           </div>
 
