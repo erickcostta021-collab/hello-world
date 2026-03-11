@@ -406,7 +406,7 @@ const LandingPage = () => {
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 Gere um link personalizado para que seus clientes conectem o WhatsApp diretamente 
-                por dentro do GoHighLevel, sem sair do CRM. Experiência integrada e profissional.
+                por dentro do GHL, sem sair do CRM. Experiência integrada e profissional.
               </p>
             </div>
 
