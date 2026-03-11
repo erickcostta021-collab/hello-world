@@ -121,7 +121,7 @@ const LandingPage = () => {
           </div>
           
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 sm:mb-6 text-foreground">
-            Conecte o WhatsApp ao GoHighLevel{" "}
+            Conecte o WhatsApp ao GHL{" "}
             <span className="text-brand-green">Com estabilidade e melhor custo benefício</span>
           </h1>
           
