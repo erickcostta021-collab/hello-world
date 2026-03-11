@@ -117,9 +117,9 @@ export function PlansDialog({ children }: PlansDialogProps) {
                         max={10}
                         step={1}
                       />
-                      {flexibleQuantity <= 5 && (
+                      {flexibleQuantity <= 2 && (
                         <p className="text-[11px] text-muted-foreground mt-1.5">
-                          Até 5 conexões: teste grátis. A partir de 6: cobrança imediata.
+                          Até 2 conexões: teste grátis. A partir de 3: cobrança imediata.
                         </p>
                       )}
                     </div>
