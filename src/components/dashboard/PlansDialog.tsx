@@ -34,7 +34,7 @@ const PLANS = [
     key: "plan_100",
     name: "100 Conexões",
     description: "Para agências e equipes",
-    price: 1298,
+    price: 1498,
     instances: 100,
     popular: true,
   },

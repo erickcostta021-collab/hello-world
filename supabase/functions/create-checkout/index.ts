@@ -10,8 +10,8 @@ const corsHeaders = {
 // Price IDs for each plan
 const PRICE_IDS = {
   flexible: "price_1SxfRy0Z2fZr4Q3PJmHZbs14", // R$35 per instance
-  plan_50: "price_1SxfSE0Z2fZr4Q3PMYliUtzV",  // R$798/month
-  plan_100: "price_1SxfSZ0Z2fZr4Q3PbqRwA59t", // R$1.298/month
+  plan_50: "price_1SxfSE0Z2fZr4Q3PMYliUtzV",  // R$898/month
+  plan_100: "price_1SxfSZ0Z2fZr4Q3PbqRwA59t", // R$1.498/month
   plan_300: "price_1SxfSv0Z2fZr4Q3PqhkKAOUS", // R$2.998/month
 };
 
