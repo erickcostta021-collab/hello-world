@@ -46,7 +46,7 @@ const DEFAULT_OPTIONS: EmbedVisibleOptions = {
 const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   assign_user: "Atribuir Usuário GHL",
   webhook: "Configurar Webhooks",
-  track_id: "Copiar Track ID",
+  
   base_url: "Exibir Base URL",
   token: "Exibir Token",
   connect: "Conectar / QR Code",
