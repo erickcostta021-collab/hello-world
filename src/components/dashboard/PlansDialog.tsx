@@ -17,11 +17,11 @@ const PLANS = [
   {
     key: "flexible",
     name: "Flexível",
-    description: "Comece com até 5 conexões grátis por 5 dias",
+    description: "Comece com até 2 conexões grátis por 5 dias",
     firstUnitPrice: 29,
     extraUnitPrice: 20,
     isFlexible: true,
-    trialInfo: "Trial grátis de 5 dias (até 5 conexões)",
+    trialInfo: "Trial grátis de 5 dias (até 2 conexões)",
   },
   {
     key: "plan_50",
@@ -117,9 +117,9 @@ export function PlansDialog({ children }: PlansDialogProps) {
                         max={10}
                         step={1}
                       />
-                      {flexibleQuantity <= 5 && (
+                      {flexibleQuantity <= 2 && (
                         <p className="text-[11px] text-muted-foreground mt-1.5">
-                          Até 5 conexões: teste grátis. A partir de 6: cobrança imediata.
+                          Até 2 conexões: teste grátis. A partir de 3: cobrança imediata.
                         </p>
                       )}
                     </div>
@@ -133,7 +133,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
                         {flexibleQuantity === 1 ? "R$29 a primeira conexão" : "R$20 por conexão adicional"}
                       </p>
                     )}
-                    {isFlexible && flexibleQuantity <= 5 && (
+                    {isFlexible && flexibleQuantity <= 2 && (
                       <p className="text-xs text-green-500 font-medium mt-0.5">
                         Cobrado apenas após o trial
                       </p>
@@ -165,7 +165,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
                     )}
                   >
                     <Zap className="h-4 w-4 mr-2" />
-                    {isFlexible && flexibleQuantity <= 5 ? "Testar Grátis" : "Assinar Plano"}
+                    {isFlexible && flexibleQuantity <= 2 ? "Testar Grátis" : "Assinar Plano"}
                   </Button>
                 </div>
               );

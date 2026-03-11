@@ -506,7 +506,7 @@ const LandingPage = () => {
 
           <div className="text-center mb-6">
             <p className="text-lg font-semibold text-brand-green">
-              Comece com até 5 conexões grátis por 5 dias
+              Comece com até 2 conexões grátis por 5 dias
             </p>
           </div>
 
@@ -527,7 +527,7 @@ const LandingPage = () => {
                 <p className="text-sm text-brand-green font-medium mt-1">
                   {instanceCount === 1 ? formatPerUnit(30) : formatPerUnit(20)}
                 </p>
-                {instanceCount <= 5 && (
+                {instanceCount <= 2 && (
                   <p className="text-xs text-green-500 font-medium mt-0.5">
                     Cobrado apenas após o trial
                   </p>
@@ -550,9 +550,9 @@ const LandingPage = () => {
                   <span>1</span>
                   <span>10</span>
                 </div>
-                {instanceCount <= 5 && (
+                {instanceCount <= 2 && (
                   <p className="text-[11px] text-muted-foreground mt-1.5">
-                    Até 5 conexões: teste grátis. A partir de 6: cobrança imediata.
+                    Até 2 conexões: teste grátis. A partir de 3: cobrança imediata.
                   </p>
                 )}
               </div>
@@ -575,7 +575,7 @@ const LandingPage = () => {
                 </li>
               </ul>
               <Link to={`/checkout?plan=flexible&quantity=${instanceCount}`} className="w-full">
-                {instanceCount <= 5 ? (
+                {instanceCount <= 2 ? (
                   <Button className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white transition-all duration-300">
                     <Gift className="mr-2 h-4 w-4" />
                     Testar Grátis
