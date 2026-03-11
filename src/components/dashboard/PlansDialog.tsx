@@ -19,7 +19,7 @@ const PLANS = [
     name: "Flexível",
     description: "Comece com até 2 conexões grátis por 5 dias",
     firstUnitPrice: 29,
-    extraUnitPrice: 20,
+    extraUnitPrice: 25,
     isFlexible: true,
     trialInfo: "Trial grátis de 5 dias (até 2 conexões)",
   },
