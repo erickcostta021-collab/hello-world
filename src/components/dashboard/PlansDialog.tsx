@@ -133,7 +133,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
                         {flexibleQuantity === 1 ? "R$29 a primeira conexão" : "R$20 por conexão adicional"}
                       </p>
                     )}
-                    {isFlexible && flexibleQuantity <= 5 && (
+                    {isFlexible && flexibleQuantity <= 2 && (
                       <p className="text-xs text-green-500 font-medium mt-0.5">
                         Cobrado apenas após o trial
                       </p>
