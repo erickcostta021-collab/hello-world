@@ -321,7 +321,7 @@ const LandingPage = () => {
               Funcionalidades Poderosas
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Tudo o que você precisa para gerenciar suas conversas do WhatsApp diretamente do GoHighLevel.
+              Tudo o que você precisa para gerenciar suas conversas do WhatsApp diretamente do GHL.
             </p>
           </div>
 
