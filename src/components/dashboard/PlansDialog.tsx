@@ -17,11 +17,11 @@ const PLANS = [
   {
     key: "flexible",
     name: "Flexível",
-    description: "Comece com até 5 conexões grátis por 5 dias",
+    description: "Comece com até 2 conexões grátis por 5 dias",
     firstUnitPrice: 29,
     extraUnitPrice: 20,
     isFlexible: true,
-    trialInfo: "Trial grátis de 5 dias (até 5 conexões)",
+    trialInfo: "Trial grátis de 5 dias (até 2 conexões)",
   },
   {
     key: "plan_50",
