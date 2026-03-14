@@ -272,6 +272,7 @@ export function RegisteredUsersPanel() {
             onClick={() => {
               refetch();
               queryClient.invalidateQueries({ queryKey: ["pending-registrations"] });
+              queryClient.invalidateQueries({ queryKey: ["admin-all-instances"] });
             }}
             disabled={isRefetching}
             className="border-border"
