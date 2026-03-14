@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus, Search, Clock, ToggleLeft, ToggleRight } from "lucide-react";
+import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus, Search, Clock, ToggleLeft, ToggleRight, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -68,6 +68,29 @@ export function RegisteredUsersPanel() {
       return data as PendingRegistration[];
     },
   });
+
+  const { data: allInstances } = useQuery({
+    queryKey: ["admin-all-instances"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("instances")
+        .select("id, user_id, instance_status");
+      if (error) throw error;
+      return data as { id: string; user_id: string; instance_status: string }[];
+    },
+  });
+
+  const instanceCountsByUser = useMemo(() => {
+    const map: Record<string, { total: number; connected: number; disconnected: number }> = {};
+    if (!allInstances) return map;
+    for (const inst of allInstances) {
+      if (!map[inst.user_id]) map[inst.user_id] = { total: 0, connected: 0, disconnected: 0 };
+      map[inst.user_id].total++;
+      if (inst.instance_status === "connected") map[inst.user_id].connected++;
+      else map[inst.user_id].disconnected++;
+    }
+    return map;
+  }, [allInstances]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -249,6 +272,7 @@ export function RegisteredUsersPanel() {
             onClick={() => {
               refetch();
               queryClient.invalidateQueries({ queryKey: ["pending-registrations"] });
+              queryClient.invalidateQueries({ queryKey: ["admin-all-instances"] });
             }}
             disabled={isRefetching}
             className="border-border"
@@ -297,6 +321,7 @@ export function RegisteredUsersPanel() {
                       <TableHead className="text-muted-foreground">Nome</TableHead>
                       <TableHead className="text-muted-foreground">Status</TableHead>
                       <TableHead className="text-muted-foreground">Modo</TableHead>
+                      <TableHead className="text-muted-foreground">Instâncias</TableHead>
                       <TableHead className="text-muted-foreground">Limite</TableHead>
                       <TableHead className="text-muted-foreground">Cadastrado em</TableHead>
                       <TableHead className="text-muted-foreground w-[140px]">Ações</TableHead>
@@ -356,6 +381,36 @@ export function RegisteredUsersPanel() {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const counts = instanceCountsByUser[user.user_id] || { total: 0, connected: 0, disconnected: 0 };
+                            return (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="font-medium">{counts.total}</span>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="flex items-center gap-0.5 text-green-600">
+                                        <Wifi className="h-3 w-3" />{counts.connected}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p className="text-xs">Conectadas</p></TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="flex items-center gap-0.5 text-muted-foreground">
+                                        <WifiOff className="h-3 w-3" />{counts.disconnected}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p className="text-xs">Desconectadas</p></TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
