@@ -148,7 +148,7 @@ export default function Settings() {
           </p>
         </div>
 
-        <Tabs defaultValue={isAdmin ? "oauth" : "integrations"} className="w-full">
+        <Tabs defaultValue={isAdmin ? "oauth" : "integrations"} className="w-full" onValueChange={setActiveTab}>
           <TabsList className={`grid w-full ${isAdmin ? "grid-cols-4" : "grid-cols-1"}`}>
             {isAdmin && <TabsTrigger value="oauth">OAuth GHL</TabsTrigger>}
             <TabsTrigger value="integrations">Integrações</TabsTrigger>
