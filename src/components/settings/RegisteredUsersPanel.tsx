@@ -382,6 +382,36 @@ export function RegisteredUsersPanel() {
                           </TooltipProvider>
                         </TableCell>
                         <TableCell>
+                          {(() => {
+                            const counts = instanceCountsByUser[user.user_id] || { total: 0, connected: 0, disconnected: 0 };
+                            return (
+                              <div className="flex items-center gap-2 text-xs">
+                                <span className="font-medium">{counts.total}</span>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="flex items-center gap-0.5 text-green-600">
+                                        <Wifi className="h-3 w-3" />{counts.connected}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p className="text-xs">Conectadas</p></TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="flex items-center gap-0.5 text-muted-foreground">
+                                        <WifiOff className="h-3 w-3" />{counts.disconnected}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p className="text-xs">Desconectadas</p></TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell>
                           <div className="flex items-center gap-1">
                             <Button
                               variant="outline"
