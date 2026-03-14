@@ -69,6 +69,29 @@ export function RegisteredUsersPanel() {
     },
   });
 
+  const { data: allInstances } = useQuery({
+    queryKey: ["admin-all-instances"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("instances")
+        .select("id, user_id, instance_status");
+      if (error) throw error;
+      return data as { id: string; user_id: string; instance_status: string }[];
+    },
+  });
+
+  const instanceCountsByUser = useMemo(() => {
+    const map: Record<string, { total: number; connected: number; disconnected: number }> = {};
+    if (!allInstances) return map;
+    for (const inst of allInstances) {
+      if (!map[inst.user_id]) map[inst.user_id] = { total: 0, connected: 0, disconnected: 0 };
+      map[inst.user_id].total++;
+      if (inst.instance_status === "connected") map[inst.user_id].connected++;
+      else map[inst.user_id].disconnected++;
+    }
+    return map;
+  }, [allInstances]);
+
   const filteredUsers = useMemo(() => {
     if (!users) return [];
     if (!searchTerm.trim()) return users;
