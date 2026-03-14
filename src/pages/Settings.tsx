@@ -521,7 +521,7 @@ export default function Settings() {
           </TabsContent>
 
           {isAdmin && (
-            <TabsContent value="users" className="space-y-6 mt-6">
+            <TabsContent value="users" className="space-y-6 mt-6 max-w-none w-full">
               <RegisteredUsersPanel />
             </TabsContent>
           )}
