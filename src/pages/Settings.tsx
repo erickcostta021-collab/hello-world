@@ -35,6 +35,7 @@ export default function Settings() {
   const [showTrackId, setShowTrackId] = useState(false);
   const [isRegeneratingTrackId, setIsRegeneratingTrackId] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(isAdmin ? "oauth" : "integrations");
 
   // For non-admins, fetch the admin's webhook URL to display
   const { data: adminWebhookUrl } = useQuery({
