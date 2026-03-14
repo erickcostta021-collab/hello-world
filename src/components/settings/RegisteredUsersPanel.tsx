@@ -320,6 +320,7 @@ export function RegisteredUsersPanel() {
                       <TableHead className="text-muted-foreground">Nome</TableHead>
                       <TableHead className="text-muted-foreground">Status</TableHead>
                       <TableHead className="text-muted-foreground">Modo</TableHead>
+                      <TableHead className="text-muted-foreground">Instâncias</TableHead>
                       <TableHead className="text-muted-foreground">Limite</TableHead>
                       <TableHead className="text-muted-foreground">Cadastrado em</TableHead>
                       <TableHead className="text-muted-foreground w-[140px]">Ações</TableHead>
