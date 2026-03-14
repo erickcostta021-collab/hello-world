@@ -140,7 +140,7 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 [&:has([data-state=active][value=users])]:max-w-none max-w-2xl">
+      <div className={`space-y-6 ${activeTab === "users" ? "" : "max-w-2xl"}`}>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
           <p className="text-muted-foreground">
