@@ -35,6 +35,7 @@ export default function Settings() {
   const [showTrackId, setShowTrackId] = useState(false);
   const [isRegeneratingTrackId, setIsRegeneratingTrackId] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState(isAdmin ? "oauth" : "integrations");
 
   // For non-admins, fetch the admin's webhook URL to display
   const { data: adminWebhookUrl } = useQuery({
@@ -139,7 +140,7 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 max-w-2xl">
+      <div className={`space-y-6 ${activeTab === "users" ? "" : "max-w-2xl"}`}>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
           <p className="text-muted-foreground">
@@ -147,7 +148,7 @@ export default function Settings() {
           </p>
         </div>
 
-        <Tabs defaultValue={isAdmin ? "oauth" : "integrations"} className="w-full">
+        <Tabs defaultValue={isAdmin ? "oauth" : "integrations"} className="w-full" onValueChange={setActiveTab}>
           <TabsList className={`grid w-full ${isAdmin ? "grid-cols-4" : "grid-cols-1"}`}>
             {isAdmin && <TabsTrigger value="oauth">OAuth GHL</TabsTrigger>}
             <TabsTrigger value="integrations">Integrações</TabsTrigger>
@@ -521,7 +522,7 @@ export default function Settings() {
           </TabsContent>
 
           {isAdmin && (
-            <TabsContent value="users" className="space-y-6 mt-6">
+            <TabsContent value="users" className="space-y-6 mt-6 max-w-none w-full">
               <RegisteredUsersPanel />
             </TabsContent>
           )}
