@@ -14,6 +14,7 @@ interface WebhookMetric {
   error_type: string | null;
   created_at: string;
   processing_time_ms: number | null;
+  instance_id: string | null;
 }
 
 interface HealthAlert {
