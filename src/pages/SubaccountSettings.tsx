@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Save, Loader2, CheckCircle2, Info, Unlink } from "lucide-react";
+import { ArrowLeft, Save, Loader2, CheckCircle2, Info, Unlink, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
@@ -44,6 +44,7 @@ export default function SubaccountSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -112,6 +113,39 @@ export default function SubaccountSettings() {
       toast.error("Erro ao desconectar: " + error.message);
     } finally {
       setDisconnecting(false);
+    }
+  };
+
+  const isFolder = subaccount?.location_id.startsWith("folder_");
+
+  const handleDeleteFolder = async () => {
+    if (!subaccount) return;
+    try {
+      setDeleting(true);
+
+      // Desvincular instâncias associadas
+      await supabase
+        .from("instances")
+        .update({ subaccount_id: null })
+        .eq("subaccount_id", subaccount.id);
+
+      // Excluir a pasta
+      const { error } = await supabase
+        .from("ghl_subaccounts")
+        .delete()
+        .eq("id", subaccount.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["subaccounts"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
+      toast.success("Pasta excluída com sucesso!");
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error("Error deleting folder:", error);
+      toast.error("Erro ao excluir pasta: " + error.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -328,6 +362,53 @@ export default function SubaccountSettings() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isFolder && (
+            <Card className="bg-card border-destructive/30 mt-6">
+              <CardHeader>
+                <CardTitle className="text-lg text-destructive">Zona de Perigo</CardTitle>
+                <CardDescription>
+                  Ações irreversíveis para esta pasta.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      disabled={deleting}
+                    >
+                      {deleting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      Excluir Pasta
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir pasta "{subaccount?.account_name}"?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação é irreversível. A pasta será removida permanentemente.
+                        Todas as instâncias vinculadas serão automaticamente desvinculadas (mas não excluídas).
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteFolder}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Excluir Permanentemente
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>
