@@ -486,9 +486,12 @@ export default function Dashboard() {
                   className="pl-10 bg-secondary border-border"
                 />
               </div>
-              {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
-                <CreateUnlinkedInstanceDialog />
-              )}
+              <div className="flex items-center gap-2">
+                <CreateFolderDialog />
+                {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
+                  <CreateUnlinkedInstanceDialog />
+                )}
+              </div>
             </div>
 
             {/* Stats */}
