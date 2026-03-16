@@ -116,6 +116,39 @@ export default function SubaccountSettings() {
     }
   };
 
+  const isFolder = subaccount?.location_id.startsWith("folder_");
+
+  const handleDeleteFolder = async () => {
+    if (!subaccount) return;
+    try {
+      setDeleting(true);
+
+      // Desvincular instâncias associadas
+      await supabase
+        .from("instances")
+        .update({ subaccount_id: null })
+        .eq("subaccount_id", subaccount.id);
+
+      // Excluir a pasta
+      const { error } = await supabase
+        .from("ghl_subaccounts")
+        .delete()
+        .eq("id", subaccount.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["subaccounts"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
+      toast.success("Pasta excluída com sucesso!");
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error("Error deleting folder:", error);
+      toast.error("Erro ao excluir pasta: " + error.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
