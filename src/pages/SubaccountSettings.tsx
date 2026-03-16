@@ -362,6 +362,53 @@ export default function SubaccountSettings() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {isFolder && (
+            <Card className="bg-card border-destructive/30 mt-6">
+              <CardHeader>
+                <CardTitle className="text-lg text-destructive">Zona de Perigo</CardTitle>
+                <CardDescription>
+                  Ações irreversíveis para esta pasta.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      disabled={deleting}
+                    >
+                      {deleting ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      Excluir Pasta
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Excluir pasta "{subaccount?.account_name}"?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação é irreversível. A pasta será removida permanentemente.
+                        Todas as instâncias vinculadas serão automaticamente desvinculadas (mas não excluídas).
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDeleteFolder}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Excluir Permanentemente
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>
