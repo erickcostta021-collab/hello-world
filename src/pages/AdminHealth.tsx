@@ -144,12 +144,25 @@ export default function AdminHealth() {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const { data: rawMetrics } = await supabase
         .from("webhook_metrics")
-        .select("function_name, error_type, created_at, processing_time_ms")
+        .select("function_name, error_type, created_at, processing_time_ms, instance_id")
         .gte("created_at", oneHourAgo)
         .order("created_at", { ascending: false })
         .limit(1000);
 
-      setMetrics(aggregateMetrics((rawMetrics as WebhookMetric[]) || []));
+      // Get instance names for error breakdown
+      const instanceIds = [...new Set((rawMetrics || []).filter((m: any) => m.instance_id).map((m: any) => m.instance_id))];
+      let instanceNames: Record<string, string> = {};
+      if (instanceIds.length > 0) {
+        const { data: instances } = await supabase
+          .from("instances")
+          .select("id, instance_name")
+          .in("id", instanceIds);
+        if (instances) {
+          instanceNames = Object.fromEntries(instances.map((i) => [i.id, i.instance_name]));
+        }
+      }
+
+      setMetrics(aggregateMetrics((rawMetrics as WebhookMetric[]) || [], instanceNames));
 
       // Load active alerts
       const { data: activeAlerts } = await supabase
