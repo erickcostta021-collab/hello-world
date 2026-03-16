@@ -38,7 +38,7 @@ interface AggregatedMetrics {
   errorsByInstance: Array<{ instanceId: string; instanceName: string; errors: number; errorTypes: Record<string, number> }>;
 }
 
-function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
+function aggregateMetrics(metrics: WebhookMetric[], instanceNames: Record<string, string>): AggregatedMetrics {
   const result: AggregatedMetrics = {
     totalRequests: metrics.length,
     successCount: 0,
@@ -48,11 +48,13 @@ function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
     avgProcessingTime: 0,
     byFunction: {},
     byMinute: [],
+    errorsByInstance: [],
   };
 
   let totalTime = 0;
   let timeCount = 0;
   const minuteMap = new Map<string, { total: number; errors: number }>();
+  const instanceErrorMap = new Map<string, { errors: number; errorTypes: Record<string, number> }>();
 
   for (const m of metrics) {
     const isError = m.error_type && m.error_type !== "success";
@@ -60,6 +62,16 @@ function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
       result.errorCount++;
       if (m.error_type === "429") result.error429Count++;
       if (m.error_type === "5xx") result.error5xxCount++;
+
+      // Track errors by instance
+      const instKey = m.instance_id || "unknown";
+      if (!instanceErrorMap.has(instKey)) {
+        instanceErrorMap.set(instKey, { errors: 0, errorTypes: {} });
+      }
+      const instEntry = instanceErrorMap.get(instKey)!;
+      instEntry.errors++;
+      const errType = m.error_type || "unknown";
+      instEntry.errorTypes[errType] = (instEntry.errorTypes[errType] || 0) + 1;
     } else {
       result.successCount++;
     }
@@ -88,7 +100,15 @@ function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
   result.byMinute = Array.from(minuteMap.entries())
     .map(([minute, data]) => ({ minute, ...data }))
     .sort((a, b) => a.minute.localeCompare(b.minute))
-    .slice(-30); // Last 30 minutes
+    .slice(-30);
+
+  result.errorsByInstance = Array.from(instanceErrorMap.entries())
+    .map(([instanceId, data]) => ({
+      instanceId,
+      instanceName: instanceNames[instanceId] || (instanceId === "unknown" ? "Sem instância" : instanceId.slice(0, 8)),
+      ...data,
+    }))
+    .sort((a, b) => b.errors - a.errors);
 
   return result;
 }
