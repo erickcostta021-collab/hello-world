@@ -429,15 +429,18 @@ export default function Dashboard() {
 
         {viewMode === "subaccounts" ? (
           <>
-            {/* Search */}
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar subcontas..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 bg-secondary border-border"
-              />
+            {/* Search + Create Folder */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar subcontas..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 bg-secondary border-border"
+                />
+              </div>
+              <CreateFolderDialog />
             </div>
 
             {/* Subaccounts Grid */}
