@@ -35,6 +35,7 @@ interface AggregatedMetrics {
   avgProcessingTime: number;
   byFunction: Record<string, { total: number; errors: number }>;
   byMinute: Array<{ minute: string; total: number; errors: number }>;
+  errorsByInstance: Array<{ instanceId: string; instanceName: string; errors: number; errorTypes: Record<string, number> }>;
 }
 
 function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
