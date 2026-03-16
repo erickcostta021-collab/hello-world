@@ -36,8 +36,8 @@ export const SubaccountCard = memo(function SubaccountCard({ subaccount, onClick
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <IconComponent className="h-5 w-5 text-primary" />
+            <div className={`p-2 rounded-lg ${isFolder ? "bg-blue-500/10" : "bg-primary/10"}`}>
+              <IconComponent className={`h-5 w-5 ${isFolder ? "text-blue-500" : "text-primary"}`} />
             </div>
             <div>
               <CardTitle className="text-lg text-card-foreground line-clamp-1">
