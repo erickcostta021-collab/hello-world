@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building2, ChevronRight, Settings } from "lucide-react";
+import { Building2, ChevronRight, FolderOpen, Settings } from "lucide-react";
 import { Subaccount } from "@/hooks/useSubaccounts";
 import { useInstances } from "@/hooks/useInstances";
 import { useNavigate } from "react-router-dom";
