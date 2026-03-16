@@ -44,6 +44,7 @@ export default function SubaccountSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
