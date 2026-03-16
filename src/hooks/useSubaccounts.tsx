@@ -33,17 +33,17 @@ export function useSubaccounts() {
       // Get effective user ID (original owner if shared)
       const effectiveUserId = await getEffectiveUserId(user.id);
       
-      let query = supabase
+      // Fetch all subaccounts for this user
+      const { data, error } = await supabase
         .from("ghl_subaccounts")
         .select("*")
-        .eq("user_id", effectiveUserId);
-      
-      // If no agency token, only show subaccounts with the app installed (via OAuth)
-      if (!hasAgencyToken) {
-        query = query.not("ghl_access_token", "is", null);
-      }
-      
-      const { data, error } = await query.order("account_name");
+        .eq("user_id", effectiveUserId)
+        .or(
+          hasAgencyToken
+            ? "location_id.neq.impossible" // show all when agency token exists
+            : "ghl_access_token.not.is.null,location_id.like.folder_%"
+        )
+        .order("account_name");
 
       if (error) throw error;
       return data as Subaccount[];
