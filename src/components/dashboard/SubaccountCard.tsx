@@ -63,7 +63,7 @@ export const SubaccountCard = memo(function SubaccountCard({ subaccount, onClick
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-2">
-          {!isAppInstalled && (
+          {!isAppInstalled && !isFolder && (
             <Badge variant="outline" className="border-warning text-warning">
               App não instalado
             </Badge>
