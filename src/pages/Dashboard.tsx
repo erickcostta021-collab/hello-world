@@ -5,6 +5,7 @@ import { SubaccountCard } from "@/components/dashboard/SubaccountCard";
 import { InstanceCard } from "@/components/dashboard/InstanceCard";
 import { AddInstanceDialog } from "@/components/dashboard/AddInstanceDialog";
 import { CreateUnlinkedInstanceDialog } from "@/components/dashboard/CreateUnlinkedInstanceDialog";
+import { CreateFolderDialog } from "@/components/dashboard/CreateFolderDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useSubaccounts, Subaccount } from "@/hooks/useSubaccounts";
@@ -485,9 +486,12 @@ export default function Dashboard() {
                   className="pl-10 bg-secondary border-border"
                 />
               </div>
-              {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
-                <CreateUnlinkedInstanceDialog />
-              )}
+              <div className="flex items-center gap-2">
+                <CreateFolderDialog />
+                {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
+                  <CreateUnlinkedInstanceDialog />
+                )}
+              </div>
             </div>
 
             {/* Stats */}
