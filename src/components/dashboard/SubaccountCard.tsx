@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building2, ChevronRight, Settings } from "lucide-react";
+import { Building2, ChevronRight, FolderOpen, Settings } from "lucide-react";
 import { Subaccount } from "@/hooks/useSubaccounts";
 import { useInstances } from "@/hooks/useInstances";
 import { useNavigate } from "react-router-dom";
@@ -25,6 +25,8 @@ export const SubaccountCard = memo(function SubaccountCard({ subaccount, onClick
   };
 
   const isAppInstalled = !!subaccount.ghl_access_token;
+  const isFolder = subaccount.location_id.startsWith("folder_");
+  const IconComponent = isFolder ? FolderOpen : Building2;
 
   return (
     <Card
@@ -35,7 +37,7 @@ export const SubaccountCard = memo(function SubaccountCard({ subaccount, onClick
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
-              <Building2 className="h-5 w-5 text-primary" />
+              <IconComponent className="h-5 w-5 text-primary" />
             </div>
             <div>
               <CardTitle className="text-lg text-card-foreground line-clamp-1">
