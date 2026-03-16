@@ -25,6 +25,8 @@ export const SubaccountCard = memo(function SubaccountCard({ subaccount, onClick
   };
 
   const isAppInstalled = !!subaccount.ghl_access_token;
+  const isFolder = subaccount.location_id.startsWith("folder_");
+  const IconComponent = isFolder ? FolderOpen : Building2;
 
   return (
     <Card
