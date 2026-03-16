@@ -353,7 +353,38 @@ export default function AdminHealth() {
                           <span className="relative z-10 text-xs px-1 leading-5 text-foreground">
                             {entry.total}{entry.errors > 0 ? ` (${entry.errors}❌)` : ""}
                           </span>
-                        </div>
+        </div>
+
+        {/* Errors by Instance */}
+        {metrics && metrics.errorsByInstance.length > 0 && (
+          <Card className="border-destructive/30 bg-card/50 border-border/50">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                Erros por Instância
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {metrics.errorsByInstance.map((inst) => (
+                <div key={inst.instanceId} className="flex items-center justify-between p-3 bg-card/80 rounded-lg border border-border/50">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-medium text-card-foreground">{inst.instanceName}</span>
+                    <div className="flex gap-2 flex-wrap">
+                      {Object.entries(inst.errorTypes).map(([type, count]) => (
+                        <Badge key={type} variant="outline" className="text-xs border-destructive/50 text-destructive">
+                          {type}: {count}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <Badge variant="destructive" className="shrink-0 text-sm">
+                    {inst.errors} erros
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
                       </div>
                     );
                   })}
