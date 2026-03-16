@@ -14,7 +14,6 @@ interface WebhookMetric {
   error_type: string | null;
   created_at: string;
   processing_time_ms: number | null;
-  instance_id: string | null;
 }
 
 interface HealthAlert {
@@ -35,10 +34,9 @@ interface AggregatedMetrics {
   avgProcessingTime: number;
   byFunction: Record<string, { total: number; errors: number }>;
   byMinute: Array<{ minute: string; total: number; errors: number }>;
-  errorsByInstance: Array<{ instanceId: string; instanceName: string; errors: number; errorTypes: Record<string, number> }>;
 }
 
-function aggregateMetrics(metrics: WebhookMetric[], instanceNames: Record<string, string>): AggregatedMetrics {
+function aggregateMetrics(metrics: WebhookMetric[]): AggregatedMetrics {
   const result: AggregatedMetrics = {
     totalRequests: metrics.length,
     successCount: 0,
@@ -48,13 +46,11 @@ function aggregateMetrics(metrics: WebhookMetric[], instanceNames: Record<string
     avgProcessingTime: 0,
     byFunction: {},
     byMinute: [],
-    errorsByInstance: [],
   };
 
   let totalTime = 0;
   let timeCount = 0;
   const minuteMap = new Map<string, { total: number; errors: number }>();
-  const instanceErrorMap = new Map<string, { errors: number; errorTypes: Record<string, number> }>();
 
   for (const m of metrics) {
     const isError = m.error_type && m.error_type !== "success";
@@ -62,16 +58,6 @@ function aggregateMetrics(metrics: WebhookMetric[], instanceNames: Record<string
       result.errorCount++;
       if (m.error_type === "429") result.error429Count++;
       if (m.error_type === "5xx") result.error5xxCount++;
-
-      // Track errors by instance
-      const instKey = m.instance_id || "unknown";
-      if (!instanceErrorMap.has(instKey)) {
-        instanceErrorMap.set(instKey, { errors: 0, errorTypes: {} });
-      }
-      const instEntry = instanceErrorMap.get(instKey)!;
-      instEntry.errors++;
-      const errType = m.error_type || "unknown";
-      instEntry.errorTypes[errType] = (instEntry.errorTypes[errType] || 0) + 1;
     } else {
       result.successCount++;
     }
@@ -100,15 +86,7 @@ function aggregateMetrics(metrics: WebhookMetric[], instanceNames: Record<string
   result.byMinute = Array.from(minuteMap.entries())
     .map(([minute, data]) => ({ minute, ...data }))
     .sort((a, b) => a.minute.localeCompare(b.minute))
-    .slice(-30);
-
-  result.errorsByInstance = Array.from(instanceErrorMap.entries())
-    .map(([instanceId, data]) => ({
-      instanceId,
-      instanceName: instanceNames[instanceId] || (instanceId === "unknown" ? "Sem instância" : instanceId.slice(0, 8)),
-      ...data,
-    }))
-    .sort((a, b) => b.errors - a.errors);
+    .slice(-30); // Last 30 minutes
 
   return result;
 }
@@ -144,25 +122,12 @@ export default function AdminHealth() {
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const { data: rawMetrics } = await supabase
         .from("webhook_metrics")
-        .select("function_name, error_type, created_at, processing_time_ms, instance_id")
+        .select("function_name, error_type, created_at, processing_time_ms")
         .gte("created_at", oneHourAgo)
         .order("created_at", { ascending: false })
         .limit(1000);
 
-      // Get instance names for error breakdown
-      const instanceIds = [...new Set((rawMetrics || []).filter((m: any) => m.instance_id).map((m: any) => m.instance_id))];
-      let instanceNames: Record<string, string> = {};
-      if (instanceIds.length > 0) {
-        const { data: instances } = await supabase
-          .from("instances")
-          .select("id, instance_name")
-          .in("id", instanceIds);
-        if (instances) {
-          instanceNames = Object.fromEntries(instances.map((i) => [i.id, i.instance_name]));
-        }
-      }
-
-      setMetrics(aggregateMetrics((rawMetrics as WebhookMetric[]) || [], instanceNames));
+      setMetrics(aggregateMetrics((rawMetrics as WebhookMetric[]) || []));
 
       // Load active alerts
       const { data: activeAlerts } = await supabase
@@ -353,38 +318,7 @@ export default function AdminHealth() {
                           <span className="relative z-10 text-xs px-1 leading-5 text-foreground">
                             {entry.total}{entry.errors > 0 ? ` (${entry.errors}❌)` : ""}
                           </span>
-        </div>
-
-        {/* Errors by Instance */}
-        {metrics && metrics.errorsByInstance.length > 0 && (
-          <Card className="border-destructive/30 bg-card/50 border-border/50">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                Erros por Instância
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {metrics.errorsByInstance.map((inst) => (
-                <div key={inst.instanceId} className="flex items-center justify-between p-3 bg-card/80 rounded-lg border border-border/50">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium text-card-foreground">{inst.instanceName}</span>
-                    <div className="flex gap-2 flex-wrap">
-                      {Object.entries(inst.errorTypes).map(([type, count]) => (
-                        <Badge key={type} variant="outline" className="text-xs border-destructive/50 text-destructive">
-                          {type}: {count}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                  <Badge variant="destructive" className="shrink-0 text-sm">
-                    {inst.errors} erros
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
+                        </div>
                       </div>
                     );
                   })}
