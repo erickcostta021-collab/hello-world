@@ -264,6 +264,19 @@ serve(async (req) => {
       }
     }
 
+    // Persist webhook_url in the instances table so it's not lost
+    if (!create_new) {
+      const { error: updateErr } = await supabase
+        .from("instances")
+        .update({ webhook_url: webhookUrl })
+        .eq("id", instance_id);
+      if (updateErr) {
+        console.warn(`Failed to persist webhook_url in instances table: ${updateErr.message}`);
+      } else {
+        console.log(`✅ webhook_url persisted in instances table for ${instance_id}`);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, create_new: !!create_new }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
