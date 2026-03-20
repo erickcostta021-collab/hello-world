@@ -1,0 +1,1 @@
+DELETE FROM instances WHERE id = '94ebc8ab-f194-4410-a859-077c34bd3de3';
