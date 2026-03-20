@@ -48,7 +48,7 @@ export function useInstances(subaccountId?: string) {
   const { user } = useAuth();
   const { settings } = useSettings();
   const { instanceLimit } = useProfile();
-  const { accountMode } = useAccountStatus();
+  const { accountMode, isInGracePeriod } = useAccountStatus();
   const queryClient = useQueryClient();
 
   const isSharedAccount = !!settings?.shared_from_user_id;
