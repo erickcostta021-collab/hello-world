@@ -42,6 +42,28 @@ async function callProxy(body: Record<string, any>): Promise<any> {
   return data;
 }
 
+function normalizeProxyErrorMessage(message?: string | null): string | null {
+  if (!message) return null;
+
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("maximum number of instances connected reached")) {
+    return "Limite máximo de instâncias conectadas atingido neste servidor UAZAPI. Desconecte outra instância ativa ou aumente o limite no servidor.";
+  }
+
+  return message;
+}
+
+function getProxyErrorMessage(result: any): string | null {
+  const rawMessage =
+    result?.data?.error ||
+    result?.data?.message ||
+    result?.error ||
+    (typeof result?.data === "string" ? result.data : null);
+
+  return normalizeProxyErrorMessage(rawMessage);
+}
+
 // ---------------------------------------------------------------------------
 // URL Resolution (kept for backward compat but not used for fetch anymore)
 // ---------------------------------------------------------------------------
@@ -171,7 +193,9 @@ export async function connectInstanceOnApi(
   _globalBaseUrl?: string | null,
 ): Promise<string | null> {
   const result = await callProxy({ action: "connect", instanceId: instance.id });
-  if (!result?.ok) return null;
+  if (!result?.ok) {
+    throw new Error(getProxyErrorMessage(result) || "Não foi possível iniciar a conexão da instância");
+  }
   const data = result.data;
   return data.qrcode || data.instance?.qrcode || data.qr || data.base64 || null;
 }
@@ -183,14 +207,20 @@ export async function getQRCodeFromApi(
   const extractQr = (data: any): string | null =>
     data?.qrcode || data?.instance?.qrcode || data?.qr || data?.base64 || data?.code || null;
 
+  let lastError: string | null = null;
+
   // 1. Try connect first (usually generates fresh QR)
   try {
     const connectResult = await callProxy({ action: "connect", instanceId: instance.id });
     if (connectResult?.ok) {
       const qr = extractQr(connectResult.data);
       if (qr) return qr;
+    } else {
+      lastError = getProxyErrorMessage(connectResult) || lastError;
     }
-  } catch { /* continue */ }
+  } catch (error: any) {
+    lastError = normalizeProxyErrorMessage(error?.message) || lastError;
+  }
 
   // 2. Try dedicated qrcode endpoint
   try {
@@ -198,8 +228,12 @@ export async function getQRCodeFromApi(
     if (qrResult?.ok) {
       const qr = extractQr(qrResult.data);
       if (qr) return qr;
+    } else {
+      lastError = getProxyErrorMessage(qrResult) || lastError;
     }
-  } catch { /* continue */ }
+  } catch (error: any) {
+    lastError = normalizeProxyErrorMessage(error?.message) || lastError;
+  }
 
   // 3. Force disconnect + reconnect to generate a fresh QR
   try {
@@ -210,16 +244,24 @@ export async function getQRCodeFromApi(
     if (reconnectResult?.ok) {
       const qr = extractQr(reconnectResult.data);
       if (qr) return qr;
+    } else {
+      lastError = getProxyErrorMessage(reconnectResult) || lastError;
     }
 
     const qrRetry = await callProxy({ action: "qrcode", instanceId: instance.id });
     if (qrRetry?.ok) {
       const qr = extractQr(qrRetry.data);
       if (qr) return qr;
+    } else {
+      lastError = getProxyErrorMessage(qrRetry) || lastError;
     }
-  } catch { /* continue */ }
+  } catch (error: any) {
+    lastError = normalizeProxyErrorMessage(error?.message) || lastError;
+  }
 
-  throw new Error("QR Code não disponível - a instância pode já estar conectada ou o servidor não suporta este endpoint");
+  throw new Error(
+    lastError || "QR Code não disponível - a instância pode já estar conectada ou o servidor não suporta este endpoint",
+  );
 }
 
 export async function disconnectInstanceOnApi(
