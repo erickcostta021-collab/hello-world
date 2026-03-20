@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useSettings, getEffectiveUserId } from "./useSettings";
+import { useImpersonation } from "./useImpersonation";
 import { toast } from "sonner";
 
 export interface Subaccount {
@@ -19,6 +20,7 @@ export function useSubaccounts() {
   const { user } = useAuth();
   const { settings } = useSettings();
   const queryClient = useQueryClient();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
 
   // Check if this account is sharing from another user
   const isSharedAccount = !!settings?.shared_from_user_id;
@@ -26,12 +28,12 @@ export function useSubaccounts() {
   const hasAgencyToken = !!settings?.ghl_agency_token;
 
   const { data: subaccounts, isLoading } = useQuery({
-    queryKey: ["subaccounts", user?.id, settings?.shared_from_user_id, hasAgencyToken],
+    queryKey: ["subaccounts", user?.id, impersonatedUserId, settings?.shared_from_user_id, hasAgencyToken],
     queryFn: async () => {
       if (!user) return [];
       
-      // Get effective user ID (original owner if shared)
-      const effectiveUserId = await getEffectiveUserId(user.id);
+      // If impersonating, use the impersonated user's ID directly
+      const effectiveUserId = impersonatedUserId || await getEffectiveUserId(user.id);
       
       // Fetch all subaccounts for this user
       const { data, error } = await supabase
