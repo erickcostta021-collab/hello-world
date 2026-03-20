@@ -318,8 +318,9 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
             Crie uma nova ou vincule uma existente.
             {instanceLimit > 0 && (
               <span className="block mt-1 text-xs">
-                {linkedInstanceCount} vinculada{linkedInstanceCount !== 1 ? "s" : ""} de {instanceLimit} do plano
-                {unlinkedInstanceCount > 0 && ` · ${unlinkedInstanceCount} disponíve${unlinkedInstanceCount !== 1 ? "is" : "l"}`}
+                {linkedInstanceCount + unlinkedInstanceCount} de {instanceLimit} instância{instanceLimit !== 1 ? "s" : ""} utilizada{linkedInstanceCount + unlinkedInstanceCount !== 1 ? "s" : ""}
+                {linkedInstanceCount + unlinkedInstanceCount < instanceLimit && ` · ${instanceLimit - linkedInstanceCount - unlinkedInstanceCount} vaga${instanceLimit - linkedInstanceCount - unlinkedInstanceCount !== 1 ? "s" : ""} livre${instanceLimit - linkedInstanceCount - unlinkedInstanceCount !== 1 ? "s" : ""}`}
+                {unlinkedInstanceCount > 0 && ` · ${unlinkedInstanceCount} desvinculada${unlinkedInstanceCount !== 1 ? "s" : ""}`}
               </span>
             )}
           </DialogDescription>
@@ -384,14 +385,6 @@ export function AddInstanceDialog({ subaccount, hasUAZAPIConfig = true }: AddIns
           {/* Create Tab Content */}
           {activeTab === "create" && (hasUAZAPIConfig || isManagedMode) && (
             <div className="space-y-4 py-2">
-              {!canCreateInstance && instanceLimit > 0 && (
-                <Alert className="border-destructive/50 bg-destructive/10">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                  <AlertDescription className="text-sm text-destructive">
-                    Limite de {instanceLimit} instância(s) atingido ({linkedInstanceCount + unlinkedInstanceCount}/{instanceLimit}). Não é possível criar mais instâncias.
-                  </AlertDescription>
-                </Alert>
-              )}
 
               <div className="space-y-2">
                 <Label htmlFor="instance-name">Nome da Instância</Label>
