@@ -488,7 +488,7 @@ export function RegisteredUsersPanel() {
                                 <TooltipContent><p className="text-xs">Visualizar como este usuário</p></TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                              variant="ghost"
+                            <Button
                               size="icon"
                               className={`h-8 w-8 ${user.is_paused ? "text-green-600 hover:text-green-700 hover:bg-green-100" : "text-amber-600 hover:text-amber-700 hover:bg-amber-100"}`}
                               disabled={togglingId === user.user_id}
