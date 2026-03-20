@@ -151,28 +151,44 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (!settings?.uazapi_base_url || !settings?.uazapi_admin_token) {
+      let createBaseUrl = settings?.uazapi_base_url || "";
+      let createAdminToken = settings?.uazapi_admin_token || "";
+
+      // Fallback to admin credentials for managed mode users
+      if (!createBaseUrl || !createAdminToken) {
+        const { data: adminCreds } = await admin.rpc("get_admin_uazapi_credentials");
+        if (adminCreds?.[0]) {
+          createBaseUrl = createBaseUrl || adminCreds[0].uazapi_base_url;
+          createAdminToken = createAdminToken || adminCreds[0].uazapi_admin_token;
+        }
+      }
+
+      if (!createBaseUrl || !createAdminToken) {
         return new Response(JSON.stringify({ error: "UAZAPI não configurada" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const base = strip(settings.uazapi_base_url);
+      console.log("[uazapi-proxy] create:", { name, baseUrl: createBaseUrl });
+
+      const base = strip(createBaseUrl);
       try {
         const res = await timedFetch(`${base}/instance/init`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", admintoken: settings.uazapi_admin_token },
+          headers: { "Content-Type": "application/json", admintoken: createAdminToken },
           body: JSON.stringify({ name, systemName: "Bridge-API" }),
         });
         const text = await res.text();
         let data: any;
         try { data = JSON.parse(text); } catch { data = text; }
+        console.log("[uazapi-proxy] create result:", { ok: res.ok, status: res.status, data });
         return new Response(JSON.stringify({ ok: res.ok, status: res.status, data }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (e: any) {
+        console.error("[uazapi-proxy] create error:", e.message);
         return new Response(JSON.stringify({ ok: false, error: e.message }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -269,10 +285,12 @@ Deno.serve(async (req) => {
 
     // ── status ──
     if (action === "status") {
+      console.log("[uazapi-proxy] status:", { baseUrl, instanceId, token: token.substring(0, 8) });
       const result = await tryPaths(baseUrl, [
         "/instance/status", "/api/instance/status",
         "/v2/instance/status", "/api/v2/instance/status",
       ], { method: "GET", headers });
+      console.log("[uazapi-proxy] status result:", { ok: result.ok, status: result.status });
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -281,10 +299,12 @@ Deno.serve(async (req) => {
 
     // ── connect ──
     if (action === "connect") {
+      console.log("[uazapi-proxy] connect:", { baseUrl, instanceId, token: token.substring(0, 8) });
       const result = await tryPaths(baseUrl, [
         "/instance/connect", "/api/instance/connect",
         "/v2/instance/connect", "/api/v2/instance/connect",
       ], { method: "POST", headers });
+      console.log("[uazapi-proxy] connect result:", JSON.stringify(result).substring(0, 500));
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
