@@ -59,6 +59,7 @@ import {
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGHLUsers, GHLUser } from "@/hooks/useGHLUsers";
 import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
