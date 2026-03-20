@@ -52,7 +52,10 @@ import {
   Users,
   Eye,
   EyeOff,
-  Link2
+  Link2,
+  Pencil,
+  Check,
+  X
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
