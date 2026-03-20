@@ -38,6 +38,8 @@ interface PendingRegistration {
 
 export function RegisteredUsersPanel() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { startImpersonation } = useImpersonation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [updatingLimitId, setUpdatingLimitId] = useState<string | null>(null);
