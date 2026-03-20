@@ -474,9 +474,41 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-card-foreground truncate text-lg">
-                      {instance.instance_name}
-                    </h3>
+                    {isEditingName ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          ref={nameInputRef}
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          className="h-7 text-lg font-semibold w-36 px-1 py-0"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveName();
+                            if (e.key === "Escape") { setIsEditingName(false); setEditedName(instance.instance_name); }
+                          }}
+                          autoFocus
+                          disabled={savingName}
+                        />
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSaveName} disabled={savingName}>
+                          {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsEditingName(false); setEditedName(instance.instance_name); }}>
+                          <X className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 group/name">
+                        <h3 className="font-semibold text-card-foreground truncate text-lg">
+                          {instance.instance_name}
+                        </h3>
+                        <button
+                          onClick={() => { setIsEditingName(true); setEditedName(instance.instance_name); }}
+                          className="opacity-0 group-hover/name:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+                          title="Editar nome"
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
+                    )}
                     {serverOnline !== null && (
                       <div 
                         className={`h-2.5 w-2.5 rounded-full shrink-0 ${
