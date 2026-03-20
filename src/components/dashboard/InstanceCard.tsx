@@ -103,6 +103,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   } = useInstances();
   const { fetchLocationUsers } = useGHLUsers();
   const { settings } = useSettings();
+  const queryClient = useQueryClient();
   
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loadingQR, setLoadingQR] = useState(false);
