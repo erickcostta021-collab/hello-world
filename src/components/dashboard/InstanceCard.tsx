@@ -123,6 +123,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [localStatus, setLocalStatus] = useState<"connected" | "connecting" | "disconnected" | null>(null);
   const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(instance.instance_name);
+  const [savingName, setSavingName] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
   );
