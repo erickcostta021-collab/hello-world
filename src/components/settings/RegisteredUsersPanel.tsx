@@ -275,6 +275,13 @@ export function RegisteredUsersPanel() {
     toggleAccountMode.mutate({ userId, currentMode });
   };
 
+  const handleImpersonate = (userId: string, email: string) => {
+    startImpersonation(userId, email);
+    queryClient.invalidateQueries();
+    navigate("/dashboard");
+    toast.success(`Visualizando como ${email}`);
+  };
+
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
 
   return (
