@@ -472,7 +472,22 @@ export function RegisteredUsersPanel() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                                    onClick={() => handleImpersonate(user.user_id, user.email || "Sem email")}
+                                    title="Visualizar como este usuário"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="text-xs">Visualizar como este usuário</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                               variant="ghost"
                               size="icon"
                               className={`h-8 w-8 ${user.is_paused ? "text-green-600 hover:text-green-700 hover:bg-green-100" : "text-amber-600 hover:text-amber-700 hover:bg-amber-100"}`}
