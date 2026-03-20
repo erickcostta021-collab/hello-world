@@ -106,20 +106,20 @@ export function useAccountStatus() {
 
   // Realtime subscription: instantly reflect admin changes to profile
   useEffect(() => {
-    if (!user?.id) return;
+    if (!effectiveId) return;
 
     const channel = supabase
-      .channel(`profile-changes-${user.id}`)
+      .channel(`profile-changes-${effectiveId}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "profiles",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${effectiveId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["account-status", user.id] });
+          queryClient.invalidateQueries({ queryKey: ["account-status", effectiveId] });
         }
       )
       .subscribe();
@@ -127,7 +127,7 @@ export function useAccountStatus() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, queryClient]);
+  }, [effectiveId, queryClient]);
 
   return {
     ...(data ?? DEFAULT_STATUS),
