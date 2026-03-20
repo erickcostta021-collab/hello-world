@@ -55,20 +55,19 @@ serve(async (req) => {
 
     for (const profile of expiredProfiles) {
       try {
-        // 1. Unlink all instances from subaccounts for this user
-        const { data: unlinked, error: unlinkError } = await supabaseAdmin
+        // 1. Delete ALL instances for this user
+        const { data: deleted, error: deleteError } = await supabaseAdmin
           .from("instances")
-          .update({ subaccount_id: null })
+          .delete()
           .eq("user_id", profile.user_id)
-          .not("subaccount_id", "is", null)
           .select("id");
 
-        if (unlinkError) {
-          logStep("Error unlinking instances", { userId: profile.user_id, error: unlinkError.message });
+        if (deleteError) {
+          logStep("Error deleting instances", { userId: profile.user_id, error: deleteError.message });
           continue;
         }
 
-        const unlinkedCount = unlinked?.length ?? 0;
+        const deletedCount = deleted?.length ?? 0;
 
         // 2. Set is_paused = true (fully paused)
         const { error: pauseError } = await supabaseAdmin
@@ -81,10 +80,10 @@ serve(async (req) => {
           continue;
         }
 
-        logStep("Grace period expired - account paused and instances unlinked", {
+        logStep("Grace period expired - account paused and instances DELETED", {
           userId: profile.user_id,
           email: profile.email,
-          instancesUnlinked: unlinkedCount,
+          instancesDeleted: deletedCount,
         });
 
         processed++;

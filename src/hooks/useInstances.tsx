@@ -48,7 +48,7 @@ export function useInstances(subaccountId?: string) {
   const { user } = useAuth();
   const { settings } = useSettings();
   const { instanceLimit } = useProfile();
-  const { accountMode } = useAccountStatus();
+  const { accountMode, isInGracePeriod } = useAccountStatus();
   const queryClient = useQueryClient();
 
   const isSharedAccount = !!settings?.shared_from_user_id;
@@ -542,7 +542,8 @@ export function useInstances(subaccountId?: string) {
     linkedInstanceCount,
     unlinkedInstanceCount,
     totalInstanceCount: linkedInstanceCount + unlinkedInstanceCount,
-    canCreateInstance: instanceLimit === 0 || (linkedInstanceCount + unlinkedInstanceCount) < instanceLimit,
+    canCreateInstance: !isInGracePeriod && (instanceLimit === 0 || (linkedInstanceCount + unlinkedInstanceCount) < instanceLimit),
+    isInGracePeriod,
     isManagedMode,
   };
 }
