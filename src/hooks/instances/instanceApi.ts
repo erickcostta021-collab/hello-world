@@ -1,6 +1,6 @@
 /**
  * Pure async functions for UAZAPI API calls.
- * No React dependencies — fully testable and reusable.
+ * All calls are routed through the uazapi-proxy Edge Function to avoid CORS.
  */
 
 import type { Database } from "@/integrations/supabase/types";
@@ -33,49 +33,17 @@ export interface UazapiInstance {
 }
 
 // ---------------------------------------------------------------------------
-// Resilient fetch with timeout + retry
+// Proxy helper — all UAZAPI calls go through Edge Function
 // ---------------------------------------------------------------------------
 
-const DEFAULT_TIMEOUT_MS = 15000; // 15s
-const DEFAULT_MAX_RETRIES = 2;
-
-async function resilientFetch(
-  url: string,
-  init: RequestInit,
-  { timeoutMs = DEFAULT_TIMEOUT_MS, maxRetries = DEFAULT_MAX_RETRIES } = {},
-): Promise<Response> {
-  let lastError: Error | null = null;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { ...init, signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      // Retry on gateway errors
-      if ([502, 503, 504].includes(res.status) && attempt < maxRetries) {
-        console.warn(`[UAZAPI] ${res.status} on ${url}, retry ${attempt + 1}/${maxRetries}`);
-        await new Promise((r) => setTimeout(r, 1500));
-        continue;
-      }
-      return res;
-    } catch (e: any) {
-      clearTimeout(timeoutId);
-      lastError = e;
-      if (e.name === "AbortError" && attempt < maxRetries) {
-        console.warn(`[UAZAPI] Timeout on ${url}, retry ${attempt + 1}/${maxRetries}`);
-        await new Promise((r) => setTimeout(r, 1500));
-        continue;
-      }
-      throw e;
-    }
-  }
-  throw lastError || new Error("resilientFetch failed");
+async function callProxy(body: Record<string, any>): Promise<any> {
+  const { data, error } = await supabase.functions.invoke("uazapi-proxy", { body });
+  if (error) throw new Error(error.message || "Erro ao chamar proxy UAZAPI");
+  return data;
 }
 
 // ---------------------------------------------------------------------------
-// URL Resolution
+// URL Resolution (kept for backward compat but not used for fetch anymore)
 // ---------------------------------------------------------------------------
 
 export function getBaseUrlForInstance(
@@ -93,34 +61,16 @@ export function getBaseUrlForInstance(
 // ---------------------------------------------------------------------------
 
 export async function fetchAllUazapiInstances(
-  baseUrl: string,
-  adminToken: string,
+  _baseUrl: string,
+  _adminToken: string,
 ): Promise<UazapiInstance[]> {
-  const base = baseUrl.replace(/\/$/, "");
-  const candidatePaths = ["/instance/all", "/api/instance/all"];
+  const result = await callProxy({ action: "list-all" });
 
-  let response: Response | null = null;
-  for (const path of candidatePaths) {
-      const r = await resilientFetch(`${base}${path}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", admintoken: adminToken },
-      });
-    if (r.status === 404) continue;
-    response = r;
-    break;
+  if (!result?.ok) {
+    throw new Error(result?.data?.error || result?.data?.message || "Erro ao buscar instâncias");
   }
 
-  if (!response) {
-    throw new Error(
-      "Não encontrei um endpoint válido para listar instâncias (tente conferir se a API está usando o prefixo /api).",
-    );
-  }
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `Erro ${response.status} ao buscar instâncias`);
-  }
-
-  const data = await response.json();
+  const data = result.data;
   const instancesArray = Array.isArray(data) ? data : (data.instances || data.data || []);
 
   return instancesArray.map((inst: any) => ({
@@ -138,32 +88,14 @@ export async function fetchAllUazapiInstances(
 
 export async function fetchInstanceStatus(
   instance: Instance,
-  globalBaseUrl?: string | null,
+  _globalBaseUrl?: string | null,
 ): Promise<{ status: string; phone?: string; profilePicUrl?: string }> {
-  const base = getBaseUrlForInstance(instance, globalBaseUrl);
-
   try {
-    const candidatePaths = [
-      "/instance/status",
-      "/api/instance/status",
-      "/v2/instance/status",
-      "/api/v2/instance/status",
-    ];
+    const result = await callProxy({ action: "status", instanceId: instance.id });
 
-    let response: Response | null = null;
-    for (const path of candidatePaths) {
-      const r = await resilientFetch(`${base}${path}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-      });
-      if (r.status === 404) continue;
-      response = r;
-      break;
-    }
+    if (!result?.ok) return { status: "disconnected" };
 
-    if (!response || !response.ok) return { status: "disconnected" };
-
-    const data = await response.json();
+    const data = result.data;
     console.log("[UAZAPI] Status response:", JSON.stringify(data));
 
     const phone =
@@ -210,23 +142,17 @@ export async function fetchInstanceStatus(
 
 export async function checkInstanceExistsOnApi(
   instance: Instance,
-  globalBaseUrl?: string | null,
+  _globalBaseUrl?: string | null,
 ): Promise<boolean> {
   try {
-    const base = getBaseUrlForInstance(instance, globalBaseUrl);
-    const response = await fetch(`${base}/instance/status`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-    });
-
-    if ([401, 403, 404].includes(response.status)) return false;
-
-    const data = await response.json();
+    const result = await callProxy({ action: "status", instanceId: instance.id });
+    if (!result?.ok && [401, 403, 404].includes(result?.status)) return false;
+    const data = result?.data;
     if (
-      data.error === true ||
-      data.message?.toLowerCase().includes("not found") ||
-      data.message?.toLowerCase().includes("invalid") ||
-      data.message?.toLowerCase().includes("não encontrad")
+      data?.error === true ||
+      data?.message?.toLowerCase().includes("not found") ||
+      data?.message?.toLowerCase().includes("invalid") ||
+      data?.message?.toLowerCase().includes("não encontrad")
     ) {
       return false;
     }
@@ -242,98 +168,54 @@ export async function checkInstanceExistsOnApi(
 
 export async function connectInstanceOnApi(
   instance: Instance,
-  globalBaseUrl?: string | null,
+  _globalBaseUrl?: string | null,
 ): Promise<string | null> {
-  const base = getBaseUrlForInstance(instance, globalBaseUrl);
-  const response = await resilientFetch(`${base}/instance/connect`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-  });
-
-  if (!response.ok) return null;
-  const data = await response.json();
+  const result = await callProxy({ action: "connect", instanceId: instance.id });
+  if (!result?.ok) return null;
+  const data = result.data;
   return data.qrcode || data.instance?.qrcode || data.qr || data.base64 || null;
 }
 
 export async function getQRCodeFromApi(
   instance: Instance,
-  globalBaseUrl?: string | null,
+  _globalBaseUrl?: string | null,
 ): Promise<string> {
-  const base = getBaseUrlForInstance(instance, globalBaseUrl);
-  const headers = { "Content-Type": "application/json", token: instance.uazapi_instance_token };
-
   const extractQr = (data: any): string | null =>
     data?.qrcode || data?.instance?.qrcode || data?.qr || data?.base64 || data?.code || null;
 
   // 1. Try connect first (usually generates fresh QR)
   try {
-    const connectResponse = await fetch(`${base}/instance/connect`, {
-      method: "POST",
-      headers,
-    });
-    if (connectResponse.ok) {
-      const connectData = await connectResponse.json();
-      const qr = extractQr(connectData);
+    const connectResult = await callProxy({ action: "connect", instanceId: instance.id });
+    if (connectResult?.ok) {
+      const qr = extractQr(connectResult.data);
       if (qr) return qr;
     }
   } catch { /* continue */ }
 
-  // 2. Try dedicated qrcode endpoints (GET and POST)
-  const qrEndpoints = [
-    "/instance/qrcode",
-    "/qrcode",
-    "/instance/qr",
-    "/api/instance/qrcode",
-    "/api/instance/qr",
-    "/v2/instance/qrcode",
-    "/api/v2/instance/qrcode",
-  ];
-
-  for (const endpoint of qrEndpoints) {
-    for (const method of ["GET", "POST"] as const) {
-      try {
-        const response = await fetch(`${base}${endpoint}`, { method, headers });
-        if (response.ok) {
-          const data = await response.json();
-          const qr = extractQr(data);
-          if (qr) return qr;
-        }
-        if (response.status === 404 || response.status === 405) continue;
-      } catch { /* continue */ }
+  // 2. Try dedicated qrcode endpoint
+  try {
+    const qrResult = await callProxy({ action: "qrcode", instanceId: instance.id });
+    if (qrResult?.ok) {
+      const qr = extractQr(qrResult.data);
+      if (qr) return qr;
     }
-  }
+  } catch { /* continue */ }
 
   // 3. Force disconnect + reconnect to generate a fresh QR
   try {
-    const disconnectEndpoints = ["/instance/disconnect", "/instance/logout"];
-    for (const ep of disconnectEndpoints) {
-      try {
-        const r = await fetch(`${base}${ep}`, { method: "POST", headers });
-        if (r.ok || r.status === 200) break;
-      } catch { /* continue */ }
-    }
-
-    // Wait a moment for the server to process
+    await callProxy({ action: "disconnect", instanceId: instance.id });
     await new Promise((r) => setTimeout(r, 1500));
 
-    // Retry connect after disconnect
-    const reconnect = await fetch(`${base}/instance/connect`, { method: "POST", headers });
-    if (reconnect.ok) {
-      const data = await reconnect.json();
-      const qr = extractQr(data);
+    const reconnectResult = await callProxy({ action: "connect", instanceId: instance.id });
+    if (reconnectResult?.ok) {
+      const qr = extractQr(reconnectResult.data);
       if (qr) return qr;
     }
 
-    // Retry qrcode endpoint after disconnect
-    for (const endpoint of ["/instance/qrcode", "/qrcode"]) {
-      try {
-        const response = await fetch(`${base}${endpoint}`, { method: "GET", headers });
-        if (response.ok) {
-          const data = await response.json();
-          const qr = extractQr(data);
-          if (qr) return qr;
-        }
-      } catch { /* continue */ }
+    const qrRetry = await callProxy({ action: "qrcode", instanceId: instance.id });
+    if (qrRetry?.ok) {
+      const qr = extractQr(qrRetry.data);
+      if (qr) return qr;
     }
   } catch { /* continue */ }
 
@@ -342,44 +224,11 @@ export async function getQRCodeFromApi(
 
 export async function disconnectInstanceOnApi(
   instance: Instance,
-  globalBaseUrl?: string | null,
+  _globalBaseUrl?: string | null,
 ): Promise<void> {
-  const base = getBaseUrlForInstance(instance, globalBaseUrl);
-
-  const endpoints = [
-    { path: "/instance/disconnect", method: "POST" },
-    { path: "/instance/disconnect", method: "DELETE" },
-    { path: "/instance/disconnect", method: "GET" },
-    { path: "/instance/logout", method: "POST" },
-    { path: "/instance/logout", method: "DELETE" },
-    { path: "/instance/logout", method: "GET" },
-  ];
-
-  let success = false;
-  let lastError = "";
-
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(`${base}${endpoint.path}`, {
-        method: endpoint.method,
-        headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-      });
-
-      if (response.ok || response.status === 200) {
-        success = true;
-        break;
-      }
-      if (response.status === 404 || response.status === 405) continue;
-
-      const errorData = await response.json().catch(() => ({}));
-      lastError = errorData.message || `Erro ${response.status}`;
-    } catch {
-      continue;
-    }
-  }
-
-  if (!success) {
-    throw new Error(lastError || "Nenhum endpoint de desconexão funcionou neste servidor UAZAPI");
+  const result = await callProxy({ action: "disconnect", instanceId: instance.id });
+  if (!result?.ok) {
+    throw new Error("Nenhum endpoint de desconexão funcionou neste servidor UAZAPI");
   }
 }
 
@@ -388,25 +237,17 @@ export async function disconnectInstanceOnApi(
 // ---------------------------------------------------------------------------
 
 export async function createInstanceOnApi(
-  baseUrl: string,
-  adminToken: string,
+  _baseUrl: string,
+  _adminToken: string,
   name: string,
 ): Promise<string> {
-  const base = baseUrl.replace(/\/$/, "");
-  const response = await fetch(`${base}/instance/init`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", admintoken: adminToken },
-    body: JSON.stringify({ name, systemName: "Bridge-API" }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || "Erro ao criar instância na UAZAPI");
+  const result = await callProxy({ action: "create", name });
+  if (!result?.ok) {
+    const msg = result?.data?.message || result?.data?.error || result?.error || "Erro ao criar instância na UAZAPI";
+    throw new Error(msg);
   }
-
-  const uazapiData = await response.json();
-  const instanceToken = uazapiData.token || uazapiData.instance_token || uazapiData.instanceToken;
-
+  const data = result.data;
+  const instanceToken = data.token || data.instance_token || data.instanceToken;
   if (!instanceToken) {
     throw new Error("Token da instância não retornado pela API");
   }
@@ -415,47 +256,12 @@ export async function createInstanceOnApi(
 
 export async function deleteInstanceFromApi(
   instance: Instance,
-  adminToken: string,
-  globalBaseUrl?: string | null,
+  _adminToken: string,
+  _globalBaseUrl?: string | null,
 ): Promise<void> {
-  const deleteBase = instance.uazapi_base_url?.replace(/\/$/, "") || globalBaseUrl?.replace(/\/$/, "");
-  if (!deleteBase) throw new Error("Configurações UAZAPI não encontradas");
-
-  // Endpoint principal conforme curl da UAZAPI: DELETE /instance com header token
-  const endpoints = [
-    { path: "/instance", method: "DELETE" },
-    { path: "/instance/delete", method: "DELETE" },
-    { path: "/api/instance", method: "DELETE" },
-    { path: "/api/instance/delete", method: "DELETE" },
-  ];
-
-  let success = false;
-  let lastError = "";
-
-  for (const ep of endpoints) {
-    try {
-      const res = await fetch(`${deleteBase}${ep.path}`, {
-        method: ep.method,
-        headers: {
-          "Accept": "application/json",
-          "Content-Type": "application/json",
-          token: instance.uazapi_instance_token,
-        },
-      });
-      if (res.ok || res.status === 200) {
-        success = true;
-        break;
-      }
-      if (res.status === 404 || res.status === 405) continue;
-      lastError = `${ep.path} returned ${res.status}`;
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
-      continue;
-    }
-  }
-
-  if (!success) {
-    throw new Error(`Falha ao excluir instância na UAZAPI: ${lastError}`);
+  const result = await callProxy({ action: "delete", instanceId: instance.id });
+  if (!result?.ok) {
+    throw new Error("Falha ao excluir instância na UAZAPI");
   }
 }
 
@@ -521,20 +327,11 @@ export async function reconfigureWebhookOnApi(
 
 export async function checkServerHealth(
   instance: Instance,
-  globalBaseUrl?: string | null,
+  _globalBaseUrl?: string | null,
 ): Promise<boolean> {
   try {
-    const base = getBaseUrlForInstance(instance, globalBaseUrl);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    
-    const response = await fetch(`${base}/instance/status`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json", token: instance.uazapi_instance_token },
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-    return response.ok || response.status < 500;
+    const result = await callProxy({ action: "health", instanceId: instance.id });
+    return result?.ok === true;
   } catch {
     return false;
   }

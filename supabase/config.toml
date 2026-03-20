@@ -118,3 +118,6 @@ verify_jwt = false
 
 [functions.scheduled-messages-proxy]
 verify_jwt = false
+
+[functions.uazapi-proxy]
+verify_jwt = false
