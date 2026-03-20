@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus, Search, Clock, ToggleLeft, ToggleRight, Wifi, WifiOff } from "lucide-react";
+import { Loader2, Trash2, Users, RefreshCw, Pause, Play, Plus, Minus, Search, Clock, ToggleLeft, ToggleRight, Wifi, WifiOff, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -13,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useImpersonation } from "@/hooks/useImpersonation";
 
 interface RegisteredUser {
   id: string;
@@ -36,6 +38,8 @@ interface PendingRegistration {
 
 export function RegisteredUsersPanel() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { startImpersonation } = useImpersonation();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [updatingLimitId, setUpdatingLimitId] = useState<string | null>(null);
@@ -271,6 +275,13 @@ export function RegisteredUsersPanel() {
     toggleAccountMode.mutate({ userId, currentMode });
   };
 
+  const handleImpersonate = (userId: string, email: string) => {
+    startImpersonation(userId, email);
+    queryClient.invalidateQueries();
+    navigate("/dashboard");
+    toast.success(`Visualizando como ${email}`);
+  };
+
   const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
 
   return (
@@ -461,8 +472,23 @@ export function RegisteredUsersPanel() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                                    onClick={() => handleImpersonate(user.user_id, user.email || "Sem email")}
+                                    title="Visualizar como este usuário"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p className="text-xs">Visualizar como este usuário</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                             <Button
-                              variant="ghost"
                               size="icon"
                               className={`h-8 w-8 ${user.is_paused ? "text-green-600 hover:text-green-700 hover:bg-green-100" : "text-amber-600 hover:text-amber-700 hover:bg-amber-100"}`}
                               disabled={togglingId === user.user_id}

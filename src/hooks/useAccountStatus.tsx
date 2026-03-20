@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { useImpersonation } from "./useImpersonation";
 
 const GRACE_PERIOD_DAYS = 3;
 
@@ -49,16 +50,18 @@ const DEFAULT_STATUS: AccountStatus = {
 export function useAccountStatus() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
+  const effectiveId = impersonatedUserId || user?.id;
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["account-status", user?.id],
+    queryKey: ["account-status", effectiveId],
     queryFn: async (): Promise<AccountStatus> => {
-      if (!user) return DEFAULT_STATUS;
+      if (!effectiveId) return DEFAULT_STATUS;
 
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveId)
         .maybeSingle();
 
       if (error) throw error;
@@ -97,26 +100,26 @@ export function useAccountStatus() {
         accountMode,
       };
     },
-    enabled: !!user,
+    enabled: !!effectiveId,
     staleTime: 1000 * 60,
   });
 
   // Realtime subscription: instantly reflect admin changes to profile
   useEffect(() => {
-    if (!user?.id) return;
+    if (!effectiveId) return;
 
     const channel = supabase
-      .channel(`profile-changes-${user.id}`)
+      .channel(`profile-changes-${effectiveId}`)
       .on(
         "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
           table: "profiles",
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${effectiveId}`,
         },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["account-status", user.id] });
+          queryClient.invalidateQueries({ queryKey: ["account-status", effectiveId] });
         }
       )
       .subscribe();
@@ -124,7 +127,7 @@ export function useAccountStatus() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, queryClient]);
+  }, [effectiveId, queryClient]);
 
   return {
     ...(data ?? DEFAULT_STATUS),

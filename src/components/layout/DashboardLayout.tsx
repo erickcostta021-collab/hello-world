@@ -1,5 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { DashboardHeader } from "./DashboardHeader";
+import { ImpersonationBanner } from "./ImpersonationBanner";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -8,6 +9,9 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex flex-col min-h-screen bg-background relative">
+      {/* Impersonation Banner */}
+      <ImpersonationBanner />
+
       {/* Background Grid Pattern - same as landing page but green */}
       <div className="fixed inset-0 pointer-events-none">
         <div

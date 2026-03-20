@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
+import { useImpersonation } from "./useImpersonation";
 import { toast } from "sonner";
 import { getOAuthRedirectUri } from "@/lib/canonicalOrigin";
 
@@ -89,21 +90,23 @@ async function configureGlobalWebhook(
 export function useSettings() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
+  const effectiveId = impersonatedUserId || user?.id;
 
   const { data: settings, isLoading } = useQuery({
-    queryKey: ["user-settings", user?.id],
+    queryKey: ["user-settings", effectiveId],
     queryFn: async () => {
-      if (!user) return null;
+      if (!effectiveId) return null;
       const { data, error } = await supabase
         .from("user_settings")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveId)
         .maybeSingle();
 
       if (error) throw error;
       return data as UserSettings | null;
     },
-    enabled: !!user,
+    enabled: !!effectiveId,
   });
 
   const updateSettings = useMutation({
