@@ -75,7 +75,16 @@ export function CreateUnlinkedInstanceDialog() {
             />
           </div>
 
-          {!canCreateInstance && instanceLimit > 0 && (
+          {isInGracePeriod && (
+            <Alert className="border-destructive/50 bg-destructive/10">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-sm text-destructive">
+                Pagamento pendente. A criação de novas instâncias está bloqueada. Regularize seu pagamento para continuar.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {!canCreateInstance && !isInGracePeriod && instanceLimit > 0 && (
             <Alert className="border-destructive/50 bg-destructive/10">
               <AlertTriangle className="h-4 w-4 text-destructive" />
               <AlertDescription className="text-sm text-destructive">
