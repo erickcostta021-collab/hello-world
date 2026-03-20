@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useAccountStatus } from "@/hooks/useAccountStatus";
+import { useImpersonation } from "@/hooks/useImpersonation";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef } from "react";
@@ -68,20 +69,24 @@ function PageLoader() {
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useAuth();
   const { isPaused, isLoading: statusLoading } = useAccountStatus();
+  const isImpersonating = useImpersonation((s) => !!s.impersonatedUserId);
   const didSignOutRef = useRef(false);
 
+  // Only enforce pause check on the real user, not when impersonating
+  const effectivelyPaused = !isImpersonating && isPaused;
+
   useEffect(() => {
-    if (!statusLoading && isPaused && !didSignOutRef.current) {
+    if (!statusLoading && effectivelyPaused && !didSignOutRef.current) {
       didSignOutRef.current = true;
       signOut();
     }
-  }, [isPaused, statusLoading, signOut]);
+  }, [effectivelyPaused, statusLoading, signOut]);
 
   if (loading || statusLoading) {
     return <PageLoader />;
   }
 
-  if (!user || isPaused) {
+  if (!user || effectivelyPaused) {
     return <Navigate to="/login" replace />;
   }
 
