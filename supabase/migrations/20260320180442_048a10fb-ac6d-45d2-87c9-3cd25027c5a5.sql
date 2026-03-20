@@ -1,0 +1,1 @@
+DELETE FROM instances WHERE uazapi_base_url ILIKE '%renan%';
