@@ -208,6 +208,20 @@ export function RegisteredUsersPanel() {
   const toggleAccountMode = useMutation({
     mutationFn: async ({ userId, currentMode }: { userId: string; currentMode: string | null }) => {
       const newMode = currentMode === "connections" ? "instances" : "connections";
+      
+      // When switching to "instances" mode, unlink all instances from subaccounts
+      if (newMode === "instances") {
+        const { error: unlinkError } = await supabase
+          .from("instances")
+          .update({ subaccount_id: null })
+          .eq("user_id", userId)
+          .not("subaccount_id", "is", null);
+
+        if (unlinkError) {
+          console.warn("Erro ao desvincular instâncias:", unlinkError);
+        }
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({ account_mode: newMode })
@@ -218,8 +232,10 @@ export function RegisteredUsersPanel() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["registered-users"] });
+      queryClient.invalidateQueries({ queryKey: ["instances"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
       toast.success(data.newMode === "instances" 
-        ? "Modo alterado para Instâncias Gerenciadas" 
+        ? "Modo alterado para Instâncias Gerenciadas (instâncias desvinculadas)" 
         : "Modo alterado para Conexões");
       setTogglingModeId(null);
     },
