@@ -368,7 +368,32 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     setWebhookDialogOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleSaveName = async () => {
+    const trimmed = editedName.trim();
+    if (!trimmed || trimmed === instance.instance_name) {
+      setIsEditingName(false);
+      setEditedName(instance.instance_name);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const { error } = await supabase
+        .from("instances")
+        .update({ instance_name: trimmed })
+        .eq("id", instance.id);
+      if (error) throw error;
+      toast.success("Nome atualizado!");
+      setIsEditingName(false);
+      // Refresh instances query
+      window.dispatchEvent(new Event("refetch-instances"));
+    } catch (err: any) {
+      toast.error("Erro ao atualizar nome: " + err.message);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+
     if (deleteFromUazapi) {
       deleteInstance.mutate({ instance, deleteFromUazapi: true });
     } else {
