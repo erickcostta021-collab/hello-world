@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo, useCallback } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -52,10 +52,14 @@ import {
   Users,
   Eye,
   EyeOff,
-  Link2
+  Link2,
+  Pencil,
+  Check,
+  X
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGHLUsers, GHLUser } from "@/hooks/useGHLUsers";
 import { useSettings } from "@/hooks/useSettings";
 import { toast } from "sonner";
@@ -99,6 +103,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   } = useInstances();
   const { fetchLocationUsers } = useGHLUsers();
   const { settings } = useSettings();
+  const queryClient = useQueryClient();
   
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loadingQR, setLoadingQR] = useState(false);
@@ -120,6 +125,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [localStatus, setLocalStatus] = useState<"connected" | "connecting" | "disconnected" | null>(null);
   const [embedTabsDialogOpen, setEmbedTabsDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(instance.instance_name);
+  const [savingName, setSavingName] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
   );
@@ -361,11 +370,36 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     setWebhookDialogOpen(false);
   };
 
+  const handleSaveName = async () => {
+    const trimmed = editedName.trim();
+    if (!trimmed || trimmed === instance.instance_name) {
+      setIsEditingName(false);
+      setEditedName(instance.instance_name);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const { error } = await supabase
+        .from("instances")
+        .update({ instance_name: trimmed })
+        .eq("id", instance.id);
+      if (error) throw error;
+      toast.success("Nome atualizado!");
+      setIsEditingName(false);
+      // Refresh instances query
+      queryClient.invalidateQueries({ queryKey: ["instances"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
+    } catch (err: any) {
+      toast.error("Erro ao atualizar nome: " + err.message);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   const handleDelete = () => {
     if (deleteFromUazapi) {
       deleteInstance.mutate({ instance, deleteFromUazapi: true });
     } else {
-      // Unlink: remove subaccount_id but keep instance
       unlinkInstance.mutate(instance);
     }
     setDeleteDialogOpen(false);
@@ -443,9 +477,41 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-card-foreground truncate text-lg">
-                      {instance.instance_name}
-                    </h3>
+                    {isEditingName ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          ref={nameInputRef}
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          className="h-7 text-lg font-semibold w-36 px-1 py-0"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveName();
+                            if (e.key === "Escape") { setIsEditingName(false); setEditedName(instance.instance_name); }
+                          }}
+                          autoFocus
+                          disabled={savingName}
+                        />
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSaveName} disabled={savingName}>
+                          {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsEditingName(false); setEditedName(instance.instance_name); }}>
+                          <X className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 group/name">
+                        <h3 className="font-semibold text-card-foreground truncate text-lg">
+                          {instance.instance_name}
+                        </h3>
+                        <button
+                          onClick={() => { setIsEditingName(true); setEditedName(instance.instance_name); }}
+                          className="opacity-0 group-hover/name:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+                          title="Editar nome"
+                        >
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
+                    )}
                     {serverOnline !== null && (
                       <div 
                         className={`h-2.5 w-2.5 rounded-full shrink-0 ${
