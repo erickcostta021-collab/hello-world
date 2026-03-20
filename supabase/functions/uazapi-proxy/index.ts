@@ -285,10 +285,12 @@ Deno.serve(async (req) => {
 
     // ── status ──
     if (action === "status") {
+      console.log("[uazapi-proxy] status:", { baseUrl, instanceId, token: token.substring(0, 8) });
       const result = await tryPaths(baseUrl, [
         "/instance/status", "/api/instance/status",
         "/v2/instance/status", "/api/v2/instance/status",
       ], { method: "GET", headers });
+      console.log("[uazapi-proxy] status result:", { ok: result.ok, status: result.status });
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -297,10 +299,12 @@ Deno.serve(async (req) => {
 
     // ── connect ──
     if (action === "connect") {
+      console.log("[uazapi-proxy] connect:", { baseUrl, instanceId, token: token.substring(0, 8) });
       const result = await tryPaths(baseUrl, [
         "/instance/connect", "/api/instance/connect",
         "/v2/instance/connect", "/api/v2/instance/connect",
       ], { method: "POST", headers });
+      console.log("[uazapi-proxy] connect result:", JSON.stringify(result).substring(0, 500));
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
