@@ -387,7 +387,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       toast.success("Nome atualizado!");
       setIsEditingName(false);
       // Refresh instances query
-      window.dispatchEvent(new Event("refetch-instances"));
+      queryClient.invalidateQueries({ queryKey: ["instances"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
     } catch (err: any) {
       toast.error("Erro ao atualizar nome: " + err.message);
     } finally {
