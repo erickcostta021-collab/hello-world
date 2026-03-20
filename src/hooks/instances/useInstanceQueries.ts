@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useImpersonation } from "@/hooks/useImpersonation";
 import { getEffectiveUserId } from "@/hooks/useSettings";
 import type { Instance } from "./instanceApi";
 
@@ -9,12 +10,13 @@ import type { Instance } from "./instanceApi";
  */
 export function useInstanceList(subaccountId?: string, sharedFromUserId?: string | null) {
   const { user } = useAuth();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
 
   return useQuery({
-    queryKey: ["instances", user?.id, subaccountId, sharedFromUserId],
+    queryKey: ["instances", user?.id, impersonatedUserId, subaccountId, sharedFromUserId],
     queryFn: async () => {
       if (!user) return [];
-      const effectiveUserId = await getEffectiveUserId(user.id);
+      const effectiveUserId = impersonatedUserId || await getEffectiveUserId(user.id);
 
       let query = supabase
         .from("instances")
@@ -38,12 +40,13 @@ export function useInstanceList(subaccountId?: string, sharedFromUserId?: string
  */
 export function useLinkedInstanceCount(sharedFromUserId?: string | null) {
   const { user } = useAuth();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
 
   return useQuery({
-    queryKey: ["instance-count-linked", user?.id, sharedFromUserId],
+    queryKey: ["instance-count-linked", user?.id, impersonatedUserId, sharedFromUserId],
     queryFn: async () => {
       if (!user) return 0;
-      const effectiveUserId = await getEffectiveUserId(user.id);
+      const effectiveUserId = impersonatedUserId || await getEffectiveUserId(user.id);
 
       const { count, error } = await supabase
         .from("instances")
@@ -63,12 +66,13 @@ export function useLinkedInstanceCount(sharedFromUserId?: string | null) {
  */
 export function useUnlinkedInstanceCount(sharedFromUserId?: string | null) {
   const { user } = useAuth();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
 
   return useQuery({
-    queryKey: ["instance-count-unlinked", user?.id, sharedFromUserId],
+    queryKey: ["instance-count-unlinked", user?.id, impersonatedUserId, sharedFromUserId],
     queryFn: async () => {
       if (!user) return 0;
-      const effectiveUserId = await getEffectiveUserId(user.id);
+      const effectiveUserId = impersonatedUserId || await getEffectiveUserId(user.id);
 
       const { count, error } = await supabase
         .from("instances")
