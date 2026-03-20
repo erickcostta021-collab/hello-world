@@ -85,6 +85,24 @@ export default function Settings() {
   }, [settings]);
 
   const handleSave = async () => {
+    // Check if user is clearing UAZAPI credentials
+    const wasConfigured = settings?.uazapi_base_url && settings?.uazapi_admin_token;
+    const isClearing = wasConfigured && (!formData.uazapi_base_url || !formData.uazapi_admin_token);
+
+    // If clearing UAZAPI credentials, delete all user instances
+    if (isClearing && user) {
+      const { error: deleteError } = await supabase
+        .from("instances")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (deleteError) {
+        console.warn("Erro ao excluir instâncias:", deleteError);
+      } else {
+        toast.info("Instâncias removidas do sistema (credenciais UAZAPI limpas)");
+      }
+    }
+
     // Save settings first
     await new Promise<void>((resolve, reject) => {
       updateSettings.mutate(formData, {

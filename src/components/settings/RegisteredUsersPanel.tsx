@@ -211,14 +211,13 @@ export function RegisteredUsersPanel() {
       
       // When switching to "instances" mode, unlink all instances from subaccounts
       if (newMode === "instances") {
-        const { error: unlinkError } = await supabase
+        const { error: deleteError } = await supabase
           .from("instances")
-          .update({ subaccount_id: null })
-          .eq("user_id", userId)
-          .not("subaccount_id", "is", null);
+          .delete()
+          .eq("user_id", userId);
 
-        if (unlinkError) {
-          console.warn("Erro ao desvincular instâncias:", unlinkError);
+        if (deleteError) {
+          console.warn("Erro ao excluir instâncias:", deleteError);
         }
       }
 
