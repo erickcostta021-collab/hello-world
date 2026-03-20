@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CANONICAL_APP_ORIGIN } from "@/lib/canonicalOrigin";
 import { useAuth } from "@/hooks/useAuth";
+import { useImpersonation } from "@/hooks/useImpersonation";
 import { getEffectiveUserId } from "@/hooks/useSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Instance } from "@/hooks/instances/instanceApi";
@@ -36,6 +37,7 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<"subaccounts" | "all-instances">("subaccounts");
   const [instanceSearch, setInstanceSearch] = useState("");
   const { user } = useAuth();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
   const { subaccounts, isLoading, syncSubaccounts, isSharedAccount } = useSubaccounts();
   const { instances, syncAllInstancesStatus, linkedInstanceCount, unlinkedInstanceCount, instanceLimit, isManagedMode } = useInstances(selectedSubaccount?.id);
   const { settings } = useSettings();
@@ -43,10 +45,10 @@ export default function Dashboard() {
 
   // Query all instances for the "all instances" view
   const { data: allInstances = [], isLoading: allInstancesLoading } = useQuery({
-    queryKey: ["all-instances-dashboard", user?.id],
+    queryKey: ["all-instances-dashboard", user?.id, impersonatedUserId],
     queryFn: async () => {
       if (!user) return [];
-      const effectiveUserId = await getEffectiveUserId(user.id);
+      const effectiveUserId = impersonatedUserId || await getEffectiveUserId(user.id);
       const { data, error } = await supabase
         .from("instances")
         .select("*")
