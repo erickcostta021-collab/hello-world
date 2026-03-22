@@ -229,10 +229,12 @@ Deno.serve(async (req) => {
     // Resolve base URL
     let baseUrl = inst.uazapi_base_url || "";
     if (!baseUrl) {
+      // Use instance owner's settings (important for impersonation)
+      const settingsUserId = inst.user_id || user.id;
       const { data: settings } = await admin
         .from("user_settings")
         .select("uazapi_base_url")
-        .eq("user_id", user.id)
+        .eq("user_id", settingsUserId)
         .maybeSingle();
       baseUrl = settings?.uazapi_base_url || "";
     }
