@@ -379,6 +379,17 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     }
     setSavingName(true);
     try {
+      // Update name on UAZAPI server
+      const { data: proxyResult, error: proxyError } = await supabase.functions.invoke("uazapi-proxy", {
+        body: { action: "rename", instanceId: instance.id, name: trimmed },
+      });
+      if (proxyError) {
+        console.warn("Falha ao renomear na UAZAPI:", proxyError.message);
+      } else if (!proxyResult?.ok) {
+        console.warn("UAZAPI rename não ok:", proxyResult);
+      }
+
+      // Update name in local database
       const { error } = await supabase
         .from("instances")
         .update({ instance_name: trimmed })
@@ -386,7 +397,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       if (error) throw error;
       toast.success("Nome atualizado!");
       setIsEditingName(false);
-      // Refresh instances query
       queryClient.invalidateQueries({ queryKey: ["instances"] });
       queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
     } catch (err: any) {
