@@ -488,7 +488,15 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     {isEditingName ? (
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSaveName} disabled={savingName}>
+                            {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsEditingName(false); setEditedName(instance.instance_name); }}>
+                            <X className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
                         <Input
                           ref={nameInputRef}
                           value={editedName}
@@ -501,12 +509,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                           autoFocus
                           disabled={savingName}
                         />
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSaveName} disabled={savingName}>
-                          {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-400" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsEditingName(false); setEditedName(instance.instance_name); }}>
-                          <X className="h-3.5 w-3.5 text-destructive" />
-                        </Button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 group/name">
