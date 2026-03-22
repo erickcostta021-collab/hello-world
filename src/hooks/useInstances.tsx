@@ -342,7 +342,11 @@ export function useInstances(subaccountId?: string) {
   const deleteInstance = useMutation({
     mutationFn: async ({ instance, deleteFromUazapi = false }: { instance: Instance; deleteFromUazapi?: boolean }) => {
       if (deleteFromUazapi) {
-        await deleteInstanceFromApi(instance, settings?.uazapi_admin_token || "", globalBaseUrl);
+        try {
+          await deleteInstanceFromApi(instance, settings?.uazapi_admin_token || "", globalBaseUrl);
+        } catch (apiErr: any) {
+          console.warn("Falha ao excluir na UAZAPI (continuando exclusão local):", apiErr.message);
+        }
       }
       const { error } = await supabase.from("instances").delete().eq("id", instance.id);
       if (error) throw error;
