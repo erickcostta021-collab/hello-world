@@ -204,13 +204,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch instance (must belong to the authenticated user)
-    const { data: inst, error: instErr } = await admin
+    // Fetch instance (must belong to the authenticated user, or user is admin)
+    const { data: isAdminResult } = await admin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    const isUserAdmin = isAdminResult === true;
+
+    let instQuery = admin
       .from("instances")
       .select("id, uazapi_instance_token, uazapi_base_url, user_id")
-      .eq("id", instanceId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .eq("id", instanceId);
+
+    if (!isUserAdmin) {
+      instQuery = instQuery.eq("user_id", user.id);
+    }
+
+    const { data: inst, error: instErr } = await instQuery.maybeSingle();
 
     if (instErr || !inst) {
       return new Response(JSON.stringify({ error: "Instância não encontrada" }), {
@@ -222,10 +229,12 @@ Deno.serve(async (req) => {
     // Resolve base URL
     let baseUrl = inst.uazapi_base_url || "";
     if (!baseUrl) {
+      // Use instance owner's settings (important for impersonation)
+      const settingsUserId = inst.user_id || user.id;
       const { data: settings } = await admin
         .from("user_settings")
         .select("uazapi_base_url")
-        .eq("user_id", user.id)
+        .eq("user_id", settingsUserId)
         .maybeSingle();
       baseUrl = settings?.uazapi_base_url || "";
     }
