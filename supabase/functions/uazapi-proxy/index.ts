@@ -416,6 +416,7 @@ Deno.serve(async (req) => {
     // ── rename ──
     if (action === "rename") {
       const newName = String(body?.name || "").trim();
+      console.log("[uazapi-proxy] rename:", { instanceId, newName, baseUrl, token: token.substring(0, 8) });
       if (!newName) {
         return new Response(JSON.stringify({ error: "name obrigatório" }), {
           status: 400,
@@ -430,6 +431,7 @@ Deno.serve(async (req) => {
         headers,
         body: JSON.stringify({ name: newName }),
       });
+      console.log("[uazapi-proxy] rename result:", JSON.stringify(result));
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
