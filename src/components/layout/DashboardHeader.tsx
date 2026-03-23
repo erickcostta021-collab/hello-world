@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
-import { useSubscription } from "@/hooks/useSubscription";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { useSettings } from "@/hooks/useSettings";
 import { useSidebarState } from "@/hooks/useSidebarState";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
@@ -25,7 +25,7 @@ import circleLogo from "@/assets/bridge-circle-logo.png";
 export function DashboardHeader() {
   const { signOut } = useAuth();
   const { profile } = useProfile();
-  const { hasActiveSubscription } = useSubscription();
+  const { hasActiveSubscription, hasStripeSubscription } = useAccountStatus();
   const { getOAuthUrl } = useSettings();
   const { toggle } = useSidebarState();
   const navigate = useNavigate();
@@ -177,7 +177,7 @@ export function DashboardHeader() {
               <KeyRound className="h-4 w-4 mr-2" />
               Alterar Senha
             </DropdownMenuItem>
-            {hasActiveSubscription && (
+            {hasStripeSubscription && (
               <>
                 <PlansDialog>
                   <DropdownMenuItem
