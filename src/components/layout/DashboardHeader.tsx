@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Menu, KeyRound, LogOut, CreditCard, User, Wallet, ExternalLink } from "lucide-react";
+import { Menu, KeyRound, LogOut, CreditCard, User, Wallet, ExternalLink, ArrowUpCircle } from "lucide-react";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import circleLogo from "@/assets/bridge-circle-logo.png";
