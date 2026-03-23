@@ -178,14 +178,25 @@ export function DashboardHeader() {
               Alterar Senha
             </DropdownMenuItem>
             {hasActiveSubscription && (
-              <DropdownMenuItem
-                onClick={handleManagePayment}
-                disabled={loadingPortal}
-                className="cursor-pointer"
-              >
-                <Wallet className="h-4 w-4 mr-2" />
-                {loadingPortal ? "Abrindo..." : "Gerenciar Pagamento"}
-              </DropdownMenuItem>
+              <>
+                <PlansDialog>
+                  <DropdownMenuItem
+                    onSelect={(e) => e.preventDefault()}
+                    className="cursor-pointer"
+                  >
+                    <ArrowUpCircle className="h-4 w-4 mr-2" />
+                    Atualizar Assinatura
+                  </DropdownMenuItem>
+                </PlansDialog>
+                <DropdownMenuItem
+                  onClick={handleManagePayment}
+                  disabled={loadingPortal}
+                  className="cursor-pointer"
+                >
+                  <Wallet className="h-4 w-4 mr-2" />
+                  {loadingPortal ? "Abrindo..." : "Gerenciar Pagamento"}
+                </DropdownMenuItem>
+              </>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
