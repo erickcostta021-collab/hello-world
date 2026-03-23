@@ -141,12 +141,14 @@ serve(async (req) => {
 
       if (user) {
         // Update existing user's instance limit and clear any grace period
+        const stripeCustomerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
         const { error: updateError } = await supabaseAdmin
           .from("profiles")
           .update({ 
             instance_limit: instanceLimit,
             is_paused: false,
-            paused_at: null, // Clear grace period on successful subscription
+            paused_at: null,
+            stripe_customer_id: stripeCustomerId || null,
           })
           .eq("user_id", user.id);
 

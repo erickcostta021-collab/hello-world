@@ -18,6 +18,7 @@ export interface ProfileData {
   paused_at: string | null;
   instance_limit: number;
   account_mode: AccountMode | null;
+  stripe_customer_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +30,7 @@ export interface AccountStatus {
   isInGracePeriod: boolean;
   gracePeriodEndsAt: Date | null;
   hasActiveSubscription: boolean;
+  hasStripeSubscription: boolean;
   accountMode: AccountMode;
 }
 
@@ -39,6 +41,7 @@ const DEFAULT_STATUS: AccountStatus = {
   isInGracePeriod: false,
   gracePeriodEndsAt: null,
   hasActiveSubscription: false,
+  hasStripeSubscription: false,
   accountMode: "instances",
 };
 
@@ -88,6 +91,7 @@ export function useAccountStatus() {
       }
 
       const hasActiveSubscription = instanceLimit > 0 && !isPaused;
+      const hasStripeSubscription = !!profile.stripe_customer_id;
       const accountMode: AccountMode = (profile.account_mode as AccountMode) || "instances";
 
       return {
@@ -97,6 +101,7 @@ export function useAccountStatus() {
         isInGracePeriod,
         gracePeriodEndsAt,
         hasActiveSubscription,
+        hasStripeSubscription,
         accountMode,
       };
     },

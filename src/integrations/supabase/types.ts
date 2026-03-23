@@ -350,6 +350,7 @@ export type Database = {
           is_paused: boolean
           paused_at: string | null
           phone: string | null
+          stripe_customer_id: string | null
           updated_at: string
           user_id: string
         }
@@ -363,6 +364,7 @@ export type Database = {
           is_paused?: boolean
           paused_at?: string | null
           phone?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -376,6 +378,7 @@ export type Database = {
           is_paused?: boolean
           paused_at?: string | null
           phone?: string | null
+          stripe_customer_id?: string | null
           updated_at?: string
           user_id?: string
         }
