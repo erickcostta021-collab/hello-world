@@ -287,7 +287,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [addInvisibleChars, setAddInvisibleChars] = useState(true);
   const [addRandomSpacing, setAddRandomSpacing] = useState(false);
   const [splitMessages, setSplitMessages] = useState(false);
-  const [splitDelay] = useState("2"); // kept for backward compat but UI removed
+  const [splitDelay, setSplitDelay] = useState("2");
   const [antiBanButton, setAntiBanButton] = useState(false);
   const [antiBanBtnTitle, setAntiBanBtnTitle] = useState("Comunicação Oficial");
   const [antiBanBtnFooter, setAntiBanBtnFooter] = useState("Responda para confirmar");
