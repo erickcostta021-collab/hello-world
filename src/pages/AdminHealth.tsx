@@ -208,12 +208,17 @@ export default function AdminHealth() {
               <p className="text-xs text-muted-foreground mt-1">Webhooks Processados</p>
             </CardContent>
           </Card>
-          <Card className="bg-card/50 border-border/50">
+          <Card className="bg-card/50 border-border/50 relative cursor-pointer" onClick={() => setShowErrors(!showErrors)}>
             <CardContent className="p-4">
-              <div className={`text-2xl font-bold ${(metrics?.errorCount || 0) > 0 ? "text-destructive" : "text-emerald-400"}`}>
-                {metrics?.errorCount || 0}
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className={`text-2xl font-bold ${(metrics?.errorCount || 0) > 0 ? "text-destructive" : "text-emerald-400"}`}>
+                    {showErrors ? (metrics?.errorCount || 0) : "••"}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Total de Erros</p>
+                </div>
+                {showErrors ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Total de Erros</p>
             </CardContent>
           </Card>
           <Card className="bg-card/50 border-border/50">
