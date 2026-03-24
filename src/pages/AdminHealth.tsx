@@ -200,11 +200,19 @@ export default function AdminHealth() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <Card className="bg-card/50 border-border/50">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-foreground">{metrics?.totalRequests || 0}</div>
               <p className="text-xs text-muted-foreground mt-1">Webhooks Processados</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card/50 border-border/50">
+            <CardContent className="p-4">
+              <div className={`text-2xl font-bold ${(metrics?.errorCount || 0) > 0 ? "text-destructive" : "text-emerald-400"}`}>
+                {metrics?.errorCount || 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Total de Erros</p>
             </CardContent>
           </Card>
           <Card className="bg-card/50 border-border/50">
