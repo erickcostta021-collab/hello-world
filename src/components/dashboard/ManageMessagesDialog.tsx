@@ -287,7 +287,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const [addInvisibleChars, setAddInvisibleChars] = useState(true);
   const [addRandomSpacing, setAddRandomSpacing] = useState(false);
   const [splitMessages, setSplitMessages] = useState(false);
-  const [splitDelay] = useState("2"); // kept for backward compat but UI removed
+  const [splitDelay, setSplitDelay] = useState("2");
   const [antiBanButton, setAntiBanButton] = useState(false);
   const [antiBanBtnTitle, setAntiBanBtnTitle] = useState("Comunicação Oficial");
   const [antiBanBtnFooter, setAntiBanBtnFooter] = useState("Responda para confirmar");
@@ -1264,18 +1264,92 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
           else toast.success(`Round-robin personalizado! ${messages.length} msgs em ${instances.length} instâncias.`);
         }
-      } else if (antiBanEnabled && antiBanButton) {
-        // Anti-ban button active: use advanced mode to send 2 messages per contact
-        // (original message + button message)
-        let bodyText = text;
-        if (antiBanEnabled) {
-          bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
+      } else if (antiBanEnabled) {
+        // Anti-ban active: use custom advanced system (not UAZAPI simple)
+        let bodyText = applyAntiBan(text, addInvisibleChars, addRandomSpacing);
+
+        if (splitMessages) {
+          // Split + anti-ban → waves
+          const parts = splitMessageByTripleBreak(bodyText);
+          const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
+          const campaignUid = Date.now().toString(36);
+          const campaignInfo = folder || "Campanha Bridge";
+
+          const contactWaves: Record<string, unknown>[][] = [];
+          for (let w = 0; w < parts.length; w++) {
+            const wave: Record<string, unknown>[] = [];
+            for (const num of numberList) {
+              const cleanNum = num.replace("@s.whatsapp.net", "");
+              const msg: Record<string, unknown> = { number: cleanNum, type: messageType };
+              if (parts[w]) msg.text = parts[w];
+              if (w === 0 && fileUrl) msg.file = fileUrl;
+              if (w === 0 && docName) msg.docName = docName;
+              if (linkPreview) msg.linkPreview = true;
+              if (w > 0) msg.splitPart = true;
+              wave.push(msg);
+            }
+            contactWaves.push(wave);
+          }
+
+          // Add anti-ban button wave if enabled
+          if (antiBanButton) {
+            const btnWave: Record<string, unknown>[] = [];
+            for (const num of numberList) {
+              const cleanNum = num.replace("@s.whatsapp.net", "");
+              btnWave.push({
+                number: cleanNum, type: "button",
+                text: antiBanBtnMessage, footerText: antiBanBtnFooter,
+                buttonText: antiBanBtnTitle,
+                choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+                splitPart: true,
+              });
+            }
+            contactWaves.push(btnWave);
+          }
+
+          const sendWave = async (inst: Instance, msgs: Record<string, unknown>[], waveIdx: number) => {
+            const body: Record<string, unknown> = {
+              delayMin: parseInt(delayMin) || 10,
+              delayMax: parseInt(delayMax) || 30,
+              info: waveIdx === 0 ? (contactWaves.length > 1 ? `${campaignInfo} 🔗${campaignUid}` : campaignInfo) : `${campaignInfo} ⏩${campaignUid}#${waveIdx + 1}`,
+              scheduled_for: scheduleEnabled && scheduledFor ? scheduledFor.getTime() : 1,
+              ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
+              messages: msgs,
+            };
+            await fetchForInstance(inst, "/sender/advanced", "POST", body);
+          };
+
+          if (instances.length === 1) {
+            for (let w = 0; w < contactWaves.length; w++) {
+              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+              await sendWave(instances[0], contactWaves[w], w);
+            }
+            toast.success(`Campanha anti-ban dividida! ${numberList.length} contato(s), ${parts.length} parte(s).`);
+          } else {
+            for (let w = 0; w < contactWaves.length; w++) {
+              if (w > 0) await new Promise((r) => setTimeout(r, splitDelayMs));
+              const waveMsgs = contactWaves[w];
+              const buckets: Record<string, unknown>[][] = instances.map(() => []);
+              waveMsgs.forEach((msg, idx) => { buckets[idx % instances.length].push(msg); });
+              await Promise.allSettled(
+                instances.map((inst, idx) => {
+                  if (buckets[idx].length === 0) return Promise.resolve();
+                  return sendWave(inst, buckets[idx], w);
+                })
+              );
+            }
+            toast.success(`Round-robin anti-ban dividido! ${numberList.length} contatos, ${parts.length} partes em ${instances.length} instâncias.`);
+          }
+          setActiveTab("campaigns");
+          setTimeout(() => { const el = document.querySelector('[data-dialog-body]'); el?.scrollTo({ top: 0, behavior: "smooth" }); handleListFolders(); }, 500);
+          setSending(false);
+          return;
         }
 
+        // No split, just anti-ban via advanced mode
         const advMessages: Record<string, unknown>[] = [];
         for (const num of numberList) {
           const cleanNum = num.replace("@s.whatsapp.net", "");
-          // Original message
           const mainMsg: Record<string, unknown> = { number: cleanNum, type: messageType };
           if (bodyText) mainMsg.text = bodyText;
           if (fileUrl) mainMsg.file = fileUrl;
@@ -1283,16 +1357,14 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           if (linkPreview) mainMsg.linkPreview = true;
           advMessages.push(mainMsg);
 
-          // Anti-ban button message
-          const btnMsg: Record<string, unknown> = {
-            number: cleanNum,
-            type: "button",
-            text: antiBanBtnMessage,
-            footerText: antiBanBtnFooter,
-            buttonText: antiBanBtnTitle,
-            choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
-          };
-          advMessages.push(btnMsg);
+          if (antiBanButton) {
+            advMessages.push({
+              number: cleanNum, type: "button",
+              text: antiBanBtnMessage, footerText: antiBanBtnFooter,
+              buttonText: antiBanBtnTitle,
+              choices: [antiBanBtnOption1, antiBanBtnOption2].filter(Boolean),
+            });
+          }
         }
 
         const sendAdvanced = async (inst: Instance, msgs: Record<string, unknown>[]) => {
@@ -1304,19 +1376,20 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             ...buildScheduleParams(scheduleEnabled, scheduledFor, scheduleDays, scheduleTimeRestrict, scheduleTimeStart, scheduleTimeEnd),
             messages: msgs,
           };
-          // split_messages is now handled client-side
           await fetchForInstance(inst, "/sender/advanced", "POST", body);
         };
 
         if (instances.length === 1) {
           await sendAdvanced(instances[0], advMessages);
-          toast.success(`Campanha com botão anti-ban criada! ${numberList.length} contato(s).`);
+          toast.success(`Campanha anti-ban criada! ${numberList.length} contato(s).`);
         } else {
-          // Round-robin: distribute pairs (main+button) together
           const pairs: Record<string, unknown>[][] = instances.map(() => []);
+          const step = antiBanButton ? 2 : 1;
           for (let i = 0; i < numberList.length; i++) {
             const bucket = i % instances.length;
-            pairs[bucket].push(advMessages[i * 2], advMessages[i * 2 + 1]);
+            for (let s = 0; s < step; s++) {
+              if (advMessages[i * step + s]) pairs[bucket].push(advMessages[i * step + s]);
+            }
           }
           const results = await Promise.allSettled(
             instances.map((inst, idx) => {
@@ -1327,7 +1400,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
           const succeeded = results.filter((r) => r.status === "fulfilled").length;
           const failed = results.filter((r) => r.status === "rejected").length;
           if (failed > 0) toast.warning(`${succeeded} instância(s) OK, ${failed} falharam.`);
-          else toast.success(`Round-robin com botão anti-ban! ${numberList.length} contatos em ${instances.length} instâncias.`);
+          else toast.success(`Round-robin anti-ban! ${numberList.length} contatos em ${instances.length} instâncias.`);
         }
       } else if (splitMessages) {
         // Split messages by triple line break → convert to advanced mode
@@ -1399,15 +1472,9 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         setSending(false);
         return;
       } else {
-        // Standard simple send (no dynamic fields, no anti-ban button, no split)
-        let bodyText = text;
-        if (antiBanEnabled) {
-          bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
-        }
-
+        // Standard simple send via UAZAPI (no anti-ban, no split)
         if (instances.length === 1) {
           const body = buildSimpleBody(numberList);
-          if (antiBanEnabled) body.text = bodyText;
           await fetchForInstance(instances[0], "/sender/simple", "POST", body);
           toast.success(`Campanha criada! ${numberList.length} número(s) na fila.`);
         } else {
@@ -1419,7 +1486,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               if (buckets[idx].length === 0) return Promise.resolve();
               const body = buildSimpleBody(buckets[idx]);
               body.folder = `${folder || "Campanha Bridge"} (${inst.instance_name})`;
-              if (antiBanEnabled) body.text = bodyText;
               return fetchForInstance(inst, "/sender/simple", "POST", body);
             })
           );
@@ -2103,6 +2169,24 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                         </Label>
                         <Switch checked={splitMessages} onCheckedChange={setSplitMessages} />
                       </div>
+                      {splitMessages && (
+                        <div className="space-y-2 pt-2 border-t border-border">
+                          <p className="text-[10px] text-muted-foreground">
+                            Separe partes da mensagem com 3 quebras de linha. Cada parte será enviada como mensagem separada.
+                          </p>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-muted-foreground">Delay entre partes (segundos)</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={120}
+                              value={splitDelay}
+                              onChange={(e) => setSplitDelay(e.target.value)}
+                              className="bg-secondary border-border h-8 text-xs w-24"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Link Preview */}
