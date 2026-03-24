@@ -6,7 +6,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Activity, AlertTriangle, CheckCircle, RefreshCw, Server, TrendingUp } from "lucide-react";
+import { Loader2, Activity, AlertTriangle, CheckCircle, RefreshCw, Server, TrendingUp, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 interface WebhookMetric {
@@ -99,6 +99,7 @@ export default function AdminHealth() {
   const [alerts, setAlerts] = useState<HealthAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningCheck, setRunningCheck] = useState(false);
+  const [showErrors, setShowErrors] = useState(true);
 
   useEffect(() => {
     checkAdmin();
@@ -207,12 +208,17 @@ export default function AdminHealth() {
               <p className="text-xs text-muted-foreground mt-1">Webhooks Processados</p>
             </CardContent>
           </Card>
-          <Card className="bg-card/50 border-border/50">
+          <Card className="bg-card/50 border-border/50 relative cursor-pointer" onClick={() => setShowErrors(!showErrors)}>
             <CardContent className="p-4">
-              <div className={`text-2xl font-bold ${(metrics?.errorCount || 0) > 0 ? "text-destructive" : "text-emerald-400"}`}>
-                {metrics?.errorCount || 0}
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className={`text-2xl font-bold ${(metrics?.errorCount || 0) > 0 ? "text-destructive" : "text-emerald-400"}`}>
+                    {showErrors ? (metrics?.errorCount || 0) : "••"}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Total de Erros</p>
+                </div>
+                {showErrors ? <Eye className="h-4 w-4 text-muted-foreground" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Total de Erros</p>
             </CardContent>
           </Card>
           <Card className="bg-card/50 border-border/50">
