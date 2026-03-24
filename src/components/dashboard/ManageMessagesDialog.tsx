@@ -2189,20 +2189,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                       )}
                     </div>
 
-                    {/* Link Preview */}
-                    {messageType === "text" && (
-                      <div className="p-2.5 rounded-lg border border-primary/40 hover:border-primary/70 transition-colors bg-secondary/30 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="cursor-pointer text-xs">Preview de Link</Label>
-                          <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
-                        </div>
-                        {linkPreview && (
-                          <p className="text-[10px] text-muted-foreground leading-relaxed">
-                            Quando ativado, links na mensagem geram um card de pré-visualização (thumbnail + título). Ex: enviar <span className="font-mono text-primary">https://seusite.com</span> exibirá o card abaixo da mensagem. ⚠️ Em disparos em massa, desativar reduz risco de ban.
-                          </p>
-                        )}
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               </div>
