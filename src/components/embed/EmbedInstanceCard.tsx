@@ -280,25 +280,14 @@ export function EmbedInstanceCard({
     profilePicUrl?: string;
   }) => {
     try {
-      const { createEmbedSupabaseClient } = await import("@/hooks/useEmbedSupabase");
-      const supabase = createEmbedSupabaseClient();
-
-      const updateData: Record<string, unknown> = {
-        instance_status: payload.status,
-      };
-
-      if (payload.status === "connected") {
-        if (payload.phone) updateData.phone = payload.phone;
-        if (payload.profilePicUrl) updateData.profile_pic_url = payload.profilePicUrl;
-      } else {
-        updateData.phone = null;
-        updateData.profile_pic_url = null;
-      }
-      
-      await supabase
-        .from("instances")
-        .update(updateData)
-        .eq("id", instance.id);
+      // Use secure RPC instead of direct table update
+      await supabase.rpc("update_instance_for_embed", {
+        p_instance_id: instance.id,
+        p_embed_token: embedToken,
+        p_instance_status: payload.status,
+        p_phone: payload.status === "connected" ? (payload.phone || "") : "",
+        p_profile_pic_url: payload.status === "connected" ? (payload.profilePicUrl || "") : "",
+      });
     } catch (e) {
       console.error("Failed to cache instance data:", e);
     }

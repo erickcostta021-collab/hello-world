@@ -42,12 +42,11 @@ export default function EmbedInstances() {
     try {
       console.log("[EmbedInstances] Fetching subaccount for token:", embedToken);
       
-      // Fetch subaccount by embed token - only safe columns, NO tokens
-      const { data: subData, error: subError } = await supabase
-        .from("ghl_subaccounts")
-        .select("id, account_name, location_id, user_id, embed_password")
-        .eq("embed_token", embedToken)
-        .maybeSingle();
+      // Use secure RPC - only returns safe columns, no OAuth tokens
+      const { data: subRows, error: subError } = await supabase
+        .rpc("get_subaccount_by_embed_token", { p_embed_token: embedToken });
+      
+      const subData = subRows?.[0] || null;
 
       console.log("[EmbedInstances] Subaccount query result:", { subData, subError });
 
@@ -90,12 +89,9 @@ export default function EmbedInstances() {
         console.error("Failed to fetch track_id");
       }
 
-      // Fetch instances for this subaccount
+      // Use secure RPC - only returns safe columns, no UAZAPI tokens
       const { data: instData, error: instError } = await supabase
-        .from("instances")
-        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url, embed_visible_options, is_official_api")
-        .eq("subaccount_id", subData.id)
-        .order("instance_name");
+        .rpc("get_instances_for_embed", { p_subaccount_id: subData.id, p_embed_token: embedToken });
 
       if (instError) {
         console.error("Error fetching instances:", instError);
@@ -103,8 +99,8 @@ export default function EmbedInstances() {
       } else {
         setInstances((instData || []).map(i => ({
           ...i,
-          uazapi_instance_token: i.uazapi_instance_token || "",
-          uazapi_base_url: i.uazapi_base_url || null,
+          uazapi_instance_token: "", // not exposed via RPC for security
+          uazapi_base_url: null,
           embed_visible_options: i.embed_visible_options as any || null,
           is_official_api: i.is_official_api || false,
         })));
@@ -131,15 +127,12 @@ export default function EmbedInstances() {
       setTrackId(trackData?.trackId || null);
 
       const { data: instData } = await supabase
-        .from("instances")
-        .select("id, instance_name, instance_status, ghl_user_id, phone, profile_pic_url, uazapi_instance_token, uazapi_base_url, embed_visible_options, is_official_api")
-        .eq("subaccount_id", subaccount.id)
-        .order("instance_name");
+        .rpc("get_instances_for_embed", { p_subaccount_id: subaccount.id, p_embed_token: embedToken });
 
       setInstances((instData || []).map(i => ({
         ...i,
-        uazapi_instance_token: i.uazapi_instance_token || "",
-        uazapi_base_url: i.uazapi_base_url || null,
+        uazapi_instance_token: "",
+        uazapi_base_url: null,
         embed_visible_options: i.embed_visible_options as any || null,
         is_official_api: i.is_official_api || false,
       })));
