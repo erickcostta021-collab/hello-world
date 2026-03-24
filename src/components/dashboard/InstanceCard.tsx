@@ -595,11 +595,19 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     <Settings2 className="h-4 w-4 mr-2" />
                     Configurar Webhook
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setMessagesDialogOpen(true)}>
+                  <DropdownMenuItem
+                    onClick={() => setMessagesDialogOpen(true)}
+                    disabled={instance.instance_status !== "connected"}
+                    className={instance.instance_status !== "connected" ? "opacity-50 cursor-not-allowed" : ""}
+                  >
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Mensagem em massa (beta)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setGroupManagerDialogOpen(true)}>
+                  <DropdownMenuItem
+                    onClick={() => setGroupManagerDialogOpen(true)}
+                    disabled={instance.instance_status !== "connected"}
+                    className={instance.instance_status !== "connected" ? "opacity-50 cursor-not-allowed" : ""}
+                  >
                     <Users className="h-4 w-4 mr-2" />
                     Gerenciador de Grupos
                   </DropdownMenuItem>
