@@ -99,8 +99,8 @@ export default function EmbedInstances() {
       } else {
         setInstances((instData || []).map(i => ({
           ...i,
-          uazapi_instance_token: i.uazapi_instance_token || "",
-          uazapi_base_url: i.uazapi_base_url || null,
+          uazapi_instance_token: "", // not exposed via RPC for security
+          uazapi_base_url: null,
           embed_visible_options: i.embed_visible_options as any || null,
           is_official_api: i.is_official_api || false,
         })));
