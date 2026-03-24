@@ -707,6 +707,31 @@ export type Database = {
       }
       get_admin_webhook_url: { Args: never; Returns: string }
       get_effective_user_id: { Args: { p_user_id: string }; Returns: string }
+      get_instances_for_embed: {
+        Args: { p_embed_token: string; p_subaccount_id: string }
+        Returns: {
+          embed_visible_options: Json
+          ghl_user_id: string
+          id: string
+          ignore_groups: boolean
+          instance_name: string
+          instance_status: Database["public"]["Enums"]["instance_status"]
+          is_official_api: boolean
+          phone: string
+          profile_pic_url: string
+          subaccount_id: string
+        }[]
+      }
+      get_subaccount_by_embed_token: {
+        Args: { p_embed_token: string }
+        Returns: {
+          account_name: string
+          embed_password: string
+          id: string
+          location_id: string
+          user_id: string
+        }[]
+      }
       get_token_owner: { Args: { p_agency_token: string }; Returns: string }
       has_role: {
         Args: {
@@ -719,6 +744,18 @@ export type Database = {
       propagate_global_webhook: {
         Args: { p_webhook_url: string }
         Returns: undefined
+      }
+      update_instance_for_embed: {
+        Args: {
+          p_embed_token: string
+          p_embed_visible_options?: Json
+          p_ghl_user_id?: string
+          p_ignore_groups?: boolean
+          p_instance_id: string
+          p_instance_name?: string
+          p_is_official_api?: boolean
+        }
+        Returns: boolean
       }
       upsert_subaccounts: {
         Args: { p_locations: Json; p_user_id: string }
