@@ -99,6 +99,7 @@ export default function AdminHealth() {
   const [alerts, setAlerts] = useState<HealthAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [runningCheck, setRunningCheck] = useState(false);
+  const [showErrors, setShowErrors] = useState(true);
 
   useEffect(() => {
     checkAdmin();
