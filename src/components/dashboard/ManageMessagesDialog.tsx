@@ -1735,7 +1735,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   );
 
   const renderAntiBan = () => (
-    <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
+    <div className="space-y-3 p-3 rounded-lg border border-primary/40 bg-secondary/30">
       <div className="flex items-center justify-between">
         <Label className="flex items-center gap-2 cursor-pointer text-sm">
           <ShieldCheck className="h-4 w-4 text-green-500" />
@@ -1982,7 +1982,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   const renderRoundRobin = (prefix: string) => (
     <>
       {siblingInstances.length > 0 && (
-        <div className="space-y-3 p-3 rounded-lg border border-border bg-secondary/30">
+        <div className="space-y-3 p-3 rounded-lg border border-primary/40 bg-secondary/30">
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2 cursor-pointer">
               <RefreshCw className="h-4 w-4 text-primary" />
@@ -2056,7 +2056,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               {/* ── LEFT COLUMN: Campaign + Messages ── */}
               <div className="space-y-4">
                 {/* Campaign Name */}
-                <Card className="bg-secondary/20 border-border">
+                <Card className="bg-secondary/20 border-primary/40">
                   <CardContent className="p-4 space-y-3">
                     <Label className="flex items-center gap-2 text-sm font-semibold">
                       <Sparkles className="h-4 w-4 text-primary" /> Nome da Campanha
@@ -2066,7 +2066,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 </Card>
 
                 {/* Messages Section */}
-                <Card className="bg-secondary/20 border-border">
+                <Card className="bg-secondary/20 border-primary/40">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -2161,7 +2161,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                     )}
 
                     {/* Split - moved above Preview */}
-                    <div className="p-2.5 rounded-lg border border-border bg-secondary/30 space-y-2">
+                    <div className="p-2.5 rounded-lg border border-primary/40 bg-secondary/30 space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="flex items-center gap-2 cursor-pointer text-xs">
                           <Scissors className="h-3.5 w-3.5 text-primary" />
@@ -2191,7 +2191,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
                     {/* Link Preview */}
                     {messageType === "text" && (
-                      <div className="p-2.5 rounded-lg border border-border bg-secondary/30 space-y-2">
+                      <div className="p-2.5 rounded-lg border border-primary/40 bg-secondary/30 space-y-2">
                         <div className="flex items-center justify-between">
                           <Label className="cursor-pointer text-xs">Preview de Link</Label>
                           <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
@@ -2210,7 +2210,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               {/* ── RIGHT COLUMN: Recipients + Settings ── */}
               <div className="space-y-4">
                 {/* Recipients */}
-                <Card className="bg-secondary/20 border-border">
+                <Card className="bg-secondary/20 border-primary/40">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -2270,7 +2270,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 </Card>
 
                 {/* Delay Settings */}
-                <Card className="bg-secondary/20 border-border">
+                <Card className="bg-secondary/20 border-primary/40">
                   <CardContent className="p-4 space-y-3">
                     <Label className="flex items-center gap-2 text-sm font-semibold">
                       <Clock className="h-4 w-4 text-primary" /> Configurações Anti-Ban
