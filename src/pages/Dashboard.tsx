@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [viewMode, setViewMode] = useState<"subaccounts" | "all-instances">("subaccounts");
   const [instanceSearch, setInstanceSearch] = useState("");
+  const [instanceFilter, setInstanceFilter] = useState<"all" | "connected" | "disconnected" | "linked" | "unlinked">("all");
   const { user } = useAuth();
   const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
   const { subaccounts, isLoading, syncSubaccounts, isSharedAccount } = useSubaccounts();
@@ -110,10 +111,18 @@ export default function Dashboard() {
     s.location_id.toLowerCase().includes(search.toLowerCase())
   );
 
-  const filteredAllInstances = allInstances.filter((inst) =>
-    inst.instance_name.toLowerCase().includes(instanceSearch.toLowerCase()) ||
-    (inst.phone || "").includes(instanceSearch)
-  );
+  const filteredAllInstances = allInstances
+    .filter((inst) => {
+      if (instanceFilter === "connected") return inst.instance_status === "connected";
+      if (instanceFilter === "disconnected") return inst.instance_status === "disconnected";
+      if (instanceFilter === "linked") return !!inst.subaccount_id;
+      if (instanceFilter === "unlinked") return !inst.subaccount_id;
+      return true;
+    })
+    .filter((inst) =>
+      inst.instance_name.toLowerCase().includes(instanceSearch.toLowerCase()) ||
+      (inst.phone || "").includes(instanceSearch)
+    );
 
   const getSubaccountName = (subaccountId: string | null) => {
     if (!subaccountId) return null;
@@ -499,21 +508,52 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Stats */}
+            {/* Filters */}
             {!allInstancesLoading && allInstances.length > 0 && (
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap text-sm">
+                <Button
+                  variant={instanceFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setInstanceFilter("all")}
+                  className="h-7 text-xs"
+                >
+                  Todas ({allInstances.length})
+                </Button>
+                <Button
+                  variant={instanceFilter === "connected" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setInstanceFilter("connected")}
+                  className="h-7 text-xs gap-1.5"
+                >
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  {allInstances.filter(i => i.instance_status === "connected").length} conectadas
-                </span>
-                <span className="flex items-center gap-1.5">
+                  Conectadas ({allInstances.filter(i => i.instance_status === "connected").length})
+                </Button>
+                <Button
+                  variant={instanceFilter === "disconnected" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setInstanceFilter("disconnected")}
+                  className="h-7 text-xs gap-1.5"
+                >
                   <span className="h-2 w-2 rounded-full bg-destructive" />
-                  {allInstances.filter(i => i.instance_status === "disconnected").length} desconectadas
-                </span>
-                <span className="text-muted-foreground/60">
-                  {allInstances.length} total
-                  {` · ${allInstances.filter(i => !i.subaccount_id).length} não vinculadas`}
-                </span>
+                  Desconectadas ({allInstances.filter(i => i.instance_status === "disconnected").length})
+                </Button>
+                <Button
+                  variant={instanceFilter === "linked" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setInstanceFilter("linked")}
+                  className="h-7 text-xs gap-1.5"
+                >
+                  <Link2 className="h-3 w-3" />
+                  Vinculadas ({allInstances.filter(i => !!i.subaccount_id).length})
+                </Button>
+                <Button
+                  variant={instanceFilter === "unlinked" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setInstanceFilter("unlinked")}
+                  className="h-7 text-xs gap-1.5"
+                >
+                  Desvinculadas ({allInstances.filter(i => !i.subaccount_id).length})
+                </Button>
               </div>
             )}
 
