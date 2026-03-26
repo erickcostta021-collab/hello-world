@@ -50,7 +50,7 @@ export function LinkToSubaccountDialog({ instance, open, onOpenChange }: LinkToS
       <DialogContent className="bg-card border-border max-w-md">
         <DialogHeader>
           <DialogTitle className="text-card-foreground">
-            Vincular a Subconta
+            Vincular Subconta/Pasta
           </DialogTitle>
           <DialogDescription>
             Vincule "{instance.instance_name}" a uma subconta do GoHighLevel.
