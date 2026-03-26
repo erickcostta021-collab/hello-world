@@ -565,7 +565,6 @@ export default function Dashboard() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <CreateFolderDialog />
                 {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
                   <CreateUnlinkedInstanceDialog />
                 )}
