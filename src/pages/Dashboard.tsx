@@ -13,7 +13,7 @@ import { useInstances } from "@/hooks/useInstances";
 import { useSettings } from "@/hooks/useSettings";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
-import { RefreshCw, Search, ArrowLeft, Loader2, AlertCircle, Plus, Smartphone, Link2, Eye, Lock, CreditCard, Clock, ChevronDown, RotateCw, KeyRound, LayoutGrid, Building2 } from "lucide-react";
+import { RefreshCw, Search, ArrowLeft, Loader2, AlertCircle, Plus, Smartphone, Link2, Eye, Lock, CreditCard, Clock, ChevronDown, RotateCw, KeyRound, LayoutGrid, Building2, FolderOpen } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogBody } from "@/components/ui/dialog";
@@ -34,7 +34,7 @@ export default function Dashboard() {
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [embedPassword, setEmbedPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
-  const [viewMode, setViewMode] = useState<"subaccounts" | "all-instances">("subaccounts");
+  const [viewMode, setViewMode] = useState<"subaccounts" | "folders" | "all-instances">("subaccounts");
   const [instanceSearch, setInstanceSearch] = useState("");
   const [instanceFilter, setInstanceFilter] = useState<"all" | "connected" | "disconnected" | "linked" | "unlinked">("all");
   const { user } = useAuth();
@@ -106,9 +106,17 @@ export default function Dashboard() {
     setPasswordDialogOpen(true);
   };
 
-  const filteredSubaccounts = subaccounts.filter((s) =>
+  // Separate folders from real subaccounts
+  const realSubaccounts = subaccounts.filter((s) => !s.location_id.startsWith("folder_"));
+  const folderSubaccounts = subaccounts.filter((s) => s.location_id.startsWith("folder_"));
+
+  const filteredSubaccounts = realSubaccounts.filter((s) =>
     s.account_name.toLowerCase().includes(search.toLowerCase()) ||
     s.location_id.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const filteredFolders = folderSubaccounts.filter((s) =>
+    s.account_name.toLowerCase().includes(search.toLowerCase())
   );
 
   const filteredAllInstances = allInstances
@@ -428,6 +436,15 @@ export default function Dashboard() {
             Subcontas
           </Button>
           <Button
+            variant={viewMode === "folders" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("folders")}
+            className="gap-2"
+          >
+            <FolderOpen className="h-4 w-4" />
+            Pastas
+          </Button>
+          <Button
             variant={viewMode === "all-instances" ? "default" : "outline"}
             size="sm"
             onClick={() => setViewMode("all-instances")}
@@ -440,7 +457,7 @@ export default function Dashboard() {
 
         {viewMode === "subaccounts" ? (
           <>
-            {/* Search + Create Folder */}
+            {/* Search */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="relative w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -451,7 +468,6 @@ export default function Dashboard() {
                   className="pl-10 bg-secondary border-border"
                 />
               </div>
-              <CreateFolderDialog />
             </div>
 
             {/* Subaccounts Grid */}
@@ -465,10 +481,10 @@ export default function Dashboard() {
                   <AlertCircle className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <h3 className="text-lg font-medium text-foreground mb-2">
-                  {subaccounts.length === 0 ? "Nenhuma subconta" : "Nenhum resultado"}
+                  {realSubaccounts.length === 0 ? "Nenhuma subconta" : "Nenhum resultado"}
                 </h3>
                 <p className="text-muted-foreground max-w-md">
-                  {subaccounts.length === 0
+                  {realSubaccounts.length === 0
                     ? hasGHLToken
                       ? "Clique em 'Sincronizar CRM' para importar suas subcontas do GoHighLevel."
                       : "Clique em 'Conectar Subconta' no topo da página para conectar sua primeira subconta."
@@ -482,6 +498,54 @@ export default function Dashboard() {
                     key={subaccount.id}
                     subaccount={subaccount}
                     onClick={() => setSelectedSubaccount(subaccount)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : viewMode === "folders" ? (
+          <>
+            {/* Search + Create Folder */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar pastas..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 bg-secondary border-border"
+                />
+              </div>
+              <CreateFolderDialog />
+            </div>
+
+            {/* Folders Grid */}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : filteredFolders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="p-4 bg-muted rounded-full mb-4">
+                  <FolderOpen className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {folderSubaccounts.length === 0 ? "Nenhuma pasta" : "Nenhum resultado"}
+                </h3>
+                <p className="text-muted-foreground max-w-md mb-4">
+                  {folderSubaccounts.length === 0
+                    ? "Crie pastas para organizar suas instâncias."
+                    : "Tente ajustar sua busca."}
+                </p>
+                {folderSubaccounts.length === 0 && <CreateFolderDialog />}
+              </div>
+            ) : (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredFolders.map((folder) => (
+                  <SubaccountCard
+                    key={folder.id}
+                    subaccount={folder}
+                    onClick={() => setSelectedSubaccount(folder)}
                   />
                 ))}
               </div>
@@ -501,7 +565,6 @@ export default function Dashboard() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <CreateFolderDialog />
                 {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
                   <CreateUnlinkedInstanceDialog />
                 )}
