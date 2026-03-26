@@ -631,7 +631,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                       className="text-primary"
                     >
                       <Link2 className="h-4 w-4 mr-2" />
-                      Vincular a Subconta
+                      Vincular Subconta/Pasta
                     </DropdownMenuItem>
                   )}
                   {instance.subaccount_id && (
