@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import DashboardLayout from "@/components/layout/DashboardLayout";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 // Sections to hide from the sidebar (CSS selectors injected into iframe)
 const HIDDEN_SECTIONS = ["Monitor de Eventos", "Admininstração"];
