@@ -24,6 +24,7 @@ import {
   Repeat,
   Code,
   KeyRound,
+  BookOpen,
 } from "lucide-react";
 
 import { useSidebarState } from "@/hooks/useSidebarState";
@@ -347,6 +348,9 @@ export function Sidebar() {
               </div>
             )}
           </div>
+
+          {/* Documentação */}
+          {renderNavItem({ to: "/docs", icon: BookOpen, label: "Documentação" })}
 
           {/* Configurações */}
           {renderNavItem({ to: "/settings", icon: Settings, label: "Configurações" })}
