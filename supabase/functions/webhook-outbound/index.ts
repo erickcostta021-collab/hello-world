@@ -2352,6 +2352,26 @@ serve(async (req: Request) => {
       return;
     }
 
+    // Block Email messages - emails are handled by GHL natively, not via WhatsApp
+    const contentType = String(body.contentType ?? "");
+    if (
+      messageType === "Email" ||
+      eventType === "Email" ||
+      contentType === "text/html" ||
+      String(body.messageTypeString ?? "") === "TYPE_EMAIL" ||
+      String(body.channel ?? "").toLowerCase() === "email"
+    ) {
+      console.log("🛑 [BLOCKED] Ignoring Email message (not for WhatsApp):", { 
+        messageId,
+        messageType,
+        eventType,
+        contentType,
+        channel: body.channel,
+        messagePreview: messageText.substring(0, 80) 
+      });
+      return;
+    }
+
     // NOTE: We no longer block source==="api" here because ALL messages sent via
     // GHL Conversation Provider arrive with source="api", including user-typed messages.
     // Loop prevention is handled by the dedup check below (ghl_processed_messages table):
