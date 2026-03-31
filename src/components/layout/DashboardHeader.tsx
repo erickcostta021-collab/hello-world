@@ -180,7 +180,7 @@ export function DashboardHeader() {
               <KeyRound className="h-4 w-4 mr-2" />
               Alterar Senha
             </DropdownMenuItem>
-            {hasStripeSubscription && (
+            {showSubscriptionOptions && (
               <>
                 <PlansDialog>
                   <DropdownMenuItem
