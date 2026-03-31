@@ -96,6 +96,14 @@ const LandingPage = () => {
             >
               Preços
             </button>
+            <a 
+              href="https://docs.uazapi.com/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-300 font-medium"
+            >
+              Documentação
+            </a>
           </nav>
           
           <div className="flex items-center gap-2 sm:gap-3">
