@@ -5,6 +5,7 @@ import { useProfile } from "@/hooks/useProfile";
 import { useAccountStatus } from "@/hooks/useAccountStatus";
 import { useSettings } from "@/hooks/useSettings";
 import { useSidebarState } from "@/hooks/useSidebarState";
+import { useImpersonation } from "@/hooks/useImpersonation";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -28,6 +29,8 @@ export function DashboardHeader() {
   const { hasActiveSubscription, hasStripeSubscription } = useAccountStatus();
   const { getOAuthUrl } = useSettings();
   const { toggle } = useSidebarState();
+  const isImpersonating = !!useImpersonation((s) => s.impersonatedUserId);
+  const showSubscriptionOptions = hasStripeSubscription || isImpersonating;
   const navigate = useNavigate();
 
   const oauthUrl = getOAuthUrl();
@@ -177,7 +180,7 @@ export function DashboardHeader() {
               <KeyRound className="h-4 w-4 mr-2" />
               Alterar Senha
             </DropdownMenuItem>
-            {hasStripeSubscription && (
+            {showSubscriptionOptions && (
               <>
                 <PlansDialog>
                   <DropdownMenuItem
