@@ -29,6 +29,8 @@ export function DashboardHeader() {
   const { hasActiveSubscription, hasStripeSubscription } = useAccountStatus();
   const { getOAuthUrl } = useSettings();
   const { toggle } = useSidebarState();
+  const isImpersonating = !!useImpersonation((s) => s.impersonatedUserId);
+  const showSubscriptionOptions = hasStripeSubscription || isImpersonating;
   const navigate = useNavigate();
 
   const oauthUrl = getOAuthUrl();
