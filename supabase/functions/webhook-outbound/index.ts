@@ -294,42 +294,45 @@ function detectMediaType(url: string): string {
 // Returns { sent, status, body, uazapiMessageId }
 async function sendTextMessage(base: string, instanceToken: string, phone: string, text: string, trackId?: string): Promise<{ sent: boolean; status: number; body: string; uazapiMessageId: string | null }> {
   const trackFields = trackId ? { track_id: trackId } : {};
+  // Detect if the message contains a URL to enable link preview
+  const hasUrl = /https?:\/\/\S+/i.test(text);
+  const linkPreviewField = hasUrl ? { linkPreview: true } : {};
   const attempts: Array<{ path: string; headers: Record<string, string>; body: Record<string, any> }> = [
     // n8n style - primary
     {
       path: "/send/text",
       headers: { token: instanceToken },
-      body: { number: phone, text, readchat: "true", ...trackFields },
+      body: { number: phone, text, readchat: "true", ...linkPreviewField, ...trackFields },
     },
     {
       path: "/send/text",
       headers: { token: instanceToken },
-      body: { number: phone, text, readchat: "1", ...trackFields },
+      body: { number: phone, text, readchat: "1", ...linkPreviewField, ...trackFields },
     },
     {
       path: "/chat/send/text",
       headers: { Token: instanceToken },
-      body: { Phone: phone, Body: text, ...trackFields },
+      body: { Phone: phone, Body: text, ...linkPreviewField, ...trackFields },
     },
     {
       path: "/chat/send/text",
       headers: { Token: instanceToken },
-      body: { Phone: `${phone}@s.whatsapp.net`, Body: text, ...trackFields },
+      body: { Phone: `${phone}@s.whatsapp.net`, Body: text, ...linkPreviewField, ...trackFields },
     },
     {
       path: "/chat/send/text",
       headers: { Authorization: `Bearer ${instanceToken}` },
-      body: { Phone: phone, Body: text, ...trackFields },
+      body: { Phone: phone, Body: text, ...linkPreviewField, ...trackFields },
     },
     {
       path: "/message/text",
       headers: { Token: instanceToken },
-      body: { id: phone, message: text, ...trackFields },
+      body: { id: phone, message: text, ...linkPreviewField, ...trackFields },
     },
     {
       path: "/api/sendText",
       headers: { Authorization: `Bearer ${instanceToken}` },
-      body: { chatId: `${phone}@c.us`, text, ...trackFields },
+      body: { chatId: `${phone}@c.us`, text, ...linkPreviewField, ...trackFields },
     },
   ];
 
