@@ -119,6 +119,21 @@ export function useInstances(subaccountId?: string) {
           if (result.profilePicUrl) updateData.profile_pic_url = result.profilePicUrl;
 
           await supabase.from("instances").update(updateData).eq("id", instance.id);
+
+          // Auto-reconfigure webhook for connected instances to prevent UAZAPI from losing it
+          if (mappedStatus === "connected") {
+            try {
+              await reconfigureWebhookOnApi(
+                instance,
+                instance.webhook_url || settings?.global_webhook_url || "",
+                instance.ignore_groups ?? false,
+                globalBaseUrl,
+              );
+            } catch (e) {
+              console.warn(`Webhook reconfigure failed for ${instance.instance_name}:`, e);
+            }
+          }
+
           return { id: instance.id, status: mappedStatus };
         }),
       );
