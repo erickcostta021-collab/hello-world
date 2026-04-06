@@ -2375,6 +2375,27 @@ serve(async (req: Request) => {
       return;
     }
 
+    // Block WhatsApp Official API messages - these are already handled natively by GHL
+    // BridgeAPI only handles SMS channel messages
+    const channelRaw = String(body.channel ?? "").toLowerCase();
+    if (
+      messageType === "WhatsApp" ||
+      String(body.messageTypeString ?? "") === "TYPE_WHATSAPP" ||
+      channelRaw === "whatsapp" ||
+      messageType === "Live_Chat" ||
+      String(body.messageTypeString ?? "") === "TYPE_LIVE_CHAT" ||
+      channelRaw === "live_chat"
+    ) {
+      console.log("🛑 [BLOCKED] Ignoring Official API / WhatsApp message (not SMS channel):", { 
+        messageId,
+        messageType,
+        messageTypeString: body.messageTypeString,
+        channel: body.channel,
+        messagePreview: messageText.substring(0, 80) 
+      });
+      return;
+    }
+
     // NOTE: We no longer block source==="api" here because ALL messages sent via
     // GHL Conversation Provider arrive with source="api", including user-typed messages.
     // Loop prevention is handled by the dedup check below (ghl_processed_messages table):
