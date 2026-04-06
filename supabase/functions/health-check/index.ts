@@ -120,11 +120,15 @@ serve(async (req) => {
 
     const settingsMap = new Map(settings?.map((s) => [s.user_id, s]) || []);
 
+    // Get admin credentials as fallback for managed-mode users
+    const { data: adminCreds } = await supabase.rpc("get_admin_uazapi_credentials");
+    const adminBaseUrl = adminCreds?.[0]?.uazapi_base_url || "";
+
     // Group instances by server URL to avoid pinging same server multiple times
     const serverMap = new Map<string, typeof instances>();
     for (const inst of instances) {
       const userSettings = settingsMap.get(inst.user_id);
-      const baseUrl = (inst.uazapi_base_url || userSettings?.uazapi_base_url || "").replace(/\/$/, "");
+      const baseUrl = (inst.uazapi_base_url || userSettings?.uazapi_base_url || adminBaseUrl || "").replace(/\/$/, "");
       if (!baseUrl) continue;
       if (!serverMap.has(baseUrl)) serverMap.set(baseUrl, []);
       serverMap.get(baseUrl)!.push(inst);
