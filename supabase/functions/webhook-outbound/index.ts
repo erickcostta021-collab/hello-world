@@ -290,13 +290,50 @@ function detectMediaType(url: string): string {
   return "file";
 }
 
+// Check if a URL has OG tags for link preview support
+async function urlHasOgTags(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { "User-Agent": "WhatsApp/2" },
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return false;
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("text/html")) return false;
+    // Read only first 16KB to find OG tags
+    const reader = res.body?.getReader();
+    if (!reader) return false;
+    let html = "";
+    while (html.length < 16384) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += new TextDecoder().decode(value);
+    }
+    reader.cancel().catch(() => {});
+    // Check for og:title or og:image
+    return /property\s*=\s*["']og:(title|image)["']/i.test(html);
+  } catch {
+    return false;
+  }
+}
+
 // Send text message via UAZAPI
 // Returns { sent, status, body, uazapiMessageId }
 async function sendTextMessage(base: string, instanceToken: string, phone: string, text: string, trackId?: string): Promise<{ sent: boolean; status: number; body: string; uazapiMessageId: string | null }> {
   const trackFields = trackId ? { track_id: trackId } : {};
-  // Detect if the message contains a URL to enable link preview
-  const hasUrl = /https?:\/\/\S+/i.test(text);
-  const linkPreviewField = hasUrl ? { linkPreview: true } : {};
+  // Detect URL and verify OG tags before enabling link preview
+  const urlMatch = text.match(/https?:\/\/\S+/i);
+  let linkPreviewField: Record<string, boolean> = {};
+  if (urlMatch) {
+    const hasOg = await urlHasOgTags(urlMatch[0]);
+    linkPreviewField = hasOg ? { linkPreview: true } : {};
+    console.log(`Link preview check: ${urlMatch[0]} → OG tags: ${hasOg}`);
+  }
   const attempts: Array<{ path: string; headers: Record<string, string>; body: Record<string, any> }> = [
     // n8n style - primary
     {
