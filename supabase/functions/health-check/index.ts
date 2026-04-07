@@ -259,17 +259,37 @@ serve(async (req) => {
         }
 
         // ── Webhook verification for online servers ──
-        // Check each instance's webhook and reconfigure if needed
+        // Determine if this server has any managed-mode instances
+        const hasManagedInstances = serverInstances.some((inst) => {
+          const profile = profileMap.get(inst.user_id);
+          return (profile?.account_mode || "instances") === "instances";
+        });
+
+        // For managed-mode servers: apply global webhook once at server level
+        if (hasManagedInstances && adminToken) {
+          const globalOk = await verifyWebhook(serverUrl, serverInstances[0].uazapi_instance_token, adminGlobalWebhook);
+          if (!globalOk) {
+            console.warn(`⚠️ Global webhook missing on server ${serverUrl}, applying...`);
+            const success = await applyGlobalWebhook(serverUrl, adminToken, adminGlobalWebhook);
+            if (success) {
+              webhooksReconfigured++;
+              console.log(`✅ Global webhook applied on ${serverUrl}`);
+            } else {
+              console.error(`❌ Failed to apply global webhook on ${serverUrl}`);
+            }
+          }
+        }
+
+        // For connections-mode instances: verify per-instance webhook
         for (const inst of serverInstances) {
-          const userSettings = settingsMap.get(inst.user_id);
           const userProfile = profileMap.get(inst.user_id);
           const accountMode = userProfile?.account_mode || "instances";
 
-          // instances (managed) mode → admin's webhook URL
-          // connections mode → user's own webhook URL
-          const expectedWebhookUrl = accountMode === "instances"
-            ? (adminGlobalWebhook || "https://webhooks.bridgeapi.chat/webhook-inbound")
-            : (inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound");
+          // Skip managed-mode instances — they use the global webhook
+          if (accountMode === "instances") continue;
+
+          const userSettings = settingsMap.get(inst.user_id);
+          const expectedWebhookUrl = inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound";
 
           try {
             const webhookOk = await verifyWebhook(serverUrl, inst.uazapi_instance_token, expectedWebhookUrl);
