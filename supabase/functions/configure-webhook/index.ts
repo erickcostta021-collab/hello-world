@@ -48,6 +48,15 @@ serve(async (req) => {
       .eq("user_id", instance.user_id)
       .single();
 
+    // Get user's account_mode to determine webhook URL resolution
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("account_mode")
+      .eq("user_id", instance.user_id)
+      .single();
+
+    const accountMode = profile?.account_mode || "instances";
+
     const baseUrl = (instance.uazapi_base_url || settings?.uazapi_base_url || "").replace(/\/$/, "");
     if (!baseUrl) {
       return new Response(JSON.stringify({ error: "No UAZAPI base URL configured" }), {
@@ -56,10 +65,21 @@ serve(async (req) => {
       });
     }
 
-    // Use override URL when provided, then instance-level, then global setting
-    const webhookUrl = webhook_url_override
-      ? webhook_url_override
-      : (instance.webhook_url || settings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound");
+    // Resolve webhook URL based on account mode:
+    // instances (managed) → admin's global webhook URL
+    // connections → user's own webhook URL
+    let resolvedWebhookUrl: string;
+    if (webhook_url_override) {
+      resolvedWebhookUrl = webhook_url_override;
+    } else if (accountMode === "instances") {
+      // Managed mode: use admin's webhook URL
+      const adminWebhook = await supabase.rpc("get_admin_webhook_url");
+      resolvedWebhookUrl = adminWebhook?.data || "https://webhooks.bridgeapi.chat/webhook-inbound";
+    } else {
+      // Connections mode: use user's own URL
+      resolvedWebhookUrl = instance.webhook_url || settings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound";
+    }
+    const webhookUrl = resolvedWebhookUrl;
     const ignoreGroups = instance.ignore_groups ?? false;
     const events = Array.isArray(webhook_events) && webhook_events.length > 0 ? webhook_events : ["messages"];
     const enabledFlag = webhookEnabled !== undefined ? webhookEnabled : true;
