@@ -38,26 +38,24 @@ async function verifyWebhook(
     let data: any;
     try { data = JSON.parse(text); } catch { return false; }
 
-    // Check if any webhook points to our expected URL and is enabled
     if (Array.isArray(data)) {
       return data.some((w: any) =>
         (w.url === expectedUrl || w.webhookURL === expectedUrl) && w.enabled !== false
       );
     }
 
-    // Single webhook object
     if (data.url === expectedUrl || data.webhookURL === expectedUrl || data.webhook_url === expectedUrl) {
       return data.enabled !== false;
     }
 
     return false;
   } catch {
-    return false; // Can't verify, assume it might be broken
+    return false;
   }
 }
 
 /**
- * Reconfigure webhook on UAZAPI by calling configure-webhook edge function
+ * Reconfigure webhook on UAZAPI by calling configure-webhook edge function (per-instance)
  */
 async function reconfigureWebhook(
   supabaseUrl: string,
@@ -86,6 +84,54 @@ async function reconfigureWebhook(
     console.warn(`Failed to reconfigure webhook for instance ${instanceId}: ${e.message}`);
     return false;
   }
+}
+
+/**
+ * Apply global webhook on a UAZAPI server (admin level - affects all instances on that server).
+ * Used for managed-mode accounts.
+ */
+async function applyGlobalWebhook(
+  baseUrl: string,
+  adminToken: string,
+  webhookUrl: string
+): Promise<boolean> {
+  const body = {
+    url: webhookUrl,
+    enabled: true,
+    events: ["messages", "messages_update"],
+  };
+
+  const candidatePaths = ["/globalwebhook", "/api/globalwebhook"];
+
+  for (const path of candidatePaths) {
+    try {
+      const res = await timedFetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          admintoken: adminToken,
+        },
+        body: JSON.stringify(body),
+      }, 10000);
+
+      if (res.status === 404) continue;
+
+      if (res.ok) {
+        console.log(`✅ Global webhook applied on ${baseUrl}${path}`);
+        return true;
+      } else {
+        const text = await res.text().catch(() => "");
+        console.warn(`⚠️ Global webhook failed on ${baseUrl}${path}: ${res.status} ${text}`);
+        return false;
+      }
+    } catch (e: any) {
+      console.warn(`Global webhook error on ${baseUrl}${path}: ${e.message}`);
+      continue;
+    }
+  }
+
+  console.warn(`❌ Global webhook endpoint not found on ${baseUrl}`);
+  return false;
 }
 
 serve(async (req) => {
