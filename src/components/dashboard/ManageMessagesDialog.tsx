@@ -24,7 +24,7 @@ import {
   Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
   Pause, Play, Trash, RefreshCw, Search, FolderOpen, AlertTriangle, ChevronDown, ChevronUp,
   Upload, Sparkles, ShieldCheck, Info, Scissors, Shield, Eye, MessageSquare, Maximize2, Minimize2,
-  Download,
+  Download, Link,
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
