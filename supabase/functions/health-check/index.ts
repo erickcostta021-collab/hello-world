@@ -120,9 +120,20 @@ serve(async (req) => {
 
     const settingsMap = new Map(settings?.map((s) => [s.user_id, s]) || []);
 
-    // Get admin credentials as fallback for managed-mode users
+    // Get account_mode for each user to determine webhook URL resolution
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, account_mode")
+      .in("user_id", userIds);
+
+    const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
+
+    // Get admin credentials and webhook URL for managed-mode users
     const { data: adminCreds } = await supabase.rpc("get_admin_uazapi_credentials");
     const adminBaseUrl = adminCreds?.[0]?.uazapi_base_url || "";
+
+    const adminWebhookUrl = await supabase.rpc("get_admin_webhook_url");
+    const adminGlobalWebhook = adminWebhookUrl?.data || "https://webhooks.bridgeapi.chat/webhook-inbound";
 
     // Group instances by server URL to avoid pinging same server multiple times
     const serverMap = new Map<string, typeof instances>();
@@ -204,7 +215,14 @@ serve(async (req) => {
         // Check each instance's webhook and reconfigure if needed
         for (const inst of serverInstances) {
           const userSettings = settingsMap.get(inst.user_id);
-          const expectedWebhookUrl = inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound";
+          const userProfile = profileMap.get(inst.user_id);
+          const accountMode = userProfile?.account_mode || "instances";
+
+          // instances (managed) mode → admin's webhook URL
+          // connections mode → user's own webhook URL
+          const expectedWebhookUrl = accountMode === "instances"
+            ? (adminGlobalWebhook || "https://webhooks.bridgeapi.chat/webhook-inbound")
+            : (inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound");
 
           try {
             const webhookOk = await verifyWebhook(serverUrl, inst.uazapi_instance_token, expectedWebhookUrl);
