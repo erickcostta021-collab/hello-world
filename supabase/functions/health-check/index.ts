@@ -177,6 +177,7 @@ serve(async (req) => {
     // Get admin credentials and webhook URL for managed-mode users
     const { data: adminCreds } = await supabase.rpc("get_admin_uazapi_credentials");
     const adminBaseUrl = adminCreds?.[0]?.uazapi_base_url || "";
+    const adminToken = adminCreds?.[0]?.uazapi_admin_token || "";
 
     const adminWebhookUrl = await supabase.rpc("get_admin_webhook_url");
     const adminGlobalWebhook = adminWebhookUrl?.data || "https://webhooks.bridgeapi.chat/webhook-inbound";
