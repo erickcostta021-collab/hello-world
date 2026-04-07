@@ -1883,6 +1883,20 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             </ul>
           </div>
 
+          {/* Preview de Link */}
+          <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <Link className="h-4 w-4 text-primary" />
+                  Preview de Link
+                </Label>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Exibe prévia do link na mensagem (sites com OG tags)</p>
+              </div>
+              <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
+            </div>
+          </div>
+
           {/* Botão Anti-Ban */}
           <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
             <div className="flex items-center justify-between">
