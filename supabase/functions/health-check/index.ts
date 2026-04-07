@@ -120,9 +120,20 @@ serve(async (req) => {
 
     const settingsMap = new Map(settings?.map((s) => [s.user_id, s]) || []);
 
-    // Get admin credentials as fallback for managed-mode users
+    // Get account_mode for each user to determine webhook URL resolution
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, account_mode")
+      .in("user_id", userIds);
+
+    const profileMap = new Map(profiles?.map((p) => [p.user_id, p]) || []);
+
+    // Get admin credentials and webhook URL for managed-mode users
     const { data: adminCreds } = await supabase.rpc("get_admin_uazapi_credentials");
     const adminBaseUrl = adminCreds?.[0]?.uazapi_base_url || "";
+
+    const adminWebhookUrl = await supabase.rpc("get_admin_webhook_url");
+    const adminGlobalWebhook = adminWebhookUrl?.data || "https://webhooks.bridgeapi.chat/webhook-inbound";
 
     // Group instances by server URL to avoid pinging same server multiple times
     const serverMap = new Map<string, typeof instances>();
