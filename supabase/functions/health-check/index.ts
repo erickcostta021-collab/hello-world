@@ -215,7 +215,14 @@ serve(async (req) => {
         // Check each instance's webhook and reconfigure if needed
         for (const inst of serverInstances) {
           const userSettings = settingsMap.get(inst.user_id);
-          const expectedWebhookUrl = inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound";
+          const userProfile = profileMap.get(inst.user_id);
+          const accountMode = userProfile?.account_mode || "instances";
+
+          // instances (managed) mode → admin's webhook URL
+          // connections mode → user's own webhook URL
+          const expectedWebhookUrl = accountMode === "instances"
+            ? (adminGlobalWebhook || "https://webhooks.bridgeapi.chat/webhook-inbound")
+            : (inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound");
 
           try {
             const webhookOk = await verifyWebhook(serverUrl, inst.uazapi_instance_token, expectedWebhookUrl);
