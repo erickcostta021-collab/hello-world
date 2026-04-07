@@ -38,26 +38,24 @@ async function verifyWebhook(
     let data: any;
     try { data = JSON.parse(text); } catch { return false; }
 
-    // Check if any webhook points to our expected URL and is enabled
     if (Array.isArray(data)) {
       return data.some((w: any) =>
         (w.url === expectedUrl || w.webhookURL === expectedUrl) && w.enabled !== false
       );
     }
 
-    // Single webhook object
     if (data.url === expectedUrl || data.webhookURL === expectedUrl || data.webhook_url === expectedUrl) {
       return data.enabled !== false;
     }
 
     return false;
   } catch {
-    return false; // Can't verify, assume it might be broken
+    return false;
   }
 }
 
 /**
- * Reconfigure webhook on UAZAPI by calling configure-webhook edge function
+ * Reconfigure webhook on UAZAPI by calling configure-webhook edge function (per-instance)
  */
 async function reconfigureWebhook(
   supabaseUrl: string,
@@ -86,6 +84,54 @@ async function reconfigureWebhook(
     console.warn(`Failed to reconfigure webhook for instance ${instanceId}: ${e.message}`);
     return false;
   }
+}
+
+/**
+ * Apply global webhook on a UAZAPI server (admin level - affects all instances on that server).
+ * Used for managed-mode accounts.
+ */
+async function applyGlobalWebhook(
+  baseUrl: string,
+  adminToken: string,
+  webhookUrl: string
+): Promise<boolean> {
+  const body = {
+    url: webhookUrl,
+    enabled: true,
+    events: ["messages", "messages_update"],
+  };
+
+  const candidatePaths = ["/globalwebhook", "/api/globalwebhook"];
+
+  for (const path of candidatePaths) {
+    try {
+      const res = await timedFetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          admintoken: adminToken,
+        },
+        body: JSON.stringify(body),
+      }, 10000);
+
+      if (res.status === 404) continue;
+
+      if (res.ok) {
+        console.log(`✅ Global webhook applied on ${baseUrl}${path}`);
+        return true;
+      } else {
+        const text = await res.text().catch(() => "");
+        console.warn(`⚠️ Global webhook failed on ${baseUrl}${path}: ${res.status} ${text}`);
+        return false;
+      }
+    } catch (e: any) {
+      console.warn(`Global webhook error on ${baseUrl}${path}: ${e.message}`);
+      continue;
+    }
+  }
+
+  console.warn(`❌ Global webhook endpoint not found on ${baseUrl}`);
+  return false;
 }
 
 serve(async (req) => {
@@ -131,6 +177,7 @@ serve(async (req) => {
     // Get admin credentials and webhook URL for managed-mode users
     const { data: adminCreds } = await supabase.rpc("get_admin_uazapi_credentials");
     const adminBaseUrl = adminCreds?.[0]?.uazapi_base_url || "";
+    const adminToken = adminCreds?.[0]?.uazapi_admin_token || "";
 
     const adminWebhookUrl = await supabase.rpc("get_admin_webhook_url");
     const adminGlobalWebhook = adminWebhookUrl?.data || "https://webhooks.bridgeapi.chat/webhook-inbound";
@@ -212,17 +259,37 @@ serve(async (req) => {
         }
 
         // ── Webhook verification for online servers ──
-        // Check each instance's webhook and reconfigure if needed
+        // Determine if this server has any managed-mode instances
+        const hasManagedInstances = serverInstances.some((inst) => {
+          const profile = profileMap.get(inst.user_id);
+          return (profile?.account_mode || "instances") === "instances";
+        });
+
+        // For managed-mode servers: apply global webhook once at server level
+        if (hasManagedInstances && adminToken) {
+          const globalOk = await verifyWebhook(serverUrl, serverInstances[0].uazapi_instance_token, adminGlobalWebhook);
+          if (!globalOk) {
+            console.warn(`⚠️ Global webhook missing on server ${serverUrl}, applying...`);
+            const success = await applyGlobalWebhook(serverUrl, adminToken, adminGlobalWebhook);
+            if (success) {
+              webhooksReconfigured++;
+              console.log(`✅ Global webhook applied on ${serverUrl}`);
+            } else {
+              console.error(`❌ Failed to apply global webhook on ${serverUrl}`);
+            }
+          }
+        }
+
+        // For connections-mode instances: verify per-instance webhook
         for (const inst of serverInstances) {
-          const userSettings = settingsMap.get(inst.user_id);
           const userProfile = profileMap.get(inst.user_id);
           const accountMode = userProfile?.account_mode || "instances";
 
-          // instances (managed) mode → admin's webhook URL
-          // connections mode → user's own webhook URL
-          const expectedWebhookUrl = accountMode === "instances"
-            ? (adminGlobalWebhook || "https://webhooks.bridgeapi.chat/webhook-inbound")
-            : (inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound");
+          // Skip managed-mode instances — they use the global webhook
+          if (accountMode === "instances") continue;
+
+          const userSettings = settingsMap.get(inst.user_id);
+          const expectedWebhookUrl = inst.webhook_url || userSettings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound";
 
           try {
             const webhookOk = await verifyWebhook(serverUrl, inst.uazapi_instance_token, expectedWebhookUrl);
