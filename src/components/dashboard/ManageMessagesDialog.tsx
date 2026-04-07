@@ -24,7 +24,7 @@ import {
   Loader2, Send, Clock, Plus, Trash2, Layers, CalendarIcon, ListChecks,
   Pause, Play, Trash, RefreshCw, Search, FolderOpen, AlertTriangle, ChevronDown, ChevronUp,
   Upload, Sparkles, ShieldCheck, Info, Scissors, Shield, Eye, MessageSquare, Maximize2, Minimize2,
-  Download,
+  Download, Link,
 } from "lucide-react";
 import { getBaseUrlForInstance } from "@/hooks/instances/instanceApi";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1881,6 +1881,20 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               <li>Evite links encurtados (bit.ly, etc.) — use links completos</li>
               <li>Aqueça números novos: comece com poucos envios e aumente gradualmente</li>
             </ul>
+          </div>
+
+          {/* Preview de Link */}
+          <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <Link className="h-4 w-4 text-primary" />
+                  Preview de Link
+                </Label>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Exibe prévia do link na mensagem (sites com OG tags)</p>
+              </div>
+              <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
+            </div>
           </div>
 
           {/* Botão Anti-Ban */}
