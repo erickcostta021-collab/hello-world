@@ -84,6 +84,23 @@ serve(async (req) => {
         }
 
         logStep("Checkout completed", { email: customerEmail, subscriptionId: session.subscription });
+
+        // Cancel old subscriptions if this was an upgrade checkout
+        const cancelSubs = session.metadata?.cancel_subs;
+        if (cancelSubs) {
+          const subIds = cancelSubs.split(",").filter(Boolean);
+          for (const oldSubId of subIds) {
+            try {
+              // Don't cancel the new subscription
+              if (oldSubId !== session.subscription) {
+                await stripe.subscriptions.cancel(oldSubId, { prorate: true });
+                logStep("Canceled old subscription after upgrade", { oldSubId });
+              }
+            } catch (cancelErr) {
+              logStep("Failed to cancel old sub (may already be canceled)", { oldSubId, error: String(cancelErr) });
+            }
+          }
+        }
       } else {
         subscription = event.data.object as Stripe.Subscription;
         
