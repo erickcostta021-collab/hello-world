@@ -891,7 +891,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     };
 
     return (
-      <Card className="bg-secondary/30 border-border/50">
+      <Card className="bg-secondary/20 border-primary/40 hover:border-primary/70 transition-colors">
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2 text-sm font-semibold">
