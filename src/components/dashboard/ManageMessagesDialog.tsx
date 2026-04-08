@@ -1261,7 +1261,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         }
       } else if (antiBanEnabled) {
         // Anti-ban active: use custom advanced system (not UAZAPI simple)
-        let bodyText = applyAntiBan(text, addInvisibleChars, addRandomSpacing);
+        let bodyText = applyAntiBan(text, addInvisibleChars);
 
         if (splitMessages) {
           // Split + anti-ban → waves
