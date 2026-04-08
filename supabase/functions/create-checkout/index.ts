@@ -34,8 +34,8 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const { plan, quantity, email: bodyEmail } = await req.json();
-    logStep("Request received", { plan, quantity, email: bodyEmail });
+    const { plan, quantity, email: bodyEmail, forceNewSubscription } = await req.json();
+    logStep("Request received", { plan, quantity, email: bodyEmail, forceNewSubscription });
 
     // Try to get authenticated user
     let userEmail = bodyEmail;
