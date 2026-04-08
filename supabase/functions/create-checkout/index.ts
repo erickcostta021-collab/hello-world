@@ -7,12 +7,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Price IDs for each plan
-const PRICE_IDS: Record<string, string> = {
-  flexible: "price_1SxfRy0Z2fZr4Q3PJmHZbs14", // R$35 per instance
-  plan_50: "price_1SxfSE0Z2fZr4Q3PMYliUtzV",  // R$898/month
-  plan_100: "price_1SxfSZ0Z2fZr4Q3PbqRwA59t", // R$1.498/month
-  plan_300: "price_1SxfSv0Z2fZr4Q3PqhkKAOUS", // R$2.998/month
+// Plan configuration with inline pricing (no external Price IDs needed)
+const PLAN_CONFIG: Record<string, { name: string; amount: number; instances: number }> = {
+  plan_50: { name: "Plano 50 Conexões", amount: 89800, instances: 50 },
+  plan_100: { name: "Plano 100 Conexões", amount: 149800, instances: 100 },
+  plan_300: { name: "Plano 300 Conexões", amount: 299800, instances: 300 },
 };
 
 const FLEXIBLE_PRICE_AMOUNTS = [0, 2900, 4900, 7500, 9900, 12500, 14900, 17500, 19900, 22500, 24900];
