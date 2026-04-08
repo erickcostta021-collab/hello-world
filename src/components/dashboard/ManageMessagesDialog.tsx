@@ -1401,7 +1401,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         // Split messages by triple line break → convert to advanced mode
         let bodyText = text;
         if (antiBanEnabled) {
-          bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
+          bodyText = applyAntiBan(bodyText, addInvisibleChars);
         }
         const parts = splitMessageByTripleBreak(bodyText);
         const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
