@@ -28,64 +28,106 @@ Deno.serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
 
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { data: userData, error: userError } =
-      await supabaseClient.auth.getUser(token);
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError) throw new Error(`Authentication error: ${userError.message}`);
+
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated or email not available");
+
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Check for impersonation: accept email param if caller is admin
     let lookupEmail = user.email;
-    let body: any = {};
-    try { body = await req.json(); } catch { /* no body */ }
+    let flow: "payment_method_update" | "subscription_cancel" | undefined;
+    let body: { email?: string; flow?: "payment_method_update" | "subscription_cancel" } = {};
+
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
 
     if (body?.email && body.email !== user.email) {
-      const supabaseAdmin = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      );
       const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
         _user_id: user.id,
         _role: "admin",
       });
+
       if (isAdmin) {
         lookupEmail = body.email;
         logStep("Admin impersonation", { lookupEmail });
       }
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({
-      email: lookupEmail,
-      limit: 1,
-    });
+    if (body?.flow === "payment_method_update" || body?.flow === "subscription_cancel") {
+      flow = body.flow;
+    }
 
-    if (customers.data.length === 0) {
-      logStep("No Stripe customer found");
+    const profileQuery = lookupEmail === user.email
+      ? await supabaseAdmin
+          .from("profiles")
+          .select("stripe_customer_id")
+          .eq("user_id", user.id)
+          .maybeSingle()
+      : await supabaseAdmin
+          .from("profiles")
+          .select("stripe_customer_id")
+          .eq("email", lookupEmail)
+          .maybeSingle();
+
+    if (profileQuery.error) {
+      logStep("Profile lookup failed", { message: profileQuery.error.message, lookupEmail });
+    }
+
+    let customerId = profileQuery.data?.stripe_customer_id ?? null;
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+    if (!customerId) {
+      const customers = await stripe.customers.list({
+        email: lookupEmail,
+        limit: 1,
+      });
+
+      customerId = customers.data[0]?.id ?? null;
+      if (customerId) {
+        logStep("Found Stripe customer by email", { customerId, lookupEmail });
+      }
+    } else {
+      logStep("Using stripe_customer_id from profile", { customerId, lookupEmail });
+    }
+
+    if (!customerId) {
+      logStep("No Stripe customer found", { lookupEmail });
       return new Response(JSON.stringify({ error: "NO_CUSTOMER" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
 
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
-
     const origin = req.headers.get("origin") || Deno.env.get("FRONTEND_URL") || "http://localhost:3000";
-
-    const portalSession = await stripe.billingPortal.sessions.create({
+    const sessionParams: Stripe.BillingPortal.SessionCreateParams = {
       customer: customerId,
       return_url: `${origin}/dashboard`,
-    });
+    };
 
-    logStep("Portal session created", { url: portalSession.url });
+    if (flow === "payment_method_update") {
+      sessionParams.flow_data = {
+        type: "payment_method_update",
+      };
+    }
+
+    const portalSession = await stripe.billingPortal.sessions.create(sessionParams);
+    logStep("Portal session created", { customerId, flow, url: portalSession.url });
 
     return new Response(JSON.stringify({ url: portalSession.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
