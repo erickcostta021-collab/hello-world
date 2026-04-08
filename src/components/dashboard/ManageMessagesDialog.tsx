@@ -2321,14 +2321,18 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
           {/* ════════ ADVANCED TAB ════════ */}
           <TabsContent value="advanced" className="space-y-4 mt-4">
-            <div className="space-y-2">
-              <Label>Descrição do Envio</Label>
-              <Input placeholder="Ex: Campanha de lançamento" value={advInfo} onChange={(e) => setAdvInfo(e.target.value)} className="bg-secondary border-border" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Delay Mínimo (seg)</Label><Input type="number" value={advDelayMin} onChange={(e) => setAdvDelayMin(e.target.value)} className="bg-secondary border-border" /></div>
-              <div className="space-y-2"><Label>Delay Máximo (seg)</Label><Input type="number" value={advDelayMax} onChange={(e) => setAdvDelayMax(e.target.value)} className="bg-secondary border-border" /></div>
-            </div>
+            <Card className="bg-secondary/20 border-primary/40 hover:border-primary/70 transition-colors">
+              <CardContent className="p-4 space-y-3">
+                <div className="space-y-2">
+                  <Label>Descrição do Envio</Label>
+                  <Input placeholder="Ex: Campanha de lançamento" value={advInfo} onChange={(e) => setAdvInfo(e.target.value)} className="bg-secondary border-border" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2"><Label>Delay Mínimo (seg)</Label><Input type="number" value={advDelayMin} onChange={(e) => setAdvDelayMin(e.target.value)} className="bg-secondary border-border" /></div>
+                  <div className="space-y-2"><Label>Delay Máximo (seg)</Label><Input type="number" value={advDelayMax} onChange={(e) => setAdvDelayMax(e.target.value)} className="bg-secondary border-border" /></div>
+                </div>
+              </CardContent>
+            </Card>
             {renderScheduleSection(
               advScheduleEnabled, setAdvScheduleEnabled,
               advScheduledFor, setAdvScheduledFor,
