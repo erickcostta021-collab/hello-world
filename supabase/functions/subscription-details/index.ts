@@ -62,6 +62,11 @@ Deno.serve(async (req) => {
     if (!authHeader) throw new Error("No authorization header provided");
 
     const token = authHeader.replace("Bearer ", "");
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -73,7 +78,24 @@ Deno.serve(async (req) => {
     const user = userData.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    logStep("User authenticated", { email: user.email });
+    // Check for impersonation: accept email param if caller is admin
+    let lookupEmail = user.email;
+    let body: any = {};
+    try { body = await req.json(); } catch { /* no body */ }
+
+    if (body?.email && body.email !== user.email) {
+      // Verify caller is admin
+      const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
+        _user_id: user.id,
+        _role: "admin",
+      });
+      if (isAdmin) {
+        lookupEmail = body.email;
+        logStep("Admin impersonation", { lookupEmail });
+      }
+    }
+
+    logStep("Looking up subscriptions", { email: lookupEmail });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
