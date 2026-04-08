@@ -1752,18 +1752,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               </label>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="random-spacing"
-                checked={addRandomSpacing}
-                onCheckedChange={(v) => setAddRandomSpacing(!!v)}
-              />
-              <label htmlFor="random-spacing" className="text-xs cursor-pointer">
-                Espaçamento aleatório
-              </label>
-            </div>
-          </div>
 
           {/* Variações com IA */}
           <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
