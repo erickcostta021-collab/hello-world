@@ -53,6 +53,7 @@ const Checkout = () => {
   );
 
   const isLoggedIn = !!user;
+  const hasExistingSubscription = !!user; // logged-in users coming from SubscriptionDialog already have a sub
 
   // Auto-fill email when user is logged in
   useEffect(() => {
@@ -273,6 +274,11 @@ const Checkout = () => {
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Processando...
+                  </>
+                ) : hasExistingSubscription ? (
+                  <>
+                    <Zap className="mr-2 h-5 w-5" />
+                    Atualizar Assinatura
                   </>
                 ) : isFlexible && quantity <= 2 ? (
                   "Testar Grátis"
