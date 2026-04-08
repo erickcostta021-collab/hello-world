@@ -28,6 +28,7 @@ export default function Settings() {
   const { user } = useAuth();
   const { accountMode } = useAccountStatus();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const isAdmin = ADMIN_EMAILS.includes(user?.email || "");
   const isManagedMode = accountMode === "instances" && !isAdmin;
   const [showTokens, setShowTokens] = useState(false);
@@ -35,7 +36,11 @@ export default function Settings() {
   const [showTrackId, setShowTrackId] = useState(false);
   const [isRegeneratingTrackId, setIsRegeneratingTrackId] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(isAdmin ? "oauth" : "integrations");
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "users" && isAdmin) return "users";
+    return isAdmin ? "oauth" : "integrations";
+  });
 
   // For non-admins, fetch the admin's webhook URL to display
   const { data: adminWebhookUrl } = useQuery({
