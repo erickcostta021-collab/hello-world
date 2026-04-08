@@ -30,7 +30,7 @@ export function DashboardHeader() {
   const { getOAuthUrl } = useSettings();
   const { toggle } = useSidebarState();
   const isImpersonating = !!useImpersonation((s) => s.impersonatedUserId);
-  const showSubscriptionOptions = hasStripeSubscription || isImpersonating;
+  const showSubscriptionOptions = hasStripeSubscription || hasActiveSubscription || isImpersonating;
   const navigate = useNavigate();
 
   const oauthUrl = getOAuthUrl();
