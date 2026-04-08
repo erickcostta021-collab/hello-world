@@ -53,6 +53,7 @@ const Checkout = () => {
   );
 
   const isLoggedIn = !!user;
+  const hasExistingSubscription = !!user; // logged-in users coming from SubscriptionDialog already have a sub
 
   // Auto-fill email when user is logged in
   useEffect(() => {
