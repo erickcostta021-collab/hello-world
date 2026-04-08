@@ -1522,7 +1522,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         type: m.type,
       };
       let msgText = m.text || "";
-      if (antiBanEnabled) msgText = applyAntiBan(msgText, addInvisibleChars, addRandomSpacing);
+      if (antiBanEnabled) msgText = applyAntiBan(msgText, addInvisibleChars);
       if (msgText) obj.text = msgText;
       if (m.file) obj.file = m.file;
       if (m.docName) obj.docName = m.docName;
