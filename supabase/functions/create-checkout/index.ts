@@ -214,6 +214,7 @@ serve(async (req) => {
       metadata: {
         plan,
         quantity: quantity || 1,
+        ...(existingSubIds.length > 0 ? { cancel_subs: existingSubIds.join(",") } : {}),
       },
     });
 
