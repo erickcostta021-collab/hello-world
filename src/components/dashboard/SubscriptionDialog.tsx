@@ -106,24 +106,24 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSelectedSub(null); setShowPlans(false); } }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md p-6">
         {/* Subscription detail view */}
         {selectedSub && !showPlans ? (
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">{selectedSub.plan}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 mt-2">
-              <div className="space-y-3">
+            <div className="space-y-5 mt-4">
+              <div className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge variant={statusLabel(selectedSub.status).variant}>
+                  <Badge variant={statusLabel(selectedSub.status).variant} className="mt-1">
                     {statusLabel(selectedSub.status).label}
                   </Badge>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Valor</p>
-                  <p className="font-semibold text-foreground">
+                  <p className="font-semibold text-foreground text-lg">
                     R${selectedSub.amount.toFixed(0)}/mês
                   </p>
                 </div>
@@ -137,7 +137,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
+              <div className="flex flex-wrap gap-3 pt-5 border-t border-border">
                 <Button
                   variant="destructive"
                   size="sm"
