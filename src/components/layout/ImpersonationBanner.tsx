@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 export function ImpersonationBanner() {
   const { impersonatedUserId, impersonatedEmail, stopImpersonation } = useImpersonation();
   const queryClient = useQueryClient();
-
+  const navigate = useNavigate();
   if (!impersonatedUserId) return null;
 
   const handleStop = () => {
