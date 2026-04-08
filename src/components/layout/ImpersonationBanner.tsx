@@ -12,8 +12,8 @@ export function ImpersonationBanner() {
 
   const handleStop = () => {
     stopImpersonation();
-    // Invalidate all queries so they refetch with the real user
     queryClient.invalidateQueries();
+    navigate("/settings?tab=users");
   };
 
   return (
