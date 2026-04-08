@@ -103,8 +103,8 @@ serve(async (req) => {
         });
       }
 
-      if (!subscription || subscription.status !== "active") {
-        logStep("No active subscription, skipping limit update");
+      if (!subscription || (subscription.status !== "active" && subscription.status !== "trialing")) {
+        logStep("No active/trialing subscription, skipping limit update", { status: subscription?.status });
         return new Response(JSON.stringify({ received: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
