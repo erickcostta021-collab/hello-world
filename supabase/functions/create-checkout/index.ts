@@ -181,17 +181,29 @@ serve(async (req) => {
             quantity: qty 
           });
         } else {
-          // For fixed plans, use price ID
+          // For fixed plans, use inline price_data
+          const planConfig = PLAN_CONFIG[plan];
           const updatedSub = await stripe.subscriptions.update(currentSub.id, {
             items: [
               {
                 id: currentItemId,
-                price: PRICE_IDS[plan],
+                deleted: true,
+              },
+              {
+                price_data: {
+                  currency: "brl",
+                  product_data: {
+                    name: planConfig.name,
+                    description: `${planConfig.instances} Conexões WhatsApp Bridge API`,
+                  },
+                  unit_amount: planConfig.amount,
+                  recurring: { interval: "month" as const },
+                },
                 quantity: 1,
               },
             ],
             proration_behavior: "create_prorations",
-            metadata: { plan, quantity: 1 },
+            metadata: { plan, quantity: planConfig.instances },
           });
 
           logStep("Subscription updated (fixed)", { 
