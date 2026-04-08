@@ -248,13 +248,22 @@ serve(async (req) => {
       ];
       logStep("Flexible plan selected", { quantity: qty });
     } else {
+      const planConfig = PLAN_CONFIG[plan];
       lineItems = [
         {
-          price: PRICE_IDS[plan],
+          price_data: {
+            currency: "brl",
+            product_data: {
+              name: planConfig.name,
+              description: `${planConfig.instances} Conexões WhatsApp Bridge API`,
+            },
+            unit_amount: planConfig.amount,
+            recurring: { interval: "month" as const },
+          },
           quantity: 1,
         },
       ];
-      logStep("Fixed plan selected", { plan });
+      logStep("Fixed plan selected", { plan, amount: planConfig.amount });
     }
 
     // Trial for flexible plan with up to 2 instances
