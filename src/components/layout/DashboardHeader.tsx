@@ -7,6 +7,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useSidebarState } from "@/hooks/useSidebarState";
 import { useImpersonation } from "@/hooks/useImpersonation";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
+import { SubscriptionDialog } from "@/components/dashboard/SubscriptionDialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
