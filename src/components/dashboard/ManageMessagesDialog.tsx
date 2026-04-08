@@ -2097,6 +2097,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                           onChange={(e) => setText(e.target.value)}
                           className="bg-secondary border-border min-h-[100px]"
                         />
+                        <div className="flex items-center justify-between mt-1.5 px-1">
+                          <div className="flex items-center gap-1.5">
+                            <Link className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-[11px] text-muted-foreground">Preview de Link</span>
+                          </div>
+                          <Switch checked={linkPreview} onCheckedChange={setLinkPreview} className="scale-90" />
+                        </div>
                         {splitMessages && text && splitMessageByTripleBreak(text).length > 1 && (
                           <div className="mt-2 space-y-1">
                             <p className="text-[11px] font-medium text-primary flex items-center gap-1">
