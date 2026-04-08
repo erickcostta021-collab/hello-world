@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,6 @@ export default function Settings() {
   const { user } = useAuth();
   const { accountMode } = useAccountStatus();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const isAdmin = ADMIN_EMAILS.includes(user?.email || "");
   const isManagedMode = accountMode === "instances" && !isAdmin;
   const [showTokens, setShowTokens] = useState(false);
@@ -36,11 +35,7 @@ export default function Settings() {
   const [showTrackId, setShowTrackId] = useState(false);
   const [isRegeneratingTrackId, setIsRegeneratingTrackId] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "users" && isAdmin) return "users";
-    return isAdmin ? "oauth" : "integrations";
-  });
+  const [activeTab, setActiveTab] = useState(isAdmin ? "oauth" : "integrations");
 
   // For non-admins, fetch the admin's webhook URL to display
   const { data: adminWebhookUrl } = useQuery({
@@ -52,22 +47,27 @@ export default function Settings() {
     enabled: !isAdmin,
   });
 
-  // Sync tab from URL query param (e.g. after returning from impersonation)
+  // Handle one-time navigation state (e.g. return from impersonation)
   useEffect(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam === "users" && isAdmin) {
-      setActiveTab("users");
-    }
-  }, [searchParams, isAdmin]);
+    const navigationState = location.state as { openPasswordChange?: boolean; openUsersTab?: boolean } | null;
+    if (!navigationState) return;
 
-  // Open password dialog if navigated with state
-  useEffect(() => {
-    if (location.state?.openPasswordChange) {
+    let shouldClearState = false;
+
+    if (navigationState.openUsersTab && isAdmin) {
+      setActiveTab("users");
+      shouldClearState = true;
+    }
+
+    if (navigationState.openPasswordChange) {
       setPasswordDialogOpen(true);
-      // Clear the state so it doesn't reopen on re-render
+      shouldClearState = true;
+    }
+
+    if (shouldClearState) {
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, isAdmin]);
   
   const [formData, setFormData] = useState({
     ghl_agency_token: "",

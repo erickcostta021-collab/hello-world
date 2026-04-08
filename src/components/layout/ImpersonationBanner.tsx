@@ -13,7 +13,7 @@ export function ImpersonationBanner() {
   const handleStop = () => {
     stopImpersonation();
     queryClient.invalidateQueries();
-    navigate("/settings?tab=users");
+    navigate("/settings", { state: { openUsersTab: true } });
   };
 
   return (
