@@ -2,17 +2,18 @@ import { useImpersonation } from "@/hooks/useImpersonation";
 import { Button } from "@/components/ui/button";
 import { Eye, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 export function ImpersonationBanner() {
   const { impersonatedUserId, impersonatedEmail, stopImpersonation } = useImpersonation();
   const queryClient = useQueryClient();
-
+  const navigate = useNavigate();
   if (!impersonatedUserId) return null;
 
   const handleStop = () => {
     stopImpersonation();
-    // Invalidate all queries so they refetch with the real user
     queryClient.invalidateQueries();
+    navigate("/settings?tab=users");
   };
 
   return (
