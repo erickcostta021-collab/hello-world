@@ -148,69 +148,59 @@ serve(async (req) => {
         // Build new items for the subscription update
         const currentItemId = currentSub.items.data[0]?.id;
 
+        // subscriptions.update does NOT support price_data.product_data
+        // We must create a product first, then reference it via price_data.product
+        let productName: string;
+        let productDescription: string;
+        let unitAmount: number;
+        let subMetadata: Record<string, any>;
+
         if (plan === "flexible") {
-          // For flexible plan, use inline price_data
-          const updatedSub = await stripe.subscriptions.update(currentSub.id, {
-            items: [
-              {
-                id: currentItemId,
-                deleted: true,
-              },
-              {
-                price_data: {
-                  currency: "brl",
-                  product_data: {
-                    name: qty === 1
-                      ? "Plano Flexível - 1 Instância"
-                      : `Plano Flexível - ${qty} Instâncias`,
-                    description: `${qty} ${qty === 1 ? "Instância" : "Instâncias"} WhatsApp Bridge API`,
-                  },
-                  unit_amount: FLEXIBLE_PRICE_AMOUNTS[qty],
-                  recurring: { interval: "month" as const },
-                },
-                quantity: 1,
-              },
-            ],
-            proration_behavior: "create_prorations",
-            metadata: { plan, quantity: qty },
-          });
-
-          logStep("Subscription updated (flexible)", { 
-            subscriptionId: updatedSub.id, 
-            newPlan: plan, 
-            quantity: qty 
-          });
+          productName = qty === 1
+            ? "Plano Flexível - 1 Instância"
+            : `Plano Flexível - ${qty} Instâncias`;
+          productDescription = `${qty} ${qty === 1 ? "Instância" : "Instâncias"} WhatsApp Bridge API`;
+          unitAmount = FLEXIBLE_PRICE_AMOUNTS[qty];
+          subMetadata = { plan, quantity: qty };
         } else {
-          // For fixed plans, use inline price_data
           const planConfig = PLAN_CONFIG[plan];
-          const updatedSub = await stripe.subscriptions.update(currentSub.id, {
-            items: [
-              {
-                id: currentItemId,
-                deleted: true,
-              },
-              {
-                price_data: {
-                  currency: "brl",
-                  product_data: {
-                    name: planConfig.name,
-                    description: `${planConfig.instances} Conexões WhatsApp Bridge API`,
-                  },
-                  unit_amount: planConfig.amount,
-                  recurring: { interval: "month" as const },
-                },
-                quantity: 1,
-              },
-            ],
-            proration_behavior: "create_prorations",
-            metadata: { plan, quantity: planConfig.instances },
-          });
-
-          logStep("Subscription updated (fixed)", { 
-            subscriptionId: updatedSub.id, 
-            newPlan: plan 
-          });
+          productName = planConfig.name;
+          productDescription = `${planConfig.instances} Conexões WhatsApp Bridge API`;
+          unitAmount = planConfig.amount;
+          subMetadata = { plan, quantity: planConfig.instances };
         }
+
+        const product = await stripe.products.create({
+          name: productName,
+          description: productDescription,
+        });
+        logStep("Product created for sub update", { productId: product.id });
+
+        const updatedSub = await stripe.subscriptions.update(currentSub.id, {
+          items: [
+            {
+              id: currentItemId,
+              deleted: true,
+            },
+            {
+              price_data: {
+                currency: "brl",
+                product: product.id,
+                unit_amount: unitAmount,
+                recurring: { interval: "month" as const },
+              },
+              quantity: 1,
+            },
+          ],
+          proration_behavior: "create_prorations",
+          metadata: subMetadata,
+        });
+
+        logStep("Subscription updated", { 
+          subscriptionId: updatedSub.id, 
+          newPlan: plan, 
+          quantity: plan === "flexible" ? qty : PLAN_CONFIG[plan]?.instances 
+        });
 
         return new Response(
           JSON.stringify({ 
