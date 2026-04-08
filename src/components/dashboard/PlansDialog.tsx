@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Check, CreditCard, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 
 const PLANS = [
   {
