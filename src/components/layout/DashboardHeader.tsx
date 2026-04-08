@@ -183,15 +183,15 @@ export function DashboardHeader() {
             </DropdownMenuItem>
             {showSubscriptionOptions && (
               <>
-                <PlansDialog>
+                <SubscriptionDialog>
                   <DropdownMenuItem
                     onSelect={(e) => e.preventDefault()}
                     className="cursor-pointer"
                   >
                     <ArrowUpCircle className="h-4 w-4 mr-2" />
-                    Atualizar Assinatura
+                    Minha Assinatura
                   </DropdownMenuItem>
-                </PlansDialog>
+                </SubscriptionDialog>
                 <DropdownMenuItem
                   onClick={handleManagePayment}
                   disabled={loadingPortal}
