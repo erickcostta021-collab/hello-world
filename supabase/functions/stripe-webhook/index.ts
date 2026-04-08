@@ -7,15 +7,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
-// Map price IDs to instance limits
-const PRICE_TO_LIMIT: Record<string, number> = {
-  "price_1SxfRy0Z2fZr4Q3PJmHZbs14": 1,  // Flexible - per unit (multiplied by quantity)
-  "price_1SxfSE0Z2fZr4Q3PMYliUtzV": 50,  // Plan 50
-  "price_1SxfSZ0Z2fZr4Q3PbqRwA59t": 100, // Plan 100
-  "price_1SxfSv0Z2fZr4Q3PqhkKAOUS": 300, // Plan 300
+// Map unit_amount to instance limits for fixed plans
+const AMOUNT_TO_LIMIT: Record<number, number> = {
+  89800: 50,   // Plan 50 - R$898
+  149800: 100, // Plan 100 - R$1.498
+  299800: 300, // Plan 300 - R$2.998
 };
 
-const FLEXIBLE_PRICE_ID = "price_1SxfRy0Z2fZr4Q3PJmHZbs14";
+// Flexible plan amounts
+const FLEXIBLE_AMOUNTS = [0, 2900, 4900, 7500, 9900, 12500, 14900, 17500, 19900, 22500, 24900];
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
