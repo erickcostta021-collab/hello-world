@@ -891,7 +891,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
     };
 
     return (
-      <Card className="bg-secondary/30 border-border/50">
+      <Card className="bg-secondary/20 border-primary/40 hover:border-primary/70 transition-colors">
         <CardContent className="p-4 space-y-4">
           <div className="flex items-center justify-between">
             <Label className="flex items-center gap-2 text-sm font-semibold">
@@ -2097,7 +2097,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                           onChange={(e) => setText(e.target.value)}
                           className="bg-secondary border-border min-h-[100px]"
                         />
-                        <div className="flex items-center justify-between mt-1.5 px-1">
+                        <div className="flex items-center justify-between mt-1.5 p-2.5 rounded-lg border border-primary/40 hover:border-primary/70 transition-colors bg-secondary/30">
                           <div className="flex items-center gap-1.5">
                             <Link className="h-3.5 w-3.5 text-primary" />
                             <span className="text-[11px] text-muted-foreground">Preview de Link</span>
