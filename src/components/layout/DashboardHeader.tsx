@@ -7,6 +7,7 @@ import { useSettings } from "@/hooks/useSettings";
 import { useSidebarState } from "@/hooks/useSidebarState";
 import { useImpersonation } from "@/hooks/useImpersonation";
 import { PlansDialog } from "@/components/dashboard/PlansDialog";
+import { SubscriptionDialog } from "@/components/dashboard/SubscriptionDialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -182,15 +183,15 @@ export function DashboardHeader() {
             </DropdownMenuItem>
             {showSubscriptionOptions && (
               <>
-                <PlansDialog>
+                <SubscriptionDialog>
                   <DropdownMenuItem
                     onSelect={(e) => e.preventDefault()}
                     className="cursor-pointer"
                   >
                     <ArrowUpCircle className="h-4 w-4 mr-2" />
-                    Atualizar Assinatura
+                    Minha Assinatura
                   </DropdownMenuItem>
-                </PlansDialog>
+                </SubscriptionDialog>
                 <DropdownMenuItem
                   onClick={handleManagePayment}
                   disabled={loadingPortal}
