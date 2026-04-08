@@ -232,7 +232,7 @@ function hasDynamicFields(text: string): boolean {
 }
 
 // ─── Anti-ban: add random invisible chars ───
-function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: boolean): string {
+function applyAntiBan(text: string, addInvisibleChars: boolean): string {
   let result = text;
   if (addInvisibleChars) {
     // Insert zero-width spaces at random positions to make each message unique
@@ -247,11 +247,6 @@ function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: 
         return w;
       })
       .join(" ");
-  }
-  if (addRandomEmoji) {
-    // Small random variations in spacing
-    if (Math.random() > 0.5) result = result + " ";
-    if (Math.random() > 0.7) result = "\n" + result;
   }
   return result;
 }
