@@ -52,6 +52,14 @@ export default function Settings() {
     enabled: !isAdmin,
   });
 
+  // Sync tab from URL query param (e.g. after returning from impersonation)
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "users" && isAdmin) {
+      setActiveTab("users");
+    }
+  }, [searchParams, isAdmin]);
+
   // Open password dialog if navigated with state
   useEffect(() => {
     if (location.state?.openPasswordChange) {
