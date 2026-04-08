@@ -1106,7 +1106,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
           // Apply anti-ban
           if (antiBanEnabled) {
-            msgText = applyAntiBan(msgText, addInvisibleChars, addRandomSpacing);
+            msgText = applyAntiBan(msgText, addInvisibleChars);
           }
 
           const obj: Record<string, unknown> = {
