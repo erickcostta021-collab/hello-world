@@ -91,7 +91,7 @@ serve(async (req) => {
     }
 
     // Validate plan
-    if (!PRICE_IDS[plan]) {
+    if (plan !== "flexible" && !PLAN_CONFIG[plan]) {
       throw new Error(`Invalid plan: ${plan}`);
     }
 
