@@ -111,8 +111,19 @@ Deno.serve(async (req) => {
     const subs = await stripe.subscriptions.list({
       customer: customerId,
       limit: 10,
-      expand: ["data.items.data.price.product"],
     });
+
+    // Expand product names individually to avoid deep-expand limitation
+    for (const sub of subs.data) {
+      for (const item of sub.items.data) {
+        if (typeof item.price.product === "string") {
+          try {
+            const product = await stripe.products.retrieve(item.price.product);
+            (item.price as any).product = product;
+          } catch { /* ignore */ }
+        }
+      }
+    }
 
     const result = subs.data
       .filter((s) => ["active", "trialing", "past_due"].includes(s.status))
