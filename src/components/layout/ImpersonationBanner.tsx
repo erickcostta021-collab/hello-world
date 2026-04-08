@@ -2,6 +2,7 @@ import { useImpersonation } from "@/hooks/useImpersonation";
 import { Button } from "@/components/ui/button";
 import { Eye, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 export function ImpersonationBanner() {
   const { impersonatedUserId, impersonatedEmail, stopImpersonation } = useImpersonation();
