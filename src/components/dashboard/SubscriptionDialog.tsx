@@ -117,7 +117,7 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
   };
 
   const handleSelectPlan = (planKey: string) => {
-    navigate(`/checkout?plan=${planKey}`);
+    navigate(`/checkout?plan=${planKey}&upgrade=true`);
     onOpenChange(false);
     setSelectedSub(null);
     setShowPlans(false);
