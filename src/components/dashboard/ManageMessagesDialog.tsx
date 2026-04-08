@@ -232,7 +232,7 @@ function hasDynamicFields(text: string): boolean {
 }
 
 // ─── Anti-ban: add random invisible chars ───
-function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: boolean): string {
+function applyAntiBan(text: string, addInvisibleChars: boolean): string {
   let result = text;
   if (addInvisibleChars) {
     // Insert zero-width spaces at random positions to make each message unique
@@ -247,11 +247,6 @@ function applyAntiBan(text: string, addInvisibleChars: boolean, addRandomEmoji: 
         return w;
       })
       .join(" ");
-  }
-  if (addRandomEmoji) {
-    // Small random variations in spacing
-    if (Math.random() > 0.5) result = result + " ";
-    if (Math.random() > 0.7) result = "\n" + result;
   }
   return result;
 }
@@ -285,7 +280,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   // ─── Anti-Ban ───
   const [antiBanEnabled, setAntiBanEnabled] = useState(false);
   const [addInvisibleChars, setAddInvisibleChars] = useState(true);
-  const [addRandomSpacing, setAddRandomSpacing] = useState(false);
+  
   const [splitMessages, setSplitMessages] = useState(false);
   const [splitDelay, setSplitDelay] = useState("2");
   const [antiBanButton, setAntiBanButton] = useState(false);
@@ -1111,7 +1106,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
 
           // Apply anti-ban
           if (antiBanEnabled) {
-            msgText = applyAntiBan(msgText, addInvisibleChars, addRandomSpacing);
+            msgText = applyAntiBan(msgText, addInvisibleChars);
           }
 
           const obj: Record<string, unknown> = {
@@ -1266,7 +1261,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         }
       } else if (antiBanEnabled) {
         // Anti-ban active: use custom advanced system (not UAZAPI simple)
-        let bodyText = applyAntiBan(text, addInvisibleChars, addRandomSpacing);
+        let bodyText = applyAntiBan(text, addInvisibleChars);
 
         if (splitMessages) {
           // Split + anti-ban → waves
@@ -1406,7 +1401,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         // Split messages by triple line break → convert to advanced mode
         let bodyText = text;
         if (antiBanEnabled) {
-          bodyText = applyAntiBan(bodyText, addInvisibleChars, addRandomSpacing);
+          bodyText = applyAntiBan(bodyText, addInvisibleChars);
         }
         const parts = splitMessageByTripleBreak(bodyText);
         const splitDelayMs = (parseInt(splitDelay) || 2) * 1000;
@@ -1527,7 +1522,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
         type: m.type,
       };
       let msgText = m.text || "";
-      if (antiBanEnabled) msgText = applyAntiBan(msgText, addInvisibleChars, addRandomSpacing);
+      if (antiBanEnabled) msgText = applyAntiBan(msgText, addInvisibleChars);
       if (msgText) obj.text = msgText;
       if (m.file) obj.file = m.file;
       if (m.docName) obj.docName = m.docName;
@@ -1757,18 +1752,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
               </label>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="random-spacing"
-                checked={addRandomSpacing}
-                onCheckedChange={(v) => setAddRandomSpacing(!!v)}
-              />
-              <label htmlFor="random-spacing" className="text-xs cursor-pointer">
-                Espaçamento aleatório
-              </label>
-            </div>
-          </div>
 
           {/* Variações com IA */}
           <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
@@ -1883,19 +1866,6 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
             </ul>
           </div>
 
-          {/* Preview de Link */}
-          <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label className="flex items-center gap-2 cursor-pointer text-sm">
-                  <Link className="h-4 w-4 text-primary" />
-                  Preview de Link
-                </Label>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Exibe prévia do link na mensagem (sites com OG tags)</p>
-              </div>
-              <Switch checked={linkPreview} onCheckedChange={setLinkPreview} />
-            </div>
-          </div>
 
           {/* Botão Anti-Ban */}
           <div className="space-y-2 p-3 rounded-lg border border-border bg-background/50">
@@ -2127,6 +2097,13 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                           onChange={(e) => setText(e.target.value)}
                           className="bg-secondary border-border min-h-[100px]"
                         />
+                        <div className="flex items-center justify-between mt-1.5 px-1">
+                          <div className="flex items-center gap-1.5">
+                            <Link className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-[11px] text-muted-foreground">Preview de Link</span>
+                          </div>
+                          <Switch checked={linkPreview} onCheckedChange={setLinkPreview} className="scale-90" />
+                        </div>
                         {splitMessages && text && splitMessageByTripleBreak(text).length > 1 && (
                           <div className="mt-2 space-y-1">
                             <p className="text-[11px] font-medium text-primary flex items-center gap-1">
