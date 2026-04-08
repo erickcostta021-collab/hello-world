@@ -10,11 +10,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowUpCircle, CreditCard, X } from "lucide-react";
+import { Loader2, ArrowUpCircle, CreditCard } from "lucide-react";
 
 interface Subscription {
   id: string;
@@ -26,6 +25,11 @@ interface Subscription {
   cancel_at_period_end: boolean;
 }
 
+interface SubscriptionDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
 const PLANS = [
   { key: "flexible", name: "Flexível", price: "A partir de R$29", description: "1-10 conexões" },
   { key: "plan_50", name: "50 Conexões", price: "R$898", description: "/mês" },
@@ -33,8 +37,7 @@ const PLANS = [
   { key: "plan_300", name: "300 Conexões", price: "R$2.998", description: "/mês" },
 ];
 
-export function SubscriptionDialog({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogProps) {
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const [showPlans, setShowPlans] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
@@ -42,16 +45,20 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
   const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
   const { profile } = useAccountStatus();
 
+  const lookupEmail = impersonatedUserId ? profile?.email ?? null : null;
+
   const { data, isLoading } = useQuery({
-    queryKey: ["subscription-details", impersonatedUserId],
+    queryKey: ["subscription-details", lookupEmail],
     queryFn: async () => {
-      const body: any = {};
-      if (impersonatedUserId && profile?.email) {
-        body.email = profile.email;
+      const body: { email?: string } = {};
+      if (lookupEmail) {
+        body.email = lookupEmail;
       }
+
       const { data, error } = await supabase.functions.invoke("subscription-details", {
         body: Object.keys(body).length > 0 ? body : undefined,
       });
+
       if (error) throw error;
       return data as { subscriptions: Subscription[] };
     },
@@ -61,25 +68,48 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
 
   const subscriptions = data?.subscriptions ?? [];
 
-  const handleOpenPortal = async (flow?: "subscription_cancel" | "payment_method_update") => {
+  const handleDialogChange = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+
+    if (!nextOpen) {
+      setSelectedSub(null);
+      setShowPlans(false);
+    }
+  };
+
+  const handleOpenPortal = async (flow?: "payment_method_update" | "subscription_cancel") => {
     setLoadingPortal(true);
+
     try {
-      const portalBody: any = {};
-      if (impersonatedUserId && profile?.email) {
-        portalBody.email = profile.email;
+      const portalBody: { email?: string; flow?: "payment_method_update" | "subscription_cancel" } = {};
+
+      if (lookupEmail) {
+        portalBody.email = lookupEmail;
       }
+
+      if (flow) {
+        portalBody.flow = flow;
+      }
+
       const { data, error } = await supabase.functions.invoke("customer-portal", {
         body: Object.keys(portalBody).length > 0 ? portalBody : undefined,
       });
+
       if (error) throw error;
-      if (data?.error) {
-        toast.error("Nenhuma forma de pagamento cadastrada.");
+
+      if (data?.error === "NO_CUSTOMER") {
+        toast.error("Cliente do Stripe não encontrado para esta conta.");
         return;
       }
+
       if (data?.url) {
-        window.open(data.url, "_blank");
+        window.open(data.url, "_blank", "noopener,noreferrer");
+        return;
       }
-    } catch {
+
+      throw new Error("URL do portal não retornada");
+    } catch (error) {
+      console.error("Portal error:", error);
       toast.error("Erro ao abrir portal de pagamento");
     } finally {
       setLoadingPortal(false);
@@ -88,11 +118,14 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
 
   const handleSelectPlan = (planKey: string) => {
     navigate(`/checkout?plan=${planKey}`);
-    setOpen(false);
+    onOpenChange(false);
+    setSelectedSub(null);
+    setShowPlans(false);
   };
 
   const formatDate = (iso: string | null) => {
     if (!iso) return "—";
+
     return new Date(iso).toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
@@ -106,20 +139,20 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
       trialing: { label: "Trial", variant: "secondary" },
       past_due: { label: "Pagamento pendente", variant: "destructive" },
     };
+
     return map[status] ?? { label: status, variant: "outline" as const };
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSelectedSub(null); setShowPlans(false); } }}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogContent className="sm:max-w-md p-6">
-        {/* Subscription detail view */}
         {selectedSub && !showPlans ? (
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">{selectedSub.plan}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-5 mt-4">
+
+            <div className="mt-4 space-y-5">
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
@@ -127,12 +160,14 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                     {statusLabel(selectedSub.status).label}
                   </Badge>
                 </div>
+
                 <div>
                   <p className="text-sm text-muted-foreground">Valor</p>
-                  <p className="font-semibold text-foreground text-lg">
+                  <p className="text-lg font-semibold text-foreground">
                     R${selectedSub.amount.toFixed(0)}/mês
                   </p>
                 </div>
+
                 <div>
                   <p className="text-sm text-muted-foreground">Próxima cobrança</p>
                   <p className="font-medium text-foreground">
@@ -143,7 +178,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3 pt-5 border-t border-border">
+              <div className="flex flex-wrap gap-3 border-t border-border pt-5">
                 <Button
                   variant="destructive"
                   size="sm"
@@ -152,95 +187,109 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
                 >
                   Cancelar assinatura
                 </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowPlans(true)}
                 >
-                  <ArrowUpCircle className="h-4 w-4 mr-1" />
+                  <ArrowUpCircle className="mr-1 h-4 w-4" />
                   Atualizar assinatura
                 </Button>
+
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleOpenPortal("payment_method_update")}
                   disabled={loadingPortal}
                 >
-                  <CreditCard className="h-4 w-4 mr-1" />
+                  <CreditCard className="mr-1 h-4 w-4" />
                   Mudar Cartão
                 </Button>
               </div>
             </div>
           </>
         ) : selectedSub && showPlans ? (
-          /* Plan selector */
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">Selecione o plano</DialogTitle>
             </DialogHeader>
-            <div className="space-y-2 mt-2">
-              {PLANS.map((p) => (
+
+            <div className="mt-2 space-y-2">
+              {PLANS.map((plan) => (
                 <button
-                  key={p.key}
-                  onClick={() => handleSelectPlan(p.key)}
-                  className="w-full flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors text-left"
+                  key={plan.key}
+                  onClick={() => handleSelectPlan(plan.key)}
+                  className="w-full rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent/50"
                 >
-                  <div>
-                    <p className="font-semibold text-foreground">{p.name}</p>
-                    {p.popular && (
-                      <Badge variant="secondary" className="mt-1 text-xs">Popular</Badge>
-                    )}
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="font-semibold text-foreground">{plan.name}</p>
+                      {plan.popular && (
+                        <Badge variant="secondary" className="mt-1 text-xs">
+                          Popular
+                        </Badge>
+                      )}
+                    </div>
+
+                    <span className="font-bold text-foreground">
+                      {plan.price}
+                      <span className="text-sm font-normal text-muted-foreground"> {plan.description}</span>
+                    </span>
                   </div>
-                  <span className="font-bold text-foreground">
-                    {p.price}<span className="text-sm font-normal text-muted-foreground"> {p.description}</span>
-                  </span>
                 </button>
               ))}
             </div>
+
             <Button variant="ghost" size="sm" className="mt-2" onClick={() => setShowPlans(false)}>
               ← Voltar
             </Button>
           </>
         ) : (
-          /* Subscription list */
           <>
             <DialogHeader>
               <DialogTitle className="text-xl">Assinaturas ativas</DialogTitle>
             </DialogHeader>
+
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : subscriptions.length === 0 ? (
               <div className="py-6 text-center">
-                <p className="text-muted-foreground mb-4">Nenhuma assinatura ativa</p>
-                <Button onClick={() => { navigate("/checkout?plan=flexible"); setOpen(false); }}>
+                <p className="mb-4 text-muted-foreground">Nenhuma assinatura ativa</p>
+                <Button
+                  onClick={() => {
+                    navigate("/checkout?plan=flexible");
+                    handleDialogChange(false);
+                  }}
+                >
                   Assinar um plano
                 </Button>
               </div>
             ) : (
               <div className="mt-2">
-                <p className="text-sm text-muted-foreground mb-3">
+                <p className="mb-3 text-sm text-muted-foreground">
                   Selecione uma assinatura para mais detalhes
                 </p>
-                <div className="border border-border rounded-lg overflow-hidden">
+
+                <div className="overflow-hidden rounded-lg border border-border">
                   <div className="grid grid-cols-2 gap-0 bg-primary/10 px-4 py-2">
                     <span className="text-sm font-semibold text-foreground">Plano</span>
                     <span className="text-sm font-semibold text-foreground">Status</span>
                   </div>
+
                   {subscriptions.map((sub) => (
                     <button
                       key={sub.id}
                       onClick={() => setSelectedSub(sub)}
-                      className="w-full grid grid-cols-2 gap-0 px-4 py-3 hover:bg-accent/50 transition-colors border-t border-border text-left"
+                      className="grid w-full grid-cols-2 gap-0 border-t border-border px-4 py-3 text-left transition-colors hover:bg-accent/50"
                     >
                       <span className="text-sm text-foreground">{sub.plan}</span>
                       <span className="text-sm text-foreground">
                         {statusLabel(sub.status).label}
                         {sub.current_period_end && sub.status === "active" && (
-                          <span className="text-muted-foreground">
-                            {" "}— vence {formatDate(sub.current_period_end)}
-                          </span>
+                          <span className="text-muted-foreground"> — vence {formatDate(sub.current_period_end)}</span>
                         )}
                       </span>
                     </button>
