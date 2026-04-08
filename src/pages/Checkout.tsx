@@ -129,7 +129,13 @@ const Checkout = () => {
         throw new Error(data.error);
       }
 
-      if (data?.url) {
+      if (data?.updated) {
+        toast.success(data.message || "Assinatura atualizada com sucesso!");
+        // Redirect to dashboard after upgrade/downgrade
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 1500);
+      } else if (data?.url) {
         window.location.href = data.url;
       } else {
         throw new Error("No checkout URL returned");

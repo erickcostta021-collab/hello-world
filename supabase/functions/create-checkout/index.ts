@@ -8,12 +8,14 @@ const corsHeaders = {
 };
 
 // Price IDs for each plan
-const PRICE_IDS = {
+const PRICE_IDS: Record<string, string> = {
   flexible: "price_1SxfRy0Z2fZr4Q3PJmHZbs14", // R$35 per instance
   plan_50: "price_1SxfSE0Z2fZr4Q3PMYliUtzV",  // R$898/month
   plan_100: "price_1SxfSZ0Z2fZr4Q3PbqRwA59t", // R$1.498/month
   plan_300: "price_1SxfSv0Z2fZr4Q3PqhkKAOUS", // R$2.998/month
 };
+
+const FLEXIBLE_PRICE_AMOUNTS = [0, 2900, 4900, 7500, 9900, 12500, 14900, 17500, 19900, 22500, 24900];
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -25,7 +27,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Use service role key to check auth.users
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -91,7 +92,7 @@ serve(async (req) => {
     }
 
     // Validate plan
-    if (!PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
+    if (!PRICE_IDS[plan]) {
       throw new Error(`Invalid plan: ${plan}`);
     }
 
@@ -101,7 +102,7 @@ serve(async (req) => {
 
     // Check if customer already exists
     const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
-    let customerId;
+    let customerId: string | undefined;
     if (customers.data.length > 0) {
       customerId = customers.data[0].id;
       logStep("Existing customer found", { customerId });
@@ -109,10 +110,115 @@ serve(async (req) => {
       logStep("No existing customer, will create new");
     }
 
+    const origin = req.headers.get("origin") || "https://bridge-api.lovable.app";
+    const qty = Math.min(Math.max(quantity || 1, 1), 10);
+
+    // ── Check for existing active subscription ──
+    if (customerId) {
+      const activeSubs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+        limit: 10,
+      });
+
+      // Also check trialing subscriptions
+      const trialingSubs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "trialing",
+        limit: 10,
+      });
+
+      const allActiveSubs = [...activeSubs.data, ...trialingSubs.data];
+
+      if (allActiveSubs.length > 0) {
+        // User already has an active subscription → upgrade/downgrade
+        const currentSub = allActiveSubs[0]; // Use the first active subscription
+        logStep("Existing subscription found, updating", { 
+          subscriptionId: currentSub.id, 
+          currentItems: currentSub.items.data.map(i => ({ price: i.price.id, qty: i.quantity }))
+        });
+
+        // Cancel extra subscriptions if user somehow has more than one
+        for (let i = 1; i < allActiveSubs.length; i++) {
+          logStep("Canceling duplicate subscription", { subId: allActiveSubs[i].id });
+          await stripe.subscriptions.cancel(allActiveSubs[i].id, {
+            prorate: true,
+          });
+        }
+
+        // Build new items for the subscription update
+        const currentItemId = currentSub.items.data[0]?.id;
+
+        if (plan === "flexible") {
+          // For flexible plan, use inline price_data
+          const updatedSub = await stripe.subscriptions.update(currentSub.id, {
+            items: [
+              {
+                id: currentItemId,
+                deleted: true,
+              },
+              {
+                price_data: {
+                  currency: "brl",
+                  product_data: {
+                    name: qty === 1
+                      ? "Plano Flexível - 1 Instância"
+                      : `Plano Flexível - ${qty} Instâncias`,
+                    description: `${qty} ${qty === 1 ? "Instância" : "Instâncias"} WhatsApp Bridge API`,
+                  },
+                  unit_amount: FLEXIBLE_PRICE_AMOUNTS[qty],
+                  recurring: { interval: "month" as const },
+                },
+                quantity: 1,
+              },
+            ],
+            proration_behavior: "create_prorations",
+            metadata: { plan, quantity: qty },
+          });
+
+          logStep("Subscription updated (flexible)", { 
+            subscriptionId: updatedSub.id, 
+            newPlan: plan, 
+            quantity: qty 
+          });
+        } else {
+          // For fixed plans, use price ID
+          const updatedSub = await stripe.subscriptions.update(currentSub.id, {
+            items: [
+              {
+                id: currentItemId,
+                price: PRICE_IDS[plan],
+                quantity: 1,
+              },
+            ],
+            proration_behavior: "create_prorations",
+            metadata: { plan, quantity: 1 },
+          });
+
+          logStep("Subscription updated (fixed)", { 
+            subscriptionId: updatedSub.id, 
+            newPlan: plan 
+          });
+        }
+
+        return new Response(
+          JSON.stringify({ 
+            updated: true, 
+            message: "Assinatura atualizada com sucesso! As alterações já estão ativas." 
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          }
+        );
+      }
+    }
+
+    // ── No existing subscription → create new checkout session ──
+
     // Determine line items based on plan
     let lineItems;
     if (plan === "flexible") {
-      const qty = Math.min(Math.max(quantity || 1, 1), 10); // 1-10 instances
       lineItems = [
         {
           price_data: {
@@ -123,7 +229,7 @@ serve(async (req) => {
                 : `Plano Flexível - ${qty} Instâncias`,
               description: `${qty} ${qty === 1 ? "Instância" : "Instâncias"} WhatsApp Bridge API`,
             },
-            unit_amount: [0, 2900, 4900, 7500, 9900, 12500, 14900, 17500, 19900, 22500, 24900][qty],
+            unit_amount: FLEXIBLE_PRICE_AMOUNTS[qty],
             recurring: { interval: "month" as const },
           },
           quantity: 1,
@@ -133,22 +239,17 @@ serve(async (req) => {
     } else {
       lineItems = [
         {
-          price: PRICE_IDS[plan as keyof typeof PRICE_IDS],
+          price: PRICE_IDS[plan],
           quantity: 1,
         },
       ];
       logStep("Fixed plan selected", { plan });
     }
 
-    const origin = req.headers.get("origin") || "https://bridge-api.lovable.app";
-    
     // Trial for flexible plan with up to 2 instances
-    // Only eligible if customer has NO prior payment methods (first-time user)
-    const qty = quantity || 1;
     let isTrialEligible = plan === "flexible" && qty >= 1 && qty <= 2;
 
     if (isTrialEligible && customerId) {
-      // Check if customer already has payment methods registered
       const paymentMethods = await stripe.paymentMethods.list({
         customer: customerId,
         limit: 1,
@@ -157,7 +258,6 @@ serve(async (req) => {
         isTrialEligible = false;
         logStep("Trial disabled: customer already has payment method", { customerId });
       } else {
-        // Also check for any previous subscriptions (active, canceled, etc.)
         const prevSubs = await stripe.subscriptions.list({
           customer: customerId,
           limit: 1,

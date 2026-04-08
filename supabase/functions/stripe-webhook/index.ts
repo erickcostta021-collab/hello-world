@@ -117,11 +117,35 @@ serve(async (req) => {
         const quantity = item.quantity || 1;
 
         if (priceId === FLEXIBLE_PRICE_ID) {
-          // Flexible plan: limit = quantity (1-10 instances)
+          // Flexible plan with fixed price ID: limit = quantity
           instanceLimit += quantity;
         } else if (PRICE_TO_LIMIT[priceId]) {
           // Fixed plans: use predefined limit
           instanceLimit += PRICE_TO_LIMIT[priceId];
+        } else {
+          // Inline price_data (flexible upgrade/downgrade) — detect by product name or unit_amount
+          const unitAmount = item.price.unit_amount || 0;
+          const FLEXIBLE_AMOUNTS = [0, 2900, 4900, 7500, 9900, 12500, 14900, 17500, 19900, 22500, 24900];
+          const flexIdx = FLEXIBLE_AMOUNTS.indexOf(unitAmount);
+          if (flexIdx > 0) {
+            instanceLimit += flexIdx;
+            logStep("Detected inline flexible price", { unitAmount, instances: flexIdx });
+          } else {
+            // Try to expand product and check name
+            try {
+              const product = await stripe.products.retrieve(item.price.product as string);
+              if (product.name?.includes("Flexível")) {
+                // Parse quantity from name like "Plano Flexível - 3 Instâncias"
+                const match = product.name.match(/(\d+)\s*Inst/i);
+                if (match) {
+                  instanceLimit += parseInt(match[1], 10);
+                  logStep("Detected flexible from product name", { name: product.name, instances: match[1] });
+                }
+              }
+            } catch {
+              logStep("Unknown price, skipping", { priceId, unitAmount });
+            }
+          }
         }
       }
 
