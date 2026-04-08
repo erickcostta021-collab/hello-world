@@ -113,37 +113,43 @@ serve(async (req) => {
       // Calculate instance limit from subscription
       let instanceLimit = 0;
       for (const item of subscription.items.data) {
-        const priceId = item.price.id;
+        const unitAmount = item.price.unit_amount || 0;
         const quantity = item.quantity || 1;
 
-        if (priceId === FLEXIBLE_PRICE_ID) {
-          // Flexible plan with fixed price ID: limit = quantity
-          instanceLimit += quantity;
-        } else if (PRICE_TO_LIMIT[priceId]) {
-          // Fixed plans: use predefined limit
-          instanceLimit += PRICE_TO_LIMIT[priceId];
+        // Check if it's a fixed plan by amount
+        if (AMOUNT_TO_LIMIT[unitAmount]) {
+          instanceLimit += AMOUNT_TO_LIMIT[unitAmount];
+          logStep("Detected fixed plan by amount", { unitAmount, instances: AMOUNT_TO_LIMIT[unitAmount] });
         } else {
-          // Inline price_data (flexible upgrade/downgrade) — detect by product name or unit_amount
-          const unitAmount = item.price.unit_amount || 0;
-          const FLEXIBLE_AMOUNTS = [0, 2900, 4900, 7500, 9900, 12500, 14900, 17500, 19900, 22500, 24900];
+          // Check if it's a flexible plan by amount
           const flexIdx = FLEXIBLE_AMOUNTS.indexOf(unitAmount);
           if (flexIdx > 0) {
             instanceLimit += flexIdx;
-            logStep("Detected inline flexible price", { unitAmount, instances: flexIdx });
+            logStep("Detected flexible plan by amount", { unitAmount, instances: flexIdx });
           } else {
-            // Try to expand product and check name
+            // Try to detect by product name
             try {
               const product = await stripe.products.retrieve(item.price.product as string);
               if (product.name?.includes("Flexível")) {
-                // Parse quantity from name like "Plano Flexível - 3 Instâncias"
                 const match = product.name.match(/(\d+)\s*Inst/i);
                 if (match) {
                   instanceLimit += parseInt(match[1], 10);
                   logStep("Detected flexible from product name", { name: product.name, instances: match[1] });
                 }
+              } else if (product.name?.includes("50 Conexões")) {
+                instanceLimit += 50;
+                logStep("Detected plan 50 from product name", { name: product.name });
+              } else if (product.name?.includes("100 Conexões")) {
+                instanceLimit += 100;
+                logStep("Detected plan 100 from product name", { name: product.name });
+              } else if (product.name?.includes("300 Conexões")) {
+                instanceLimit += 300;
+                logStep("Detected plan 300 from product name", { name: product.name });
+              } else {
+                logStep("Unknown product, skipping", { name: product.name, unitAmount });
               }
             } catch {
-              logStep("Unknown price, skipping", { priceId, unitAmount });
+              logStep("Unknown price, skipping", { priceId: item.price.id, unitAmount });
             }
           }
         }
