@@ -91,6 +91,7 @@ const Checkout = () => {
           plan: planParam,
           quantity: isFlexible ? quantity : 1,
           email: email.trim().toLowerCase(),
+          forceNewSubscription: !isUpgrade,
         },
       });
 
