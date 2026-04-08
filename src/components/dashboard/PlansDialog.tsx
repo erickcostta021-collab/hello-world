@@ -56,6 +56,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
   const [open, setOpen] = useState(false);
   const [flexibleQuantity, setFlexibleQuantity] = useState(1);
   const navigate = useNavigate();
+  const { hasActiveSubscription } = useAccountStatus();
 
   const handleSelectPlan = (planKey: string, quantity?: number) => {
     const params = new URLSearchParams({ plan: planKey });
