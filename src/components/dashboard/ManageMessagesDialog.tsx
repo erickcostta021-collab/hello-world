@@ -2364,7 +2364,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
                 const showMsgMedia = ["image", "video", "audio", "ptt", "sticker", "document"].includes(msg.type);
                 const showMsgChoices = ["list", "button", "poll", "carousel"].includes(msg.type);
                 return (
-                  <Card key={idx} className="bg-secondary/30 border-border/50">
+                  <Card key={idx} className="bg-secondary/20 border-primary/40 hover:border-primary/70 transition-colors">
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-muted-foreground">Mensagem {idx + 1}</span>
