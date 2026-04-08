@@ -114,8 +114,8 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "https://bridge-api.lovable.app";
     const qty = Math.min(Math.max(quantity || 1, 1), 10);
 
-    // ── Check for existing active subscription ──
-    if (customerId) {
+    // ── Check for existing active subscription (only for upgrade flow) ──
+    if (customerId && !forceNewSubscription) {
       const activeSubs = await stripe.subscriptions.list({
         customer: customerId,
         status: "active",
