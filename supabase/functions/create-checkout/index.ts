@@ -40,6 +40,7 @@ serve(async (req) => {
     // Try to get authenticated user
     let userEmail = bodyEmail;
     let isAuthenticated = false;
+    let authUserId: string | null = null;
     
     const authHeader = req.headers.get("Authorization");
     if (authHeader) {
@@ -48,8 +49,9 @@ serve(async (req) => {
       
       if (!userError && userData?.user?.email) {
         userEmail = userData.user.email;
+        authUserId = userData.user.id;
         isAuthenticated = true;
-        logStep("Authenticated user detected", { email: userEmail });
+        logStep("Authenticated user detected", { email: userEmail, userId: authUserId });
       }
     }
 
@@ -145,7 +147,6 @@ serve(async (req) => {
           });
         }
 
-        // Build new items for the subscription update
         const currentItemId = currentSub.items.data[0]?.id;
 
         // subscriptions.update does NOT support price_data.product_data
@@ -196,16 +197,49 @@ serve(async (req) => {
           metadata: subMetadata,
         });
 
+        const nextInstanceLimit =
+          plan === "flexible" ? qty : PLAN_CONFIG[plan].instances;
+        const stripeCustomerId =
+          typeof updatedSub.customer === "string"
+            ? updatedSub.customer
+            : updatedSub.customer?.id;
+
+        if (authUserId) {
+          const { error: profileUpdateError } = await supabaseAdmin
+            .from("profiles")
+            .update({
+              instance_limit: nextInstanceLimit,
+              is_paused: false,
+              paused_at: null,
+              stripe_customer_id: stripeCustomerId || null,
+            })
+            .eq("user_id", authUserId);
+
+          if (profileUpdateError) {
+            logStep("Profile sync failed after subscription update", {
+              userId: authUserId,
+              error: profileUpdateError.message,
+            });
+          } else {
+            logStep("Profile synced after subscription update", {
+              userId: authUserId,
+              limit: nextInstanceLimit,
+              stripeCustomerId,
+            });
+          }
+        }
+
         logStep("Subscription updated", { 
           subscriptionId: updatedSub.id, 
           newPlan: plan, 
-          quantity: plan === "flexible" ? qty : PLAN_CONFIG[plan]?.instances 
+          quantity: nextInstanceLimit,
         });
 
         return new Response(
           JSON.stringify({ 
             updated: true, 
-            message: "Assinatura atualizada com sucesso! As alterações já estão ativas." 
+            message: "Assinatura atualizada com sucesso! As alterações já estão ativas.",
+            instanceLimit: nextInstanceLimit,
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
