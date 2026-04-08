@@ -277,12 +277,12 @@ const Checkout = () => {
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Processando...
                   </>
-                ) : hasExistingSubscription ? (
+              ) : isUpgrade ? (
                   <>
                     <Zap className="mr-2 h-5 w-5" />
                     Atualizar Assinatura
                   </>
-                ) : isFlexible && quantity <= 2 ? (
+                ) : !isLoggedIn && isFlexible && quantity <= 2 ? (
                   "Testar Grátis"
                 ) : (
                   <>
