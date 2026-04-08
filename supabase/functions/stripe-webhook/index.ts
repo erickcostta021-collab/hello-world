@@ -214,8 +214,9 @@ serve(async (req) => {
     // Handle subscription cancellation
     if (event.type === "customer.subscription.deleted") {
       const subscription = event.data.object as Stripe.Subscription;
+      const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
       
-      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      const customer = await stripe.customers.retrieve(customerId as string);
       if (customer.deleted) {
         return new Response(JSON.stringify({ received: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -225,26 +226,85 @@ serve(async (req) => {
       const customerEmail = customer.email;
       
       if (customerEmail) {
-        const { data: users } = await supabaseAdmin.auth.admin.listUsers();
-        const user = users?.users.find(
-          (u) => u.email?.toLowerCase() === customerEmail.toLowerCase()
-        );
+        // Check if customer still has OTHER active/trialing subscriptions
+        const remainingSubs = await stripe.subscriptions.list({
+          customer: customerId as string,
+          status: "active",
+          limit: 10,
+        });
+        const remainingTrialing = await stripe.subscriptions.list({
+          customer: customerId as string,
+          status: "trialing",
+          limit: 10,
+        });
+        const allRemaining = [...remainingSubs.data, ...remainingTrialing.data];
+        
+        if (allRemaining.length > 0) {
+          logStep("Subscription deleted but customer still has active subs, recalculating limit", {
+            email: customerEmail,
+            remainingCount: allRemaining.length,
+            deletedSubId: subscription.id,
+          });
 
-        if (user) {
-          // Set limit to 0 and pause account
-          const { error: updateError } = await supabaseAdmin
-            .from("profiles")
-            .update({ 
-              instance_limit: 0,
-              is_paused: true,
-              paused_at: new Date().toISOString()
-            })
-            .eq("user_id", user.id);
+          // Recalculate total instance limit from remaining subscriptions
+          let totalLimit = 0;
+          for (const sub of allRemaining) {
+            for (const item of sub.items.data) {
+              const unitAmount = item.price.unit_amount || 0;
+              if (AMOUNT_TO_LIMIT[unitAmount]) {
+                totalLimit += AMOUNT_TO_LIMIT[unitAmount];
+              } else {
+                const flexIdx = FLEXIBLE_AMOUNTS.indexOf(unitAmount);
+                if (flexIdx > 0) {
+                  totalLimit += flexIdx;
+                } else {
+                  try {
+                    const product = await stripe.products.retrieve(item.price.product as string);
+                    if (product.name?.includes("Flexível")) {
+                      const match = product.name.match(/(\d+)\s*Inst/i);
+                      if (match) totalLimit += parseInt(match[1], 10);
+                    } else if (product.name?.includes("50 Conexões")) totalLimit += 50;
+                    else if (product.name?.includes("100 Conexões")) totalLimit += 100;
+                    else if (product.name?.includes("300 Conexões")) totalLimit += 300;
+                  } catch { /* skip */ }
+                }
+              }
+            }
+          }
 
-          if (updateError) {
-            logStep("Error pausing user", { error: updateError.message });
-          } else {
-            logStep("User subscription canceled, account paused", { userId: user.id });
+          const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+          const user = users?.users.find(
+            (u) => u.email?.toLowerCase() === customerEmail?.toLowerCase()
+          );
+          if (user) {
+            await supabaseAdmin
+              .from("profiles")
+              .update({ instance_limit: totalLimit, is_paused: false, paused_at: null })
+              .eq("user_id", user.id);
+            logStep("Recalculated limit from remaining subs", { userId: user.id, totalLimit });
+          }
+        } else {
+          // No remaining subs - pause account
+          const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+          const user = users?.users.find(
+            (u) => u.email?.toLowerCase() === customerEmail?.toLowerCase()
+          );
+
+          if (user) {
+            const { error: updateError } = await supabaseAdmin
+              .from("profiles")
+              .update({ 
+                instance_limit: 0,
+                is_paused: true,
+                paused_at: new Date().toISOString()
+              })
+              .eq("user_id", user.id);
+
+            if (updateError) {
+              logStep("Error pausing user", { error: updateError.message });
+            } else {
+              logStep("User subscription canceled, account paused", { userId: user.id });
+            }
           }
         }
       }
