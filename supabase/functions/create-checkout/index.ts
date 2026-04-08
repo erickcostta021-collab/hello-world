@@ -114,7 +114,7 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "https://bridge-api.lovable.app";
     const qty = Math.min(Math.max(quantity || 1, 1), 10);
 
-    // ── For upgrades, collect existing subscription IDs to cancel AFTER checkout completes ──
+    // ── For upgrades, mark existing subs to cancel at period end AFTER checkout completes ──
     let existingSubIds: string[] = [];
     if (customerId && !forceNewSubscription) {
       const activeSubs = await stripe.subscriptions.list({
@@ -130,7 +130,7 @@ serve(async (req) => {
       const allActiveSubs = [...activeSubs.data, ...trialingSubs.data];
       existingSubIds = allActiveSubs.map(s => s.id);
       if (existingSubIds.length > 0) {
-        logStep("Will cancel these subs after checkout completes", { existingSubIds });
+        logStep("Will set these subs to cancel at period end after checkout", { existingSubIds });
       }
     }
 
