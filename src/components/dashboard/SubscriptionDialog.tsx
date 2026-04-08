@@ -64,7 +64,13 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
   const handleOpenPortal = async (flow?: "subscription_cancel" | "payment_method_update") => {
     setLoadingPortal(true);
     try {
-      const { data, error } = await supabase.functions.invoke("customer-portal");
+      const portalBody: any = {};
+      if (impersonatedUserId && profile?.email) {
+        portalBody.email = profile.email;
+      }
+      const { data, error } = await supabase.functions.invoke("customer-portal", {
+        body: Object.keys(portalBody).length > 0 ? portalBody : undefined,
+      });
       if (error) throw error;
       if (data?.error) {
         toast.error("Nenhuma forma de pagamento cadastrada.");
