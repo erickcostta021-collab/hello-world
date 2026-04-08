@@ -126,52 +126,49 @@ serve(async (req) => {
         });
       }
 
-      // Calculate instance limit from subscription
+      // Calculate TOTAL instance limit from ALL active/trialing subscriptions for this customer
+      const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id;
       let instanceLimit = 0;
-      for (const item of subscription.items.data) {
-        const unitAmount = item.price.unit_amount || 0;
-        const quantity = item.quantity || 1;
+      
+      if (customerId) {
+        const allActiveSubs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 50 });
+        const allTrialingSubs = await stripe.subscriptions.list({ customer: customerId, status: "trialing", limit: 50 });
+        const allSubs = [...allActiveSubs.data, ...allTrialingSubs.data];
+        
+        logStep("Calculating total limit from all subs", { count: allSubs.length, subIds: allSubs.map(s => s.id) });
+        
+        for (const sub of allSubs) {
+          for (const item of sub.items.data) {
+            const unitAmount = item.price.unit_amount || 0;
 
-        // Check if it's a fixed plan by amount
-        if (AMOUNT_TO_LIMIT[unitAmount]) {
-          instanceLimit += AMOUNT_TO_LIMIT[unitAmount];
-          logStep("Detected fixed plan by amount", { unitAmount, instances: AMOUNT_TO_LIMIT[unitAmount] });
-        } else {
-          // Check if it's a flexible plan by amount
-          const flexIdx = FLEXIBLE_AMOUNTS.indexOf(unitAmount);
-          if (flexIdx > 0) {
-            instanceLimit += flexIdx;
-            logStep("Detected flexible plan by amount", { unitAmount, instances: flexIdx });
-          } else {
-            // Try to detect by product name
-            try {
-              const product = await stripe.products.retrieve(item.price.product as string);
-              if (product.name?.includes("Flexível")) {
-                const match = product.name.match(/(\d+)\s*Inst/i);
-                if (match) {
-                  instanceLimit += parseInt(match[1], 10);
-                  logStep("Detected flexible from product name", { name: product.name, instances: match[1] });
-                }
-              } else if (product.name?.includes("50 Conexões")) {
-                instanceLimit += 50;
-                logStep("Detected plan 50 from product name", { name: product.name });
-              } else if (product.name?.includes("100 Conexões")) {
-                instanceLimit += 100;
-                logStep("Detected plan 100 from product name", { name: product.name });
-              } else if (product.name?.includes("300 Conexões")) {
-                instanceLimit += 300;
-                logStep("Detected plan 300 from product name", { name: product.name });
+            if (AMOUNT_TO_LIMIT[unitAmount]) {
+              instanceLimit += AMOUNT_TO_LIMIT[unitAmount];
+              logStep("Fixed plan detected", { subId: sub.id, unitAmount, instances: AMOUNT_TO_LIMIT[unitAmount] });
+            } else {
+              const flexIdx = FLEXIBLE_AMOUNTS.indexOf(unitAmount);
+              if (flexIdx > 0) {
+                instanceLimit += flexIdx;
+                logStep("Flexible plan detected", { subId: sub.id, unitAmount, instances: flexIdx });
               } else {
-                logStep("Unknown product, skipping", { name: product.name, unitAmount });
+                try {
+                  const product = await stripe.products.retrieve(item.price.product as string);
+                  if (product.name?.includes("Flexível")) {
+                    const match = product.name.match(/(\d+)\s*Inst/i);
+                    if (match) instanceLimit += parseInt(match[1], 10);
+                  } else if (product.name?.includes("50 Conexões")) instanceLimit += 50;
+                  else if (product.name?.includes("100 Conexões")) instanceLimit += 100;
+                  else if (product.name?.includes("300 Conexões")) instanceLimit += 300;
+                  else logStep("Unknown product, skipping", { name: product.name, unitAmount });
+                } catch {
+                  logStep("Unknown price, skipping", { priceId: item.price.id, unitAmount });
+                }
               }
-            } catch {
-              logStep("Unknown price, skipping", { priceId: item.price.id, unitAmount });
             }
           }
         }
       }
 
-      logStep("Calculated instance limit", { email: customerEmail, limit: instanceLimit });
+      logStep("Calculated total instance limit from all subs", { email: customerEmail, limit: instanceLimit });
 
       // Find user by email and update their profile
       const { data: users, error: listError } = await supabaseAdmin.auth.admin.listUsers();
