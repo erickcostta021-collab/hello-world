@@ -106,7 +106,7 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setSelectedSub(null); setShowPlans(false); } }}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md p-6">
         {/* Subscription detail view */}
         {selectedSub && !showPlans ? (
           <>
