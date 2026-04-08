@@ -34,7 +34,7 @@ const PLANS = [
   { key: "flexible", name: "Flexível", price: "A partir de R$29", description: "1-10 conexões" },
   { key: "plan_50", name: "50 Conexões", price: "R$898", description: "/mês" },
   { key: "plan_100", name: "100 Conexões", price: "R$1.498", description: "/mês", popular: true },
-  { key: "plan_300", name: "300 Conexões", price: "R$2.998", description: "/mês" },
+  
 ];
 
 export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogProps) {
