@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Check, CreditCard, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAccountStatus } from "@/hooks/useAccountStatus";
 
 const PLANS = [
   {
@@ -55,6 +56,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
   const [open, setOpen] = useState(false);
   const [flexibleQuantity, setFlexibleQuantity] = useState(1);
   const navigate = useNavigate();
+  const { hasActiveSubscription } = useAccountStatus();
 
   const handleSelectPlan = (planKey: string, quantity?: number) => {
     const params = new URLSearchParams({ plan: planKey });
@@ -166,7 +168,7 @@ export function PlansDialog({ children }: PlansDialogProps) {
                     )}
                   >
                     <Zap className="h-4 w-4 mr-2" />
-                    {isFlexible && flexibleQuantity <= 2 ? "Testar Grátis" : "Assinar Plano"}
+                    {isFlexible && flexibleQuantity <= 2 && !hasActiveSubscription ? "Testar Grátis" : "Assinar Plano"}
                   </Button>
                 </div>
               );
