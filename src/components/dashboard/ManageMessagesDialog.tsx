@@ -280,7 +280,7 @@ export function ManageMessagesDialog({ open, onOpenChange, instance, allInstance
   // ─── Anti-Ban ───
   const [antiBanEnabled, setAntiBanEnabled] = useState(false);
   const [addInvisibleChars, setAddInvisibleChars] = useState(true);
-  const [addRandomSpacing, setAddRandomSpacing] = useState(false);
+  
   const [splitMessages, setSplitMessages] = useState(false);
   const [splitDelay, setSplitDelay] = useState("2");
   const [antiBanButton, setAntiBanButton] = useState(false);
