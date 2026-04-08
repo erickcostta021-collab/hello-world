@@ -39,11 +39,19 @@ export function SubscriptionDialog({ children }: { children: React.ReactNode }) 
   const [showPlans, setShowPlans] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
   const navigate = useNavigate();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
+  const { profile } = useAccountStatus();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["subscription-details"],
+    queryKey: ["subscription-details", impersonatedUserId],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("subscription-details");
+      const body: any = {};
+      if (impersonatedUserId && profile?.email) {
+        body.email = profile.email;
+      }
+      const { data, error } = await supabase.functions.invoke("subscription-details", {
+        body: Object.keys(body).length > 0 ? body : undefined,
+      });
       if (error) throw error;
       return data as { subscriptions: Subscription[] };
     },
