@@ -114,138 +114,25 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "https://bridge-api.lovable.app";
     const qty = Math.min(Math.max(quantity || 1, 1), 10);
 
-    // ── Check for existing active subscription (only for upgrade flow) ──
+    // ── For upgrades, cancel existing subscriptions so the new checkout replaces them ──
     if (customerId && !forceNewSubscription) {
       const activeSubs = await stripe.subscriptions.list({
         customer: customerId,
         status: "active",
         limit: 10,
       });
-
-      // Also check trialing subscriptions
       const trialingSubs = await stripe.subscriptions.list({
         customer: customerId,
         status: "trialing",
         limit: 10,
       });
-
       const allActiveSubs = [...activeSubs.data, ...trialingSubs.data];
 
       if (allActiveSubs.length > 0) {
-        // User already has an active subscription → upgrade/downgrade
-        const currentSub = allActiveSubs[0]; // Use the first active subscription
-        logStep("Existing subscription found, updating", { 
-          subscriptionId: currentSub.id, 
-          currentItems: currentSub.items.data.map(i => ({ price: i.price.id, qty: i.quantity }))
-        });
-
-        // Cancel extra subscriptions if user somehow has more than one
-        for (let i = 1; i < allActiveSubs.length; i++) {
-          logStep("Canceling duplicate subscription", { subId: allActiveSubs[i].id });
-          await stripe.subscriptions.cancel(allActiveSubs[i].id, {
-            prorate: true,
-          });
+        for (const sub of allActiveSubs) {
+          logStep("Canceling existing subscription for upgrade checkout", { subId: sub.id });
+          await stripe.subscriptions.cancel(sub.id, { prorate: true });
         }
-
-        const currentItemId = currentSub.items.data[0]?.id;
-
-        // subscriptions.update does NOT support price_data.product_data
-        // We must create a product first, then reference it via price_data.product
-        let productName: string;
-        let productDescription: string;
-        let unitAmount: number;
-        let subMetadata: Record<string, any>;
-
-        if (plan === "flexible") {
-          productName = qty === 1
-            ? "Plano Flexível - 1 Instância"
-            : `Plano Flexível - ${qty} Instâncias`;
-          productDescription = `${qty} ${qty === 1 ? "Instância" : "Instâncias"} WhatsApp Bridge API`;
-          unitAmount = FLEXIBLE_PRICE_AMOUNTS[qty];
-          subMetadata = { plan, quantity: qty };
-        } else {
-          const planConfig = PLAN_CONFIG[plan];
-          productName = planConfig.name;
-          productDescription = `${planConfig.instances} Conexões WhatsApp Bridge API`;
-          unitAmount = planConfig.amount;
-          subMetadata = { plan, quantity: planConfig.instances };
-        }
-
-        const product = await stripe.products.create({
-          name: productName,
-          description: productDescription,
-        });
-        logStep("Product created for sub update", { productId: product.id });
-
-        const updatedSub = await stripe.subscriptions.update(currentSub.id, {
-          items: [
-            {
-              id: currentItemId,
-              deleted: true,
-            },
-            {
-              price_data: {
-                currency: "brl",
-                product: product.id,
-                unit_amount: unitAmount,
-                recurring: { interval: "month" as const },
-              },
-              quantity: 1,
-            },
-          ],
-          proration_behavior: "create_prorations",
-          metadata: subMetadata,
-        });
-
-        const nextInstanceLimit =
-          plan === "flexible" ? qty : PLAN_CONFIG[plan].instances;
-        const stripeCustomerId =
-          typeof updatedSub.customer === "string"
-            ? updatedSub.customer
-            : updatedSub.customer?.id;
-
-        if (authUserId) {
-          const { error: profileUpdateError } = await supabaseAdmin
-            .from("profiles")
-            .update({
-              instance_limit: nextInstanceLimit,
-              is_paused: false,
-              paused_at: null,
-              stripe_customer_id: stripeCustomerId || null,
-            })
-            .eq("user_id", authUserId);
-
-          if (profileUpdateError) {
-            logStep("Profile sync failed after subscription update", {
-              userId: authUserId,
-              error: profileUpdateError.message,
-            });
-          } else {
-            logStep("Profile synced after subscription update", {
-              userId: authUserId,
-              limit: nextInstanceLimit,
-              stripeCustomerId,
-            });
-          }
-        }
-
-        logStep("Subscription updated", { 
-          subscriptionId: updatedSub.id, 
-          newPlan: plan, 
-          quantity: nextInstanceLimit,
-        });
-
-        return new Response(
-          JSON.stringify({ 
-            updated: true, 
-            message: "Assinatura atualizada com sucesso! As alterações já estão ativas.",
-            instanceLimit: nextInstanceLimit,
-          }),
-          {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 200,
-          }
-        );
       }
     }
 
