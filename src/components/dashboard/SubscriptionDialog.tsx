@@ -221,6 +221,10 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
                   Mudar Cartão
                 </Button>
               </div>
+
+              <Button variant="ghost" size="sm" className="mt-2" onClick={() => setSelectedSub(null)}>
+                ← Voltar
+              </Button>
             </div>
           </>
         ) : selectedSub && showPlans && pendingPlan ? (
