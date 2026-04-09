@@ -203,6 +203,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     }
   }, []);
 
+  // Track that we just connected to schedule post-connection syncs
+  const justConnectedRef = useRef(false);
+
   // Auto-refresh status when QR dialog is open
   useEffect(() => {
     if (!qrDialogOpen) return;
@@ -215,6 +218,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           if (result?.profilePicUrl) setProfilePicUrl(result.profilePicUrl);
           setLocalStatus("connected");
           setQrDialogOpen(false);
+          justConnectedRef.current = true;
           toast.success("WhatsApp conectado com sucesso!");
         }
       } catch {
@@ -225,20 +229,23 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     return () => clearInterval(interval);
   }, [qrDialogOpen]);
 
-  // After connection, retry fetching profile pic if missing
+  // After connection, retry fetching profile pic and phone if missing
   useEffect(() => {
     profilePicRef.current = profilePicUrl;
   }, [profilePicUrl]);
 
+  // Schedule post-connection syncs when justConnectedRef is set
   useEffect(() => {
-    if (localStatus !== "connected" || profilePicUrl) return;
+    if (localStatus !== "connected" && !justConnectedRef.current) return;
+    if (profilePicUrl && connectedPhone) return;
 
+    justConnectedRef.current = false;
     let cancelled = false;
-    const retryDelays = [2000, 5000, 10000, 20000];
+    const retryDelays = [2000, 5000, 10000, 20000, 35000];
 
     const retries = retryDelays.map((delay) =>
       setTimeout(async () => {
-        if (cancelled || profilePicRef.current) return;
+        if (cancelled || (profilePicRef.current && connectedPhone)) return;
         try {
           const result = await syncInstanceStatus.mutateAsync(instance);
           if (result?.profilePicUrl) {
@@ -254,7 +261,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       cancelled = true;
       retries.forEach(clearTimeout);
     };
-  }, [localStatus]);
+  }, [localStatus, profilePicUrl, connectedPhone]);
 
   const handleConnect = async () => {
     setLoadingQR(true);
