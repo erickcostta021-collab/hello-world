@@ -151,6 +151,44 @@ Deno.serve(async (req) => {
       }
     }
 
+    // In Stripe API 2025-08-27.basil, current_period_end was removed.
+    // We need to fetch the upcoming invoice or calculate from billing_cycle_anchor.
+    // Fetch upcoming invoice for the next billing date per subscription.
+    const subPeriodEndMap = new Map<string, string | null>();
+    
+    for (const sub of subs.data) {
+      if (!["active", "trialing", "past_due"].includes(sub.status)) continue;
+      
+      try {
+        const upcomingInvoice = await stripe.invoices.upcoming({
+          customer: customerId,
+          subscription: sub.id,
+        });
+        if (upcomingInvoice.period_end) {
+          subPeriodEndMap.set(
+            sub.id,
+            new Date(upcomingInvoice.period_end * 1000).toISOString()
+          );
+        } else {
+          subPeriodEndMap.set(sub.id, null);
+        }
+      } catch {
+        // If no upcoming invoice (e.g. canceled), try billing_cycle_anchor
+        const anchor = (sub as any).billing_cycle_anchor;
+        if (anchor) {
+          // Calculate next billing date from anchor (monthly cycle)
+          const anchorDate = new Date(anchor * 1000);
+          const now = new Date();
+          while (anchorDate <= now) {
+            anchorDate.setMonth(anchorDate.getMonth() + 1);
+          }
+          subPeriodEndMap.set(sub.id, anchorDate.toISOString());
+        } else {
+          subPeriodEndMap.set(sub.id, null);
+        }
+      }
+    }
+
     const result = subs.data
       .filter((subscription) => ["active", "trialing", "past_due"].includes(subscription.status))
       .map((subscription) => {
@@ -162,9 +200,7 @@ Deno.serve(async (req) => {
           status: subscription.status,
           amount: item.price.unit_amount ? item.price.unit_amount / 100 : 0,
           currency: item.price.currency,
-          current_period_end: subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000).toISOString()
-            : null,
+          current_period_end: subPeriodEndMap.get(subscription.id) ?? null,
           cancel_at_period_end: subscription.cancel_at_period_end,
         };
       });
