@@ -26,13 +26,13 @@ serve(async (req) => {
   try {
     logStep("Checking for expired grace periods");
 
-    // Find all users who have paused_at set, is_paused = false, and grace period has expired
     const gracePeriodCutoff = new Date();
     gracePeriodCutoff.setDate(gracePeriodCutoff.getDate() - GRACE_PERIOD_DAYS);
 
+    // Find users with expired grace period (is_paused=false, paused_at set and expired)
     const { data: expiredProfiles, error: fetchError } = await supabaseAdmin
       .from("profiles")
-      .select("user_id, email, paused_at")
+      .select("user_id, email, paused_at, instance_limit")
       .eq("is_paused", false)
       .not("paused_at", "is", null)
       .lt("paused_at", gracePeriodCutoff.toISOString());
@@ -55,36 +55,96 @@ serve(async (req) => {
 
     for (const profile of expiredProfiles) {
       try {
-        // 1. Delete ALL instances for this user
-        const { data: deleted, error: deleteError } = await supabaseAdmin
+        const limit = profile.instance_limit ?? 0;
+
+        // Get all instances for this user
+        const { data: instances, error: listError } = await supabaseAdmin
           .from("instances")
-          .delete()
-          .eq("user_id", profile.user_id)
-          .select("id");
-
-        if (deleteError) {
-          logStep("Error deleting instances", { userId: profile.user_id, error: deleteError.message });
-          continue;
-        }
-
-        const deletedCount = deleted?.length ?? 0;
-
-        // 2. Set is_paused = true (fully paused)
-        const { error: pauseError } = await supabaseAdmin
-          .from("profiles")
-          .update({ is_paused: true })
+          .select("id, instance_status, phone")
           .eq("user_id", profile.user_id);
 
-        if (pauseError) {
-          logStep("Error pausing user", { userId: profile.user_id, error: pauseError.message });
+        if (listError) {
+          logStep("Error listing instances", { userId: profile.user_id, error: listError.message });
           continue;
         }
 
-        logStep("Grace period expired - account paused and instances DELETED", {
-          userId: profile.user_id,
-          email: profile.email,
-          instancesDeleted: deletedCount,
-        });
+        const totalInstances = instances?.length ?? 0;
+
+        if (limit === 0) {
+          // No active subscription — delete ALL instances and pause
+          const { data: deleted } = await supabaseAdmin
+            .from("instances")
+            .delete()
+            .eq("user_id", profile.user_id)
+            .select("id");
+
+          await supabaseAdmin
+            .from("profiles")
+            .update({ is_paused: true })
+            .eq("user_id", profile.user_id);
+
+          logStep("No subscription - all instances deleted, account paused", {
+            userId: profile.user_id,
+            email: profile.email,
+            deleted: deleted?.length ?? 0,
+          });
+        } else if (totalInstances > limit) {
+          // Has subscription but excess instances — trim excess
+          const excess = totalInstances - limit;
+
+          // Sort: disconnected first, then connecting, then connected
+          // Within same status, prefer ones without a phone (empty)
+          const sorted = (instances ?? []).sort((a, b) => {
+            const statusOrder: Record<string, number> = {
+              disconnected: 0,
+              connecting: 1,
+              connected: 2,
+            };
+            const aOrder = statusOrder[a.instance_status] ?? 0;
+            const bOrder = statusOrder[b.instance_status] ?? 0;
+            if (aOrder !== bOrder) return aOrder - bOrder;
+            // Prefer deleting ones without a phone number (empty)
+            const aEmpty = !a.phone ? 0 : 1;
+            const bEmpty = !b.phone ? 0 : 1;
+            return aEmpty - bEmpty;
+          });
+
+          const toDelete = sorted.slice(0, excess);
+          const deleteIds = toDelete.map((i) => i.id);
+
+          const { data: deleted } = await supabaseAdmin
+            .from("instances")
+            .delete()
+            .in("id", deleteIds)
+            .select("id");
+
+          // Clear paused_at since we handled it
+          await supabaseAdmin
+            .from("profiles")
+            .update({ paused_at: null })
+            .eq("user_id", profile.user_id);
+
+          logStep("Excess instances trimmed", {
+            userId: profile.user_id,
+            email: profile.email,
+            limit,
+            had: totalInstances,
+            deleted: deleted?.length ?? 0,
+            deletedIds: deleteIds,
+          });
+        } else {
+          // Instances within limit — just clear paused_at
+          await supabaseAdmin
+            .from("profiles")
+            .update({ paused_at: null })
+            .eq("user_id", profile.user_id);
+
+          logStep("Instances within limit, grace period cleared", {
+            userId: profile.user_id,
+            instances: totalInstances,
+            limit,
+          });
+        }
 
         processed++;
       } catch (err) {
