@@ -273,11 +273,31 @@ serve(async (req) => {
             (u) => u.email?.toLowerCase() === customerEmail?.toLowerCase()
           );
           if (user) {
+            // Check if user has more instances than new limit
+            const { data: instances } = await supabaseAdmin
+              .from("instances")
+              .select("id")
+              .eq("user_id", user.id);
+
+            const instanceCount = instances?.length ?? 0;
+            const needsTrimming = instanceCount > totalLimit;
+
             await supabaseAdmin
               .from("profiles")
-              .update({ instance_limit: totalLimit, is_paused: false, paused_at: null })
+              .update({
+                instance_limit: totalLimit,
+                is_paused: false,
+                // If excess instances exist, set paused_at to trigger grace period for trimming
+                paused_at: needsTrimming ? new Date().toISOString() : null,
+              })
               .eq("user_id", user.id);
-            logStep("Recalculated limit from remaining subs", { userId: user.id, totalLimit });
+
+            logStep("Recalculated limit from remaining subs", {
+              userId: user.id,
+              totalLimit,
+              instanceCount,
+              needsTrimming,
+            });
           }
         } else {
           // No remaining subs - pause account
