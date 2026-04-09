@@ -223,6 +223,40 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
               </div>
             </div>
           </>
+        ) : selectedSub && showPlans && pendingPlan ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl">Confirmar atualização</DialogTitle>
+            </DialogHeader>
+
+            <div className="mt-2 space-y-4">
+              <Alert className="border-primary/30 bg-primary/5">
+                <Info className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-sm text-foreground">
+                  <p className="mb-2">
+                    Você está atualizando para o plano <strong>{getPendingPlanName()}</strong>.
+                  </p>
+                  <p className="mb-2">
+                    Seu plano atual (<strong>{selectedSub.plan}</strong>) continuará ativo até{" "}
+                    <strong>{formatDate(selectedSub.current_period_end)}</strong>.
+                    Durante esse período, as conexões de ambos os planos serão acumuladas.
+                  </p>
+                  <p>
+                    Após <strong>{formatDate(selectedSub.current_period_end)}</strong>, ficará ativo apenas o novo plano (<strong>{getPendingPlanName()}</strong>).
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex gap-3">
+                <Button onClick={handleConfirmUpgrade} className="flex-1">
+                  Confirmar upgrade
+                </Button>
+                <Button variant="outline" onClick={() => setPendingPlan(null)} className="flex-1">
+                  Voltar
+                </Button>
+              </div>
+            </div>
+          </>
         ) : selectedSub && showPlans ? (
           <>
             <DialogHeader>
