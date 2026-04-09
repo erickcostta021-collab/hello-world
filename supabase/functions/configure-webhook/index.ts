@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { instance_id, webhook_events, create_new, webhook_url_override, enabled: webhookEnabled, webhook_id, exclude_messages } = body;
-    console.log("📥 Incoming body keys:", Object.keys(body), "exclude_messages:", JSON.stringify(exclude_messages));
+    console.log("📥 Incoming body keys:", Object.keys(body), "enabled:", webhookEnabled, "webhook_id:", webhook_id, "exclude_messages:", JSON.stringify(exclude_messages));
     if (!instance_id) {
       return new Response(JSON.stringify({ error: "instance_id required" }), {
         status: 200,
@@ -66,17 +66,16 @@ serve(async (req) => {
     }
 
     // Resolve webhook URL based on account mode:
+    // If webhook_url_override is provided (update existing or create new), use it directly
     // instances (managed) → admin's global webhook URL
     // connections → user's own webhook URL
     let resolvedWebhookUrl: string;
     if (webhook_url_override) {
       resolvedWebhookUrl = webhook_url_override;
     } else if (accountMode === "instances") {
-      // Managed mode: use admin's webhook URL
       const adminWebhook = await supabase.rpc("get_admin_webhook_url");
       resolvedWebhookUrl = adminWebhook?.data || "https://webhooks.bridgeapi.chat/webhook-inbound";
     } else {
-      // Connections mode: use user's own URL
       resolvedWebhookUrl = instance.webhook_url || settings?.global_webhook_url || "https://webhooks.bridgeapi.chat/webhook-inbound";
     }
     const webhookUrl = resolvedWebhookUrl;
@@ -90,16 +89,56 @@ serve(async (req) => {
 
     const token = instance.uazapi_instance_token;
 
-    // Helper: check if response body confirms webhook was actually set
-    function webhookActuallySet(resText: string, targetUrl: string): boolean {
+    // Helper: verify webhook state after update by re-fetching from UAZAPI
+    async function verifyWebhookState(targetId: string, expectedEnabled: boolean, expectedUrl: string): Promise<boolean> {
+      try {
+        const res = await fetch(`${baseUrl}/webhook`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json", "Token": token, "token": token },
+        });
+        if (!res.ok) return true; // Can't verify, assume ok
+        const text = await res.text();
+        const parsed = JSON.parse(text);
+        const arr = Array.isArray(parsed) ? parsed : [];
+        const wh = arr.find((w: any) => w.id === targetId);
+        if (!wh) {
+          console.log(`⚠️ Webhook ${targetId} not found in list after update`);
+          return false;
+        }
+        const urlMatch = wh.url === expectedUrl || wh.webhookURL === expectedUrl;
+        const enabledMatch = (wh.enabled !== false) === expectedEnabled;
+        console.log(`🔍 Verify webhook ${targetId}: url=${wh.url} (expected=${expectedUrl}, match=${urlMatch}), enabled=${wh.enabled} (expected=${expectedEnabled}, match=${enabledMatch})`);
+        return urlMatch && enabledMatch;
+      } catch (e: any) {
+        console.warn(`Verification failed: ${e.message}`);
+        return true; // Can't verify, assume ok
+      }
+    }
+
+    // Helper: check if response body confirms webhook was actually set (for standard create/update flow)
+    function webhookActuallySet(resText: string, targetUrl: string, targetEnabled: boolean): boolean {
       try {
         const parsed = JSON.parse(resText);
+        // If response is an array (list of webhooks), check if our URL is present with correct state
         if (Array.isArray(parsed)) {
-          return parsed.some((w: any) => w.url === targetUrl || w.webhookURL === targetUrl);
+          return parsed.some((w: any) => {
+            const urlMatch = w.url === targetUrl || w.webhookURL === targetUrl;
+            // If we're disabling, check that it's disabled; if enabling, check that it's enabled
+            const enabledMatch = targetEnabled ? (w.enabled !== false) : (w.enabled === false);
+            return urlMatch && enabledMatch;
+          });
         }
-        if (parsed.url === targetUrl || parsed.webhookURL === targetUrl || parsed.webhook_url === targetUrl) return true;
+        // Single object response
+        if (parsed.url === targetUrl || parsed.webhookURL === targetUrl || parsed.webhook_url === targetUrl) {
+          // Verify enabled state matches what we requested
+          if (parsed.enabled !== undefined) {
+            return targetEnabled ? (parsed.enabled !== false) : (parsed.enabled === false);
+          }
+          return true;
+        }
+        // Generic success responses
         if (parsed.success === true || parsed.status === "ok" || parsed.message?.toLowerCase().includes("success")) return true;
-        if (parsed.enabled === false && (!parsed.url || parsed.url === "")) return false;
+        // If response doesn't clearly indicate success or failure, assume ok for 200 responses
         return true;
       } catch {
         return true;
@@ -108,44 +147,66 @@ serve(async (req) => {
 
     // If webhook_id is provided, update that specific webhook directly
     if (webhook_id && !create_new) {
-      console.log(`Updating existing webhook ${webhook_id} with enabled=${enabledFlag}, excludeMessages=${JSON.stringify(excludeMessagesValue)}`);
-      const updatePayload = { id: webhook_id, url: webhookUrl, enabled: enabledFlag, events, action: "update", ...(excludeMessagesValue ? { excludeMessages: excludeMessagesValue } : {}) };
-      console.log(`📤 Update payload:`, JSON.stringify(updatePayload));
-      // POST /webhook with id + action:"update" is the documented pattern for UAZAPI
-      try {
-        const res = await fetch(`${baseUrl}/webhook`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Token": token, "token": token },
-          body: JSON.stringify(updatePayload),
-        });
-        const resText = await res.text();
-        console.log(`Update webhook POST /webhook: ${res.status} - ${resText.substring(0, 500)}`);
-        if (res.ok) {
-          console.log(`✅ Webhook ${webhook_id} updated (enabled=${enabledFlag})`);
-          return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      } catch (e: any) {
-        console.warn(`Update via POST /webhook failed: ${e.message}`);
+      console.log(`Updating existing webhook ${webhook_id} with url=${webhookUrl}, enabled=${enabledFlag}, excludeMessages=${JSON.stringify(excludeMessagesValue)}`);
+      const updatePayload: Record<string, any> = {
+        id: webhook_id,
+        url: webhookUrl,
+        enabled: enabledFlag,
+        events,
+        action: "update",
+      };
+      if (excludeMessagesValue) {
+        updatePayload.excludeMessages = excludeMessagesValue;
       }
-      // Fallback: PUT /webhook
-      try {
-        const res = await fetch(`${baseUrl}/webhook`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json", "Token": token, "token": token },
-          body: JSON.stringify(updatePayload),
-        });
-        const resText = await res.text();
-        console.log(`Update webhook PUT /webhook: ${res.status} - ${resText.substring(0, 500)}`);
-        if (res.ok) {
-          console.log(`✅ Webhook ${webhook_id} updated via PUT (enabled=${enabledFlag})`);
-          return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.log(`📤 Update payload:`, JSON.stringify(updatePayload));
+
+      // Try POST /webhook with action:"update"
+      let updated = false;
+      const updateAttempts = [
+        { method: "POST", path: "/webhook", payload: updatePayload },
+        { method: "PUT", path: "/webhook", payload: updatePayload },
+        { method: "POST", path: "/webhook", payload: { ...updatePayload, action: "edit" } },
+        { method: "PUT", path: `/webhook/${webhook_id}`, payload: { url: webhookUrl, enabled: enabledFlag, events, ...(excludeMessagesValue ? { excludeMessages: excludeMessagesValue } : {}) } },
+      ];
+
+      for (const attempt of updateAttempts) {
+        try {
+          const res = await fetch(`${baseUrl}${attempt.path}`, {
+            method: attempt.method,
+            headers: { "Content-Type": "application/json", "Token": token, "token": token },
+            body: JSON.stringify(attempt.payload),
           });
+          const resText = await res.text();
+          console.log(`Update webhook ${attempt.method} ${attempt.path}: ${res.status} - ${resText.substring(0, 500)}`);
+
+          if (res.ok) {
+            // Verify the change actually took effect
+            const verified = await verifyWebhookState(webhook_id, enabledFlag, webhookUrl);
+            if (verified) {
+              console.log(`✅ Webhook ${webhook_id} updated and verified (enabled=${enabledFlag})`);
+              updated = true;
+              break;
+            } else {
+              console.log(`⚠️ Webhook ${webhook_id} update via ${attempt.method} returned 200 but verification failed, trying next...`);
+              continue;
+            }
+          }
+        } catch (e: any) {
+          console.warn(`Update via ${attempt.method} ${attempt.path} failed: ${e.message}`);
         }
-      } catch (e: any) {
-        console.warn(`Update via PUT /webhook failed: ${e.message}`);
+      }
+
+      if (updated) {
+        // Persist webhook_url in DB
+        const { error: updateErr } = await supabase
+          .from("instances")
+          .update({ webhook_url: webhookUrl })
+          .eq("id", instance_id);
+        if (updateErr) console.warn(`Failed to persist webhook_url: ${updateErr.message}`);
+
+        return new Response(JSON.stringify({ success: true, webhook_url: webhookUrl, enabled: enabledFlag }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       console.log(`Direct update of webhook ${webhook_id} failed, falling back to standard flow`);
     }
@@ -203,12 +264,12 @@ serve(async (req) => {
         console.log(`Response from ${method} ${path}: ${res.status} - ${resText.substring(0, 500)}`);
 
         if (res.ok || res.status === 200) {
-          if (webhookActuallySet(resText, webhookUrl)) {
+          if (webhookActuallySet(resText, webhookUrl, enabledFlag)) {
             success = true;
-            console.log(`✅ Webhook configured via ${method} ${path}:`, { baseUrl, webhookUrl, create_new });
+            console.log(`✅ Webhook configured via ${method} ${path}:`, { baseUrl, webhookUrl, create_new, enabled: enabledFlag });
             break;
           } else {
-            console.log(`⚠️ Got 200 from ${method} ${path} but webhook not actually set, trying next...`);
+            console.log(`⚠️ Got 200 from ${method} ${path} but webhook not actually set with correct state, trying next...`);
             lastError = `${method} ${path} returned 200 but webhook not applied`;
             continue;
           }
@@ -234,7 +295,6 @@ serve(async (req) => {
     if (excludeMessagesValue && excludeMessagesValue.length > 0) {
       console.log(`Post-config: ensuring excludeMessages ${JSON.stringify(excludeMessagesValue)} is applied...`);
       try {
-        // Fetch current webhooks to find the one we just created/updated by URL
         const listRes = await fetch(`${baseUrl}/webhook`, {
           method: "GET",
           headers: { "Content-Type": "application/json", "Token": token, "token": token },
@@ -244,7 +304,6 @@ serve(async (req) => {
           let webhookList: any[] = [];
           try { webhookList = JSON.parse(listText); } catch {}
           if (Array.isArray(webhookList)) {
-            // Use last match (newest) when create_new, first match otherwise
             const matchingWebhooks = webhookList.filter((w: any) => w.url === webhookUrl);
             const targetWh = webhook_id
               ? webhookList.find((w: any) => w.id === webhook_id)
@@ -258,7 +317,6 @@ serve(async (req) => {
                 events: targetWh.events,
                 excludeMessages: excludeMessagesValue,
               };
-              // Try PUT first (update), then POST as fallback
               let patchRes = await fetch(`${baseUrl}/webhook`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json", "Token": token, "token": token },
