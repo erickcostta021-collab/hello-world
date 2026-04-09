@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowUpCircle, CreditCard } from "lucide-react";
+import { Loader2, ArrowUpCircle, CreditCard, Info } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface Subscription {
   id: string;
@@ -40,6 +41,7 @@ const PLANS = [
 export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogProps) {
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const [showPlans, setShowPlans] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<string | null>(null);
   const [loadingPortal, setLoadingPortal] = useState(false);
   const navigate = useNavigate();
   const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
@@ -74,6 +76,7 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
     if (!nextOpen) {
       setSelectedSub(null);
       setShowPlans(false);
+      setPendingPlan(null);
     }
   };
 
@@ -117,10 +120,21 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
   };
 
   const handleSelectPlan = (planKey: string) => {
-    navigate(`/checkout?plan=${planKey}&upgrade=true`);
+    setPendingPlan(planKey);
+  };
+
+  const handleConfirmUpgrade = () => {
+    if (!pendingPlan) return;
+    navigate(`/checkout?plan=${pendingPlan}&upgrade=true`);
     onOpenChange(false);
     setSelectedSub(null);
     setShowPlans(false);
+    setPendingPlan(null);
+  };
+
+  const getPendingPlanName = () => {
+    const plan = PLANS.find(p => p.key === pendingPlan);
+    return plan?.name ?? pendingPlan;
   };
 
   const formatDate = (iso: string | null) => {
@@ -205,6 +219,40 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
                 >
                   <CreditCard className="mr-1 h-4 w-4" />
                   Mudar Cartão
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : selectedSub && showPlans && pendingPlan ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="text-xl">Confirmar atualização</DialogTitle>
+            </DialogHeader>
+
+            <div className="mt-2 space-y-4">
+              <Alert className="border-primary/30 bg-primary/5">
+                <Info className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-sm text-foreground">
+                  <p className="mb-2">
+                    Você está atualizando para o plano <strong>{getPendingPlanName()}</strong>.
+                  </p>
+                  <p className="mb-2">
+                    Seu plano atual (<strong>{selectedSub.plan}</strong>) continuará ativo até{" "}
+                    <strong>{formatDate(selectedSub.current_period_end)}</strong>.
+                    Durante esse período, as conexões de ambos os planos serão acumuladas.
+                  </p>
+                  <p>
+                    Após <strong>{formatDate(selectedSub.current_period_end)}</strong>, ficará ativo apenas o novo plano (<strong>{getPendingPlanName()}</strong>).
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              <div className="flex gap-3">
+                <Button onClick={handleConfirmUpgrade} className="flex-1">
+                  Confirmar upgrade
+                </Button>
+                <Button variant="outline" onClick={() => setPendingPlan(null)} className="flex-1">
+                  Voltar
                 </Button>
               </div>
             </div>
