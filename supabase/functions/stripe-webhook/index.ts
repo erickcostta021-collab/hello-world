@@ -307,19 +307,20 @@ serve(async (req) => {
           );
 
           if (user) {
+            // Start grace period instead of immediate pause — enforce-grace-period will handle deletion
             const { error: updateError } = await supabaseAdmin
               .from("profiles")
               .update({ 
                 instance_limit: 0,
-                is_paused: true,
+                is_paused: false,
                 paused_at: new Date().toISOString()
               })
               .eq("user_id", user.id);
 
             if (updateError) {
-              logStep("Error pausing user", { error: updateError.message });
+              logStep("Error setting grace period for canceled user", { error: updateError.message });
             } else {
-              logStep("User subscription canceled, account paused", { userId: user.id });
+              logStep("User subscription canceled, grace period started", { userId: user.id });
             }
           }
         }
