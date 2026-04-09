@@ -41,6 +41,7 @@ const PLANS = [
 export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogProps) {
   const [selectedSub, setSelectedSub] = useState<Subscription | null>(null);
   const [showPlans, setShowPlans] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<string | null>(null);
   const [loadingPortal, setLoadingPortal] = useState(false);
   const navigate = useNavigate();
   const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
