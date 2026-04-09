@@ -332,12 +332,14 @@ export async function updateWebhookOnApi(
     if (updateError) throw updateError;
   }
 
+  // Always pass webhook_url_override when updating existing or creating new,
+  // so the edge function uses the user's intended URL instead of resolving defaults
   const { data, error } = await supabase.functions.invoke("configure-webhook", {
     body: {
       instance_id: instance.id,
       webhook_events: webhookEvents,
       create_new: createNew,
-      webhook_url_override: createNew ? webhookUrl : undefined,
+      webhook_url_override: (createNew || webhookId) ? webhookUrl : undefined,
       enabled: enabled ?? true,
       webhook_id: webhookId,
       exclude_messages: excludeMessages,
