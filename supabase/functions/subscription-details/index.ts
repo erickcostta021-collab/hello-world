@@ -151,10 +151,27 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Debug: log raw subscription structure
+    if (subs.data.length > 0) {
+      const rawSub = subs.data[0] as any;
+      logStep("Raw sub period fields", {
+        current_period_end: rawSub.current_period_end,
+        current_period_start: rawSub.current_period_start,
+        current_period: rawSub.current_period,
+        billing_cycle_anchor: rawSub.billing_cycle_anchor,
+      });
+    }
+
     const result = subs.data
       .filter((subscription) => ["active", "trialing", "past_due"].includes(subscription.status))
       .map((subscription) => {
         const item = subscription.items.data[0];
+        const sub = subscription as any;
+
+        // Try multiple possible field locations for period end
+        const periodEnd = sub.current_period_end
+          ?? sub.current_period?.end
+          ?? null;
 
         return {
           id: subscription.id,
@@ -162,8 +179,8 @@ Deno.serve(async (req) => {
           status: subscription.status,
           amount: item.price.unit_amount ? item.price.unit_amount / 100 : 0,
           currency: item.price.currency,
-          current_period_end: subscription.current_period_end
-            ? new Date(subscription.current_period_end * 1000).toISOString()
+          current_period_end: periodEnd
+            ? new Date((typeof periodEnd === "number" ? periodEnd : periodEnd) * 1000).toISOString()
             : null,
           cancel_at_period_end: subscription.cancel_at_period_end,
         };
