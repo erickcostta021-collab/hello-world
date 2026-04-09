@@ -76,6 +76,7 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
     if (!nextOpen) {
       setSelectedSub(null);
       setShowPlans(false);
+      setPendingPlan(null);
     }
   };
 
