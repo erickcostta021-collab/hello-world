@@ -120,10 +120,21 @@ export function SubscriptionDialog({ open, onOpenChange }: SubscriptionDialogPro
   };
 
   const handleSelectPlan = (planKey: string) => {
-    navigate(`/checkout?plan=${planKey}&upgrade=true`);
+    setPendingPlan(planKey);
+  };
+
+  const handleConfirmUpgrade = () => {
+    if (!pendingPlan) return;
+    navigate(`/checkout?plan=${pendingPlan}&upgrade=true`);
     onOpenChange(false);
     setSelectedSub(null);
     setShowPlans(false);
+    setPendingPlan(null);
+  };
+
+  const getPendingPlanName = () => {
+    const plan = PLANS.find(p => p.key === pendingPlan);
+    return plan?.name ?? pendingPlan;
   };
 
   const formatDate = (iso: string | null) => {
