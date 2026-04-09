@@ -507,7 +507,7 @@ export function EmbedInstanceCard({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-card-foreground truncate text-lg">
+                    <h3 className="font-semibold text-card-foreground text-sm leading-tight break-words">
                       {instance.instance_name}
                     </h3>
                     {!isConnected && (
