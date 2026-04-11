@@ -198,9 +198,8 @@ const LandingPage = () => {
               <p className="text-sm text-muted-foreground">Seus números e conversas com clientes</p>
             </div>
 
-            {/* Full-width animated lines (WhatsApp → GHL) passing behind UAZAPI */}
-            <div className="hidden lg:block lg:w-[52%] relative" style={{ minHeight: '140px', marginLeft: '-40px', marginRight: '-40px', width: 'calc(52% + 80px)' }}>
-              {/* Lines positioned to align with icon centers (icon is 80px tall, center at 40px) */}
+            {/* Full-width animated lines (WhatsApp → GHL) */}
+            <div className="hidden lg:block lg:w-[52%] relative" style={{ minHeight: '80px', marginLeft: '-40px', marginRight: '-40px', width: 'calc(52% + 80px)' }}>
               <div className="absolute left-0 right-0 flex flex-col gap-4 w-full" style={{ top: '32px' }}>
                 {/* Line 1 - Signal going right */}
                 <div className="relative h-0.5 w-full bg-border/50 rounded-full overflow-hidden">
@@ -223,29 +222,10 @@ const LandingPage = () => {
                   />
                 </div>
               </div>
-
-              {/* UAZAPI floating on top of the lines */}
-              <div className="relative flex items-start justify-center z-20 pointer-events-none">
-                <div className="flex flex-col items-center text-center pointer-events-auto">
-                  <div className="w-20 h-20 rounded-2xl bg-card shadow-lg flex items-center justify-center border border-brand-blue mb-4">
-                    <span className="text-lg font-bold text-brand-blue">UAZAPI</span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground mb-1">UAZAPI</h3>
-                  <p className="text-sm text-muted-foreground">API de integração que conecta seu WhatsApp</p>
-                </div>
-              </div>
             </div>
 
-            {/* Mobile fallback: arrows + UAZAPI */}
+            {/* Mobile fallback: arrow */}
             <div className="lg:hidden flex flex-col items-center gap-4">
-              <ArrowRight className="h-6 w-6 text-brand-blue rotate-90" />
-              <div className="flex flex-col items-center text-center">
-                <div className="w-20 h-20 rounded-2xl bg-card shadow-lg flex items-center justify-center border border-brand-blue mb-4">
-                  <span className="text-lg font-bold text-brand-blue">UAZAPI</span>
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-1">UAZAPI</h3>
-                <p className="text-sm text-muted-foreground">API de integração que conecta seu WhatsApp</p>
-              </div>
               <ArrowRight className="h-6 w-6 text-brand-blue rotate-90" />
             </div>
 
