@@ -239,36 +239,6 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Steps */}
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8">
-            <div className="bg-card rounded-xl sm:rounded-2xl p-6 sm:p-8 border border-border text-center">
-              <div className="w-12 h-12 rounded-full bg-brand-green/10 flex items-center justify-center mx-auto mb-4">
-                <span className="text-xl font-bold text-brand-green">1</span>
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Configure sua UAZAPI</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Use sua própria conta da UAZAPI. Basta ter o token e a URL da sua instância em mãos para começar.
-              </p>
-            </div>
-            <div className="bg-card rounded-xl sm:rounded-2xl p-6 sm:p-8 border border-border text-center">
-              <div className="w-12 h-12 rounded-full bg-brand-blue/10 flex items-center justify-center mx-auto mb-4">
-                <span className="text-xl font-bold text-brand-blue">2</span>
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Adicione no Dashboard</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Cadastre suas conexões no painel da Bridge API, vincule à sua subconta do GHL e ative a ponte com um clique.
-              </p>
-            </div>
-            <div className="bg-card rounded-xl sm:rounded-2xl p-6 sm:p-8 border border-border text-center">
-              <div className="w-12 h-12 rounded-full bg-brand-green/10 flex items-center justify-center mx-auto mb-4">
-                <span className="text-xl font-bold text-brand-green">3</span>
-              </div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Gerencie Tudo pelo Dash</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Monitore status, troque instâncias, gerencie subcontas e acompanhe todas as suas conexões em um só lugar.
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 
