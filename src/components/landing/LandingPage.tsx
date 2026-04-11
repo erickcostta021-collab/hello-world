@@ -25,7 +25,7 @@ import whatsappLogo from "@/assets/whatsapp-logo.svg";
 import ghlIcon from "@/assets/ghl-icon.png";
 import bridgeImg from "@/assets/bridge.png";
 
-const EXCHANGE_RATE = 5.50;
+const EXCHANGE_RATE = 5.00;
 
 const LandingPage = () => {
   const [instanceCount, setInstanceCount] = useState(1);
