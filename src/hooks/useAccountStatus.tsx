@@ -63,14 +63,19 @@ export function useAccountStatus() {
     queryFn: async (): Promise<AccountStatus> => {
       if (!effectiveId) return DEFAULT_STATUS;
 
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", effectiveId)
-        .maybeSingle();
+      const [{ data: profile, error }, { data: adminFlag }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", effectiveId)
+          .maybeSingle(),
+        supabase.rpc("is_admin"),
+      ]);
 
       if (error) throw error;
       if (!profile) return DEFAULT_STATUS;
+
+      const isAdmin = !!adminFlag;
 
       let isPaused = profile.is_paused ?? false;
       const pausedAt = profile.paused_at ? new Date(profile.paused_at) : null;
@@ -105,6 +110,7 @@ export function useAccountStatus() {
         hasActiveSubscription,
         hasStripeSubscription,
         accountMode,
+        isAdmin,
       };
     },
     enabled: !!effectiveId,
