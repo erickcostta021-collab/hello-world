@@ -372,7 +372,7 @@ export function useInstances(subaccountId?: string) {
       invalidateInstanceQueries(queryClient);
       toast.success(
         variables.deleteFromUazapi
-          ? "Instância excluída do sistema e da UAZAPI!"
+          ? "Instância excluída do sistema"
           : "Instância removida do sistema!",
       );
     },
