@@ -87,8 +87,8 @@ export function CreateUnlinkedInstanceDialog() {
           {!canCreateInstance && !isInGracePeriod && instanceLimit > 0 && (
             <Alert className="border-destructive/50 bg-destructive/10">
               <AlertTriangle className="h-4 w-4 text-destructive" />
-              <AlertDescription className="text-sm text-destructive">
-                Você atingiu o limite do seu plano ({totalCount} de {instanceLimit}). Para criar mais instâncias, faça um upgrade.
+              <AlertDescription className="text-sm font-medium leading-relaxed text-destructive">
+                Você atingiu o limite do seu plano (<strong>{totalCount}</strong> de <strong>{instanceLimit}</strong>). Para criar mais instâncias, faça um upgrade.
               </AlertDescription>
             </Alert>
           )}
