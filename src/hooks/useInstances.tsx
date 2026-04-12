@@ -4,6 +4,7 @@ import { useAuth } from "./useAuth";
 import { useSettings, getEffectiveUserId } from "./useSettings";
 import { useProfile } from "./useProfile";
 import { useAccountStatus } from "./useAccountStatus";
+import { useImpersonation } from "./useImpersonation";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -49,6 +50,7 @@ export function useInstances(subaccountId?: string) {
   const { settings } = useSettings();
   const { instanceLimit } = useProfile();
   const { accountMode, isInGracePeriod, isAdmin } = useAccountStatus();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
   const queryClient = useQueryClient();
 
   const isSharedAccount = !!settings?.shared_from_user_id;
@@ -561,7 +563,7 @@ export function useInstances(subaccountId?: string) {
     linkedInstanceCount,
     unlinkedInstanceCount,
     totalInstanceCount: linkedInstanceCount + unlinkedInstanceCount,
-    canCreateInstance: isAdmin || (!isInGracePeriod && instanceLimit > 0 && (linkedInstanceCount + unlinkedInstanceCount) < instanceLimit),
+    canCreateInstance: (isAdmin && !impersonatedUserId) || (!isInGracePeriod && instanceLimit > 0 && (linkedInstanceCount + unlinkedInstanceCount) < instanceLimit),
     isInGracePeriod,
     isManagedMode,
   };
