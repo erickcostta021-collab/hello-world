@@ -563,7 +563,7 @@ export function useInstances(subaccountId?: string) {
     linkedInstanceCount,
     unlinkedInstanceCount,
     totalInstanceCount: linkedInstanceCount + unlinkedInstanceCount,
-    canCreateInstance: isAdmin || (!isInGracePeriod && instanceLimit > 0 && (linkedInstanceCount + unlinkedInstanceCount) < instanceLimit),
+    canCreateInstance: (isAdmin && !impersonatedUserId) || (!isInGracePeriod && instanceLimit > 0 && (linkedInstanceCount + unlinkedInstanceCount) < instanceLimit),
     isInGracePeriod,
     isManagedMode,
   };
