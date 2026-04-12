@@ -50,6 +50,7 @@ export function useInstances(subaccountId?: string) {
   const { settings } = useSettings();
   const { instanceLimit } = useProfile();
   const { accountMode, isInGracePeriod, isAdmin } = useAccountStatus();
+  const impersonatedUserId = useImpersonation((s) => s.impersonatedUserId);
   const queryClient = useQueryClient();
 
   const isSharedAccount = !!settings?.shared_from_user_id;
