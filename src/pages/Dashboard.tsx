@@ -553,6 +553,22 @@ export default function Dashboard() {
           </>
         ) : (
           <>
+            {/* Instance Totals */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2 bg-secondary rounded-lg px-4 py-2 border border-border">
+                <Smartphone className="h-4 w-4 text-primary" />
+                <span className="text-sm text-muted-foreground">Total criadas:</span>
+                <span className="text-sm font-semibold text-foreground">{allInstances.length}</span>
+              </div>
+              <div className="flex items-center gap-2 bg-secondary rounded-lg px-4 py-2 border border-border">
+                <LayoutGrid className="h-4 w-4 text-primary" />
+                <span className="text-sm text-muted-foreground">Limite do plano:</span>
+                <span className="text-sm font-semibold text-foreground">
+                  {instanceLimit === 0 ? "Ilimitado" : instanceLimit}
+                </span>
+              </div>
+            </div>
+
             {/* All Instances Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="relative w-full sm:max-w-md">
