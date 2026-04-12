@@ -345,6 +345,21 @@ export function Sidebar() {
                   <Palette className="h-4 w-4 flex-shrink-0" />
                   <span className="whitespace-nowrap">Tema WhatsApp</span>
                 </button>
+
+                {/* Scripts */}
+                <p className="px-3 py-1.5 pt-3 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-wider">
+                  Scripts
+                </p>
+                <button
+                  onClick={() => setScriptsOpen(true)}
+                  className={cn(
+                    "group flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 w-full text-left text-sm",
+                    "text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                  )}
+                >
+                  <Code className="h-4 w-4 flex-shrink-0" />
+                  <span className="whitespace-nowrap">Scripts GHL</span>
+                </button>
               </div>
             )}
           </div>
@@ -352,8 +367,8 @@ export function Sidebar() {
           {/* Documentação */}
           {renderNavItem({ to: "/docs", icon: BookOpen, label: "Documentação" })}
 
-          {/* Configurações */}
-          {renderNavItem({ to: "/settings", icon: Settings, label: "Configurações" })}
+          {/* Configurações - only for admins or non-managed mode */}
+          {(isAdmin || !isManagedMode) && renderNavItem({ to: "/settings", icon: Settings, label: "Configurações" })}
 
           {/* Admin items */}
           {isAdmin && adminNavItems.map((item) => renderNavItem(item))}
