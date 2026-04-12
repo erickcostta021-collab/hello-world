@@ -4,6 +4,7 @@ import { useAuth } from "./useAuth";
 import { useSettings, getEffectiveUserId } from "./useSettings";
 import { useProfile } from "./useProfile";
 import { useAccountStatus } from "./useAccountStatus";
+import { useImpersonation } from "./useImpersonation";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 
