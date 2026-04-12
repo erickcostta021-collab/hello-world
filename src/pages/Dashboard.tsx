@@ -553,32 +553,27 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            {/* Instance Totals */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-2 bg-secondary rounded-lg px-4 py-2 border border-border">
-                <Smartphone className="h-4 w-4 text-primary" />
-                <span className="text-sm text-muted-foreground">Total criadas:</span>
-                <span className="text-sm font-semibold text-foreground">{allInstances.length}</span>
-              </div>
-              <div className="flex items-center gap-2 bg-secondary rounded-lg px-4 py-2 border border-border">
-                <LayoutGrid className="h-4 w-4 text-primary" />
-                <span className="text-sm text-muted-foreground">Limite do plano:</span>
-                <span className="text-sm font-semibold text-foreground">
-                  {instanceLimit === 0 ? "Ilimitado" : instanceLimit}
-                </span>
-              </div>
-            </div>
-
             {/* All Instances Header */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="relative w-full sm:max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar instâncias por nome ou telefone..."
-                  value={instanceSearch}
-                  onChange={(e) => setInstanceSearch(e.target.value)}
-                  className="pl-10 bg-secondary border-border"
-                />
+              <div className="flex items-center gap-3 w-full sm:max-w-2xl">
+                <div className="relative flex-1 sm:max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar instâncias por nome ou telefone..."
+                    value={instanceSearch}
+                    onChange={(e) => setInstanceSearch(e.target.value)}
+                    className="pl-10 bg-secondary border-border"
+                  />
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+                  <Smartphone className="h-4 w-4 text-primary" />
+                  <span>Criadas: <span className="font-semibold text-foreground">{allInstances.length}</span></span>
+                </div>
+                <span className="text-border">|</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
+                  <LayoutGrid className="h-4 w-4 text-primary" />
+                  <span>Limite: <span className="font-semibold text-foreground">{instanceLimit === 0 ? "∞" : instanceLimit}</span></span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {!isSharedAccount && hasActiveSubscription && hasUAZAPIConfig && (
