@@ -32,6 +32,7 @@ export interface AccountStatus {
   hasActiveSubscription: boolean;
   hasStripeSubscription: boolean;
   accountMode: AccountMode;
+  isAdmin: boolean;
 }
 
 const DEFAULT_STATUS: AccountStatus = {
@@ -43,6 +44,7 @@ const DEFAULT_STATUS: AccountStatus = {
   hasActiveSubscription: false,
   hasStripeSubscription: false,
   accountMode: "instances",
+  isAdmin: false,
 };
 
 /**
