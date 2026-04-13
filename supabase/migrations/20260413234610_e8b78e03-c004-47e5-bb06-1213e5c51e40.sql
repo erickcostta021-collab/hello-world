@@ -1,0 +1,1 @@
+ALTER TABLE public.instances ADD COLUMN auto_tag text DEFAULT NULL;

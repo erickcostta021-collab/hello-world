@@ -55,7 +55,8 @@ import {
   Link2,
   Pencil,
   Check,
-  X
+  X,
+  Tag
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -132,6 +133,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
   );
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [autoTag, setAutoTag] = useState(instance.auto_tag || "");
+  const [savingTag, setSavingTag] = useState(false);
   const [subaccount, setSubaccount] = useState<{
     id: string;
     location_id: string;
@@ -577,6 +581,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                       API Oficial
                     </Badge>
                   )}
+                  {/* Auto Tag badge */}
+                  {instance.auto_tag && (
+                    <Badge variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
+                      <Tag className="h-2.5 w-2.5 mr-1" />
+                      {instance.auto_tag}
+                    </Badge>
+                  )}
                 </div>
               </div>
               
@@ -621,6 +632,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setAutoTag(instance.auto_tag || ""); setTagDialogOpen(true); }}>
+                    <Tag className="h-4 w-4 mr-2" />
+                    {instance.auto_tag ? "Editar Tag Automática" : "Configurar Tag Automática"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => updateInstanceOfficialApi.mutate({ 
@@ -918,6 +933,59 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           />
         )}
       </Suspense>
+
+      {/* Auto Tag Dialog */}
+      <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
+        <DialogContent className="bg-card border-border sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground">Tag Automática</DialogTitle>
+            <DialogDescription>
+              Quando um lead enviar mensagem para esta instância, a tag será adicionada automaticamente ao contato no GHL.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome da Tag</Label>
+              <Input
+                placeholder="Ex: WhatsApp Vendas"
+                value={autoTag}
+                onChange={(e) => setAutoTag(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Deixe vazio para desativar a tag automática.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTagDialogOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={savingTag}
+              onClick={async () => {
+                setSavingTag(true);
+                try {
+                  const tagValue = autoTag.trim() || null;
+                  const { error } = await supabase
+                    .from("instances")
+                    .update({ auto_tag: tagValue } as any)
+                    .eq("id", instance.id);
+                  if (error) throw error;
+                  toast.success(tagValue ? `Tag "${tagValue}" configurada!` : "Tag automática removida!");
+                  queryClient.invalidateQueries({ queryKey: ["instances"] });
+                  queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
+                  setTagDialogOpen(false);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar tag: " + err.message);
+                } finally {
+                  setSavingTag(false);
+                }
+              }}
+            >
+              {savingTag && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 });
