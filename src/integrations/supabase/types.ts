@@ -201,6 +201,7 @@ export type Database = {
       }
       instances: {
         Row: {
+          auto_tag: string | null
           created_at: string
           embed_visible_options: Json | null
           ghl_user_id: string | null
@@ -219,6 +220,7 @@ export type Database = {
           webhook_url: string | null
         }
         Insert: {
+          auto_tag?: string | null
           created_at?: string
           embed_visible_options?: Json | null
           ghl_user_id?: string | null
@@ -237,6 +239,7 @@ export type Database = {
           webhook_url?: string | null
         }
         Update: {
+          auto_tag?: string | null
           created_at?: string
           embed_visible_options?: Json | null
           ghl_user_id?: string | null
