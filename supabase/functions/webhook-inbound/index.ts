@@ -2112,7 +2112,7 @@ serve(async (req) => {
         }
       }
 
-      // 2. Combined contact update (photo + source + assignment)
+      // 2. Combined contact update (photo + source + assignment + instance custom field)
       if (contact.id) {
         const contactUpdatePayload: Record<string, unknown> = {};
         const profilePhoto = chatData.imagePreview || chatData.image || "";
@@ -2128,6 +2128,21 @@ serve(async (req) => {
           contactUpdatePayload.source = phoneSource;
         }
         if (instance.ghl_user_id) contactUpdatePayload.assignedTo = instance.ghl_user_id;
+
+        // Populate custom field "bridge_instancia_ativa" with instance name + phone
+        // so GHL workflows can use IF conditions to route by instance
+        const customFields: { key: string; field_value: string }[] = [];
+        if (instance.instance_name) {
+          customFields.push({ key: "bridge_instancia_ativa", field_value: instance.instance_name });
+        }
+        if (instance.phone) {
+          const cleanPhone = instance.phone.replace(/\D/g, "");
+          customFields.push({ key: "bridge_instancia_telefone", field_value: cleanPhone });
+        }
+        if (customFields.length > 0) {
+          contactUpdatePayload.customFields = customFields;
+        }
+
         if (Object.keys(contactUpdatePayload).length > 0) {
           try {
             const r = await fetchGHL(`https://services.leadconnectorhq.com/contacts/${contact.id}`, {
@@ -2136,7 +2151,7 @@ serve(async (req) => {
               body: JSON.stringify(contactUpdatePayload),
             });
             if (!r.ok) console.error("Contact update failed:", await r.text().catch(() => ""));
-            else console.log("✅ Contact updated (photo+source+assign) in single call");
+            else console.log("✅ Contact updated (photo+source+assign+instance_fields) in single call");
           } catch (e) {
             console.error("Contact update error:", e);
           }
