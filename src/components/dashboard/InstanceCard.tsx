@@ -873,8 +873,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             currentUserId={instance.ghl_user_id}
             subaccount={subaccount}
             onAssign={(userId) => {
-              updateInstanceGHLUser.mutate({ instanceId: instance.id, ghlUserId: userId });
-              setAssignUserDialogOpen(false);
+              updateInstanceGHLUser.mutate(
+                { instanceId: instance.id, ghlUserId: userId },
+                { onSuccess: () => setAssignUserDialogOpen(false) }
+              );
             }}
             isAssigning={updateInstanceGHLUser.isPending}
           />
