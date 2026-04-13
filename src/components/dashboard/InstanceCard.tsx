@@ -933,6 +933,59 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           />
         )}
       </Suspense>
+
+      {/* Auto Tag Dialog */}
+      <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
+        <DialogContent className="bg-card border-border sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground">Tag Automática</DialogTitle>
+            <DialogDescription>
+              Quando um lead enviar mensagem para esta instância, a tag será adicionada automaticamente ao contato no GHL.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome da Tag</Label>
+              <Input
+                placeholder="Ex: WhatsApp Vendas"
+                value={autoTag}
+                onChange={(e) => setAutoTag(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Deixe vazio para desativar a tag automática.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTagDialogOpen(false)}>Cancelar</Button>
+            <Button
+              disabled={savingTag}
+              onClick={async () => {
+                setSavingTag(true);
+                try {
+                  const tagValue = autoTag.trim() || null;
+                  const { error } = await supabase
+                    .from("instances")
+                    .update({ auto_tag: tagValue } as any)
+                    .eq("id", instance.id);
+                  if (error) throw error;
+                  toast.success(tagValue ? `Tag "${tagValue}" configurada!` : "Tag automática removida!");
+                  queryClient.invalidateQueries({ queryKey: ["instances"] });
+                  queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
+                  setTagDialogOpen(false);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar tag: " + err.message);
+                } finally {
+                  setSavingTag(false);
+                }
+              }}
+            >
+              {savingTag && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 });
