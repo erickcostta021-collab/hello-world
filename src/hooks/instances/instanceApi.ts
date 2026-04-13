@@ -22,6 +22,7 @@ export interface Instance {
   profile_pic_url: string | null;
   uazapi_base_url: string | null;
   is_official_api: boolean;
+  auto_tag: string | null;
 }
 
 export interface UazapiInstance {

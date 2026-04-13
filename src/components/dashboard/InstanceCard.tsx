@@ -55,7 +55,8 @@ import {
   Link2,
   Pencil,
   Check,
-  X
+  X,
+  Tag
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -132,6 +133,9 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [embedVisibleOptions, setEmbedVisibleOptions] = useState<EmbedVisibleOptions | null>(
     (instance as any).embed_visible_options || null
   );
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [autoTag, setAutoTag] = useState(instance.auto_tag || "");
+  const [savingTag, setSavingTag] = useState(false);
   const [subaccount, setSubaccount] = useState<{
     id: string;
     location_id: string;
@@ -577,6 +581,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                       API Oficial
                     </Badge>
                   )}
+                  {/* Auto Tag badge */}
+                  {instance.auto_tag && (
+                    <Badge variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
+                      <Tag className="h-2.5 w-2.5 mr-1" />
+                      {instance.auto_tag}
+                    </Badge>
+                  )}
                 </div>
               </div>
               
@@ -621,6 +632,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => { setAutoTag(instance.auto_tag || ""); setTagDialogOpen(true); }}>
+                    <Tag className="h-4 w-4 mr-2" />
+                    {instance.auto_tag ? "Editar Tag Automática" : "Configurar Tag Automática"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => updateInstanceOfficialApi.mutate({ 
