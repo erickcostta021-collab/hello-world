@@ -2156,6 +2156,16 @@ serve(async (req) => {
             console.error("Contact update error:", e);
           }
         }
+
+        // Auto-tag: if instance has auto_tag configured, add it to the contact
+        if ((instance as any).auto_tag && contact.id) {
+          try {
+            await addTagToContact(contact.id, (instance as any).auto_tag, token);
+            console.log("✅ Auto-tag applied:", (instance as any).auto_tag);
+          } catch (e) {
+            console.error("Auto-tag error:", e);
+          }
+        }
       }
     };
 
