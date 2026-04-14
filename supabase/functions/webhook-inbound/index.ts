@@ -2157,11 +2157,15 @@ serve(async (req) => {
           }
         }
 
-        // Auto-tag: if instance has auto_tag configured, add it to the contact
+        // Auto-tag: if instance has auto_tag configured, add all tags to the contact
         if ((instance as any).auto_tag && contact.id) {
           try {
-            await addTagToContact(contact.id, (instance as any).auto_tag, token);
-            console.log("✅ Auto-tag applied:", (instance as any).auto_tag);
+            const tagsStr = (instance as any).auto_tag as string;
+            const tags = tagsStr.split(",").map((t: string) => t.trim()).filter(Boolean);
+            for (const tag of tags) {
+              await addTagToContact(contact.id, tag, token);
+            }
+            console.log("✅ Auto-tags applied:", tags);
           } catch (e) {
             console.error("Auto-tag error:", e);
           }
