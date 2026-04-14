@@ -532,7 +532,7 @@ export function useInstances(subaccountId?: string) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["instances"] });
+      invalidateInstanceQueries(queryClient);
       toast.success("Configuração de API Oficial atualizada!");
     },
     onError: (error) => {
