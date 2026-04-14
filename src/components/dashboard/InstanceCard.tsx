@@ -134,7 +134,11 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     (instance as any).embed_visible_options || null
   );
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [autoTag, setAutoTag] = useState(instance.auto_tag || "");
+  const [autoTags, setAutoTags] = useState<string[]>(() => {
+    const raw = instance.auto_tag || "";
+    return raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
+  });
+  const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
   const [subaccount, setSubaccount] = useState<{
     id: string;
@@ -581,13 +585,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                       API Oficial
                     </Badge>
                   )}
-                  {/* Auto Tag badge */}
-                  {instance.auto_tag && (
-                    <Badge variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
+                  {/* Auto Tag badges */}
+                  {instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string, idx: number) => (
+                    <Badge key={idx} variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
                       <Tag className="h-2.5 w-2.5 mr-1" />
-                      {instance.auto_tag}
+                      {tag}
                     </Badge>
-                  )}
+                  ))}
                 </div>
               </div>
               
@@ -633,9 +637,14 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     <UserPlus className="h-4 w-4 mr-2" />
                     Atribuir Usuário GHL
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setAutoTag(instance.auto_tag || ""); setTagDialogOpen(true); }}>
+                  <DropdownMenuItem onClick={() => {
+                    const raw = instance.auto_tag || "";
+                    setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
+                    setTagInput("");
+                    setTagDialogOpen(true);
+                  }}>
                     <Tag className="h-4 w-4 mr-2" />
-                    {instance.auto_tag ? "Editar Tag Automática" : "Configurar Tag Automática"}
+                    {instance.auto_tag ? "Editar Tags Automáticas" : "Configurar Tags Automáticas"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => updateInstanceOfficialApi.mutate({ 
@@ -938,21 +947,50 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
         <DialogContent className="bg-card border-border sm:max-w-[400px]">
           <DialogHeader>
-            <DialogTitle className="text-card-foreground">Tag Automática</DialogTitle>
+            <DialogTitle className="text-card-foreground">Tags Automáticas</DialogTitle>
             <DialogDescription>
-              Quando um lead enviar mensagem para esta instância, a tag será adicionada automaticamente ao contato no GHL.
+              Quando um lead enviar mensagem para esta instância, as tags serão adicionadas automaticamente ao contato no GHL. Pressione Enter para adicionar.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Nome da Tag</Label>
+              <Label>Adicionar Tag</Label>
               <Input
-                placeholder="Ex: WhatsApp Vendas"
-                value={autoTag}
-                onChange={(e) => setAutoTag(e.target.value)}
+                placeholder="Digite a tag e pressione Enter"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const val = tagInput.trim();
+                    if (val && !autoTags.includes(val)) {
+                      setAutoTags((prev) => [...prev, val]);
+                    }
+                    setTagInput("");
+                  }
+                }}
               />
+              {autoTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {autoTags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2.5 py-1 text-xs font-medium"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setAutoTags((prev) => prev.filter((_, i) => i !== idx))}
+                        className="ml-0.5 rounded-full hover:bg-purple-500/30 p-0.5 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <p className="text-xs text-muted-foreground">
-                Deixe vazio para desativar a tag automática.
+                {autoTags.length === 0 ? "Nenhuma tag configurada." : `${autoTags.length} tag(s) configurada(s).`}
               </p>
             </div>
           </div>
@@ -963,18 +1001,18 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               onClick={async () => {
                 setSavingTag(true);
                 try {
-                  const tagValue = autoTag.trim() || null;
+                  const tagValue = autoTags.length > 0 ? autoTags.join(",") : null;
                   const { error } = await supabase
                     .from("instances")
                     .update({ auto_tag: tagValue } as any)
                     .eq("id", instance.id);
                   if (error) throw error;
-                  toast.success(tagValue ? `Tag "${tagValue}" configurada!` : "Tag automática removida!");
+                  toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
                   queryClient.invalidateQueries({ queryKey: ["instances"] });
                   queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
                   setTagDialogOpen(false);
                 } catch (err: any) {
-                  toast.error("Erro ao salvar tag: " + err.message);
+                  toast.error("Erro ao salvar tags: " + err.message);
                 } finally {
                   setSavingTag(false);
                 }
