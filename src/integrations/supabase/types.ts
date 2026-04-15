@@ -776,6 +776,22 @@ export type Database = {
             }
             Returns: boolean
           }
+        | {
+            Args: {
+              p_auto_tag?: string
+              p_embed_token: string
+              p_embed_visible_options?: Json
+              p_ghl_user_id?: string
+              p_ignore_groups?: boolean
+              p_instance_id: string
+              p_instance_name?: string
+              p_instance_status?: string
+              p_is_official_api?: boolean
+              p_phone?: string
+              p_profile_pic_url?: string
+            }
+            Returns: boolean
+          }
       upsert_subaccounts: {
         Args: { p_locations: Json; p_user_id: string }
         Returns: undefined
