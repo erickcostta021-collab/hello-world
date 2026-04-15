@@ -49,6 +49,8 @@ export interface EmbedVisibleOptions {
   messages?: boolean;
   api_oficial?: boolean;
   group_manager?: boolean;
+  edit_name?: boolean;
+  auto_tag?: boolean;
 }
 
 export interface EmbedInstance {
@@ -61,8 +63,9 @@ export interface EmbedInstance {
   profile_pic_url?: string | null;
   ghl_user_id?: string | null;
   is_official_api?: boolean;
-   ignore_groups?: boolean | null;
+  ignore_groups?: boolean | null;
   embed_visible_options?: EmbedVisibleOptions | null;
+  auto_tag?: string | null;
 }
 
 interface EmbedInstanceCardProps {
