@@ -39,6 +39,8 @@ interface GroupManagerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   instance: Instance;
+  embedToken?: string;
+  onIgnoreGroupsSaved?: (checked: boolean) => void;
 }
 
 interface GroupInfo {
@@ -49,7 +51,7 @@ interface GroupInfo {
   profilePicUrl?: string;
 }
 
-export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManagerDialogProps) {
+export function GroupManagerDialog({ open, onOpenChange, instance, embedToken, onIgnoreGroupsSaved }: GroupManagerDialogProps) {
   const [groups, setGroups] = useState<GroupInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,11 +73,23 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
     setIgnoreGroups(checked);
     setSavingIgnore(true);
     try {
-      const { error } = await supabase
-        .from("instances")
-        .update({ ignore_groups: checked })
-        .eq("id", instance.id);
-      if (error) throw error;
+      if (embedToken) {
+        const { data, error } = await supabase.rpc("update_instance_for_embed", {
+          p_instance_id: instance.id,
+          p_embed_token: embedToken,
+          p_ignore_groups: checked,
+        });
+        if (error) throw error;
+        if (!data) throw new Error("Não foi possível atualizar a instância");
+      } else {
+        const { error } = await supabase
+          .from("instances")
+          .update({ ignore_groups: checked })
+          .eq("id", instance.id);
+        if (error) throw error;
+      }
+
+      onIgnoreGroupsSaved?.(checked);
       toast.success(checked ? "Grupos serão ignorados no webhook" : "Grupos não serão mais ignorados");
       queryClient.invalidateQueries({ queryKey: ["instances"] });
       queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });

@@ -61,6 +61,7 @@ export interface EmbedInstance {
   profile_pic_url?: string | null;
   ghl_user_id?: string | null;
   is_official_api?: boolean;
+   ignore_groups?: boolean | null;
   embed_visible_options?: EmbedVisibleOptions | null;
 }
 
@@ -97,7 +98,7 @@ export function EmbedInstanceCard({
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [webhookSaving, setWebhookSaving] = useState(false);
-  const [ignoreGroups, setIgnoreGroups] = useState(false);
+  const [ignoreGroups, setIgnoreGroups] = useState(instance.ignore_groups ?? false);
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
@@ -274,6 +275,10 @@ export function EmbedInstanceCard({
     }
   }, [instance.uazapi_instance_token]);
 
+  useEffect(() => {
+    setIgnoreGroups(instance.ignore_groups ?? false);
+  }, [instance.ignore_groups]);
+
   const persistStatusToDb = async (payload: {
     status: "connected" | "connecting" | "disconnected";
     phone?: string;
@@ -291,6 +296,19 @@ export function EmbedInstanceCard({
     } catch (e) {
       console.error("Failed to cache instance data:", e);
     }
+  };
+
+  const persistIgnoreGroups = async (checked: boolean) => {
+    const { data, error } = await supabase.rpc("update_instance_for_embed", {
+      p_instance_id: instance.id,
+      p_embed_token: embedToken,
+      p_ignore_groups: checked,
+    });
+
+    if (error) throw error;
+    if (!data) throw new Error("Não foi possível salvar a configuração");
+
+    setIgnoreGroups(checked);
   };
 
   const handleSyncStatus = async () => {
@@ -431,6 +449,8 @@ export function EmbedInstanceCard({
   }) => {
     setWebhookSaving(true);
     try {
+      await persistIgnoreGroups(params.ignoreGroups);
+
       const { data, error } = await supabase.functions.invoke("configure-webhook", {
         body: {
           instance_id: instance.id,
@@ -824,6 +844,8 @@ export function EmbedInstanceCard({
           <GroupManagerDialog
             open={groupManagerOpen}
             onOpenChange={setGroupManagerOpen}
+            embedToken={embedToken}
+            onIgnoreGroupsSaved={setIgnoreGroups}
             instance={{
               id: instance.id,
               user_id: "",
