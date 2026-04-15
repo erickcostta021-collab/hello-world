@@ -984,6 +984,67 @@ export function EmbedInstanceCard({
           />
         )}
       </Suspense>
+
+      {/* Auto Tag Dialog */}
+      <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
+        <DialogContent className="bg-card border-border sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground">Tags Automáticas</DialogTitle>
+            <DialogDescription>
+              Quando um lead enviar mensagem para esta instância, as tags serão adicionadas automaticamente ao contato no GHL. Pressione Enter para adicionar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Adicionar Tag</Label>
+              <Input
+                placeholder="Digite a tag e pressione Enter"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const val = tagInput.trim();
+                    if (val && !autoTags.includes(val)) {
+                      setAutoTags((prev) => [...prev, val]);
+                    }
+                    setTagInput("");
+                  }
+                }}
+              />
+              {autoTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {autoTags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2.5 py-1 text-xs font-medium"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setAutoTags((prev) => prev.filter((_, i) => i !== idx))}
+                        className="ml-0.5 rounded-full hover:bg-purple-500/30 p-0.5 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {autoTags.length === 0 ? "Nenhuma tag configurada." : `${autoTags.length} tag(s) configurada(s).`}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTagDialogOpen(false)}>Cancelar</Button>
+            <Button disabled={savingTag} onClick={handleSaveAutoTag}>
+              {savingTag && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
