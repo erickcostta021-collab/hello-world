@@ -118,6 +118,18 @@ export function EmbedInstanceCard({
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(instance.instance_name);
+  const [savingName, setSavingName] = useState(false);
+  const [instanceName, setInstanceName] = useState(instance.instance_name);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [autoTags, setAutoTags] = useState<string[]>(() => {
+    const raw = instance.auto_tag || "";
+    return raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
+  });
+  const [tagInput, setTagInput] = useState("");
+  const [savingTag, setSavingTag] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
