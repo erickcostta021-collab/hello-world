@@ -19,6 +19,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Instance } from "@/hooks/useInstances";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Users,
   Search,
@@ -59,6 +60,12 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
   const [ignoreGroups, setIgnoreGroups] = useState(instance.ignore_groups || false);
   const [savingIgnore, setSavingIgnore] = useState(false);
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+
+  // Sync local state when instance prop changes
+  useEffect(() => {
+    setIgnoreGroups(instance.ignore_groups || false);
+  }, [instance.ignore_groups]);
 
   const handleIgnoreGroupsChange = async (checked: boolean) => {
     setIgnoreGroups(checked);
@@ -70,6 +77,8 @@ export function GroupManagerDialog({ open, onOpenChange, instance }: GroupManage
         .eq("id", instance.id);
       if (error) throw error;
       toast.success(checked ? "Grupos serão ignorados no webhook" : "Grupos não serão mais ignorados");
+      queryClient.invalidateQueries({ queryKey: ["instances"] });
+      queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
     } catch (err: any) {
       setIgnoreGroups(!checked);
       toast.error("Erro ao salvar configuração");
