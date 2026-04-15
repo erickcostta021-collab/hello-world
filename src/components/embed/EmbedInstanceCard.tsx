@@ -730,6 +730,17 @@ export function EmbedInstanceCard({
                         {isOfficialApi ? "Desativar API Oficial" : "Ativar API Oficial"}
                       </DropdownMenuItem>
                     )}
+                    {isVisible("auto_tag") && (
+                      <DropdownMenuItem onClick={() => {
+                        const raw = instance.auto_tag || "";
+                        setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
+                        setTagInput("");
+                        setTagDialogOpen(true);
+                      }}>
+                        <Tag className="h-4 w-4 mr-2" />
+                        {instance.auto_tag ? "Editar Tags Automáticas" : "Configurar Tags Automáticas"}
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {isVisible("status") && (
