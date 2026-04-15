@@ -27,6 +27,8 @@ export interface EmbedVisibleOptions {
   messages: boolean;
   api_oficial: boolean;
   group_manager: boolean;
+  edit_name: boolean;
+  auto_tag: boolean;
 }
 
 const DEFAULT_OPTIONS: EmbedVisibleOptions = {
@@ -41,6 +43,8 @@ const DEFAULT_OPTIONS: EmbedVisibleOptions = {
   messages: true,
   api_oficial: false,
   group_manager: true,
+  edit_name: true,
+  auto_tag: true,
 };
 
 const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
@@ -55,6 +59,8 @@ const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   messages: "Mensagem em massa (beta)",
   api_oficial: "API Oficial",
   group_manager: "Gerenciador de Grupos",
+  edit_name: "Editar Nome da Instância",
+  auto_tag: "Tags Automáticas",
 };
 
 interface Props {

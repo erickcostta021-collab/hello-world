@@ -103,6 +103,7 @@ export default function EmbedInstances() {
           uazapi_base_url: null,
           embed_visible_options: i.embed_visible_options as any || null,
           is_official_api: i.is_official_api || false,
+          auto_tag: (i as any).auto_tag || null,
         })));
       }
     } catch (err) {
@@ -135,6 +136,7 @@ export default function EmbedInstances() {
         uazapi_base_url: null,
         embed_visible_options: i.embed_visible_options as any || null,
         is_official_api: i.is_official_api || false,
+        auto_tag: (i as any).auto_tag || null,
       })));
     } catch {
       console.error("Error loading instances after password");

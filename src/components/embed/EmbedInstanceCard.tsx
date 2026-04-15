@@ -1,9 +1,18 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +38,10 @@ import {
   Users,
   Eye,
   EyeOff,
+  Pencil,
+  Check,
+  X,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +62,8 @@ export interface EmbedVisibleOptions {
   messages?: boolean;
   api_oficial?: boolean;
   group_manager?: boolean;
+  edit_name?: boolean;
+  auto_tag?: boolean;
 }
 
 export interface EmbedInstance {
@@ -61,8 +76,9 @@ export interface EmbedInstance {
   profile_pic_url?: string | null;
   ghl_user_id?: string | null;
   is_official_api?: boolean;
-   ignore_groups?: boolean | null;
+  ignore_groups?: boolean | null;
   embed_visible_options?: EmbedVisibleOptions | null;
+  auto_tag?: string | null;
 }
 
 interface EmbedInstanceCardProps {
@@ -102,6 +118,18 @@ export function EmbedInstanceCard({
   const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(instance.instance_name);
+  const [savingName, setSavingName] = useState(false);
+  const [instanceName, setInstanceName] = useState(instance.instance_name);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [autoTags, setAutoTags] = useState<string[]>(() => {
+    const raw = instance.auto_tag || "";
+    return raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
+  });
+  const [tagInput, setTagInput] = useState("");
+  const [savingTag, setSavingTag] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -501,6 +529,51 @@ export function EmbedInstanceCard({
     },
   };
 
+  const handleSaveName = async () => {
+    const trimmed = editedName.trim();
+    if (!trimmed || trimmed === instanceName) {
+      setIsEditingName(false);
+      setEditedName(instanceName);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const { data, error } = await supabase.rpc("update_instance_for_embed", {
+        p_instance_id: instance.id,
+        p_embed_token: embedToken,
+        p_instance_name: trimmed,
+      });
+      if (error) throw error;
+      setInstanceName(trimmed);
+      toast.success("Nome atualizado!");
+      setIsEditingName(false);
+      onStatusChange?.();
+    } catch (err: any) {
+      toast.error("Erro ao atualizar nome: " + err.message);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleSaveAutoTag = async () => {
+    setSavingTag(true);
+    try {
+      const tagValue = autoTags.length > 0 ? autoTags.join(",") : "";
+      const { error } = await supabase.rpc("update_instance_for_embed", {
+        p_instance_id: instance.id,
+        p_embed_token: embedToken,
+        p_auto_tag: tagValue || "",
+      });
+      if (error) throw error;
+      toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
+      setTagDialogOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao salvar tags: " + err.message);
+    } finally {
+      setSavingTag(false);
+    }
+  };
+
   const status = statusConfig[currentStatus];
   const StatusIcon = status.icon;
   const isConnected = currentStatus === "connected";
@@ -527,9 +600,45 @@ export function EmbedInstanceCard({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-card-foreground text-sm leading-tight break-words">
-                      {instance.instance_name}
-                    </h3>
+                    {isVisible("edit_name") && isEditingName ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSaveName} disabled={savingName}>
+                            {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsEditingName(false); setEditedName(instanceName); }}>
+                            <X className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                        <Input
+                          ref={nameInputRef}
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          className="h-7 text-sm font-semibold w-36 px-1 py-0"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveName();
+                            if (e.key === "Escape") { setIsEditingName(false); setEditedName(instanceName); }
+                          }}
+                          autoFocus
+                          disabled={savingName}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 group/name min-w-0">
+                        <h3 className="font-semibold text-card-foreground text-sm leading-tight break-words min-w-0">
+                          {instanceName}
+                        </h3>
+                        {isVisible("edit_name") && (
+                          <button
+                            onClick={() => { setIsEditingName(true); setEditedName(instanceName); }}
+                            className="opacity-0 group-hover/name:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted shrink-0"
+                            title="Editar nome"
+                          >
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {!isConnected && (
                       <Badge variant="outline" className={`${status.className} shrink-0`}>
                         <StatusIcon className="h-3 w-3 mr-1" />
@@ -619,6 +728,17 @@ export function EmbedInstanceCard({
                       }}>
                         <Smartphone className="h-4 w-4 mr-2" />
                         {isOfficialApi ? "Desativar API Oficial" : "Ativar API Oficial"}
+                      </DropdownMenuItem>
+                    )}
+                    {isVisible("auto_tag") && (
+                      <DropdownMenuItem onClick={() => {
+                        const raw = instance.auto_tag || "";
+                        setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
+                        setTagInput("");
+                        setTagDialogOpen(true);
+                      }}>
+                        <Tag className="h-4 w-4 mr-2" />
+                        {instance.auto_tag ? "Editar Tags Automáticas" : "Configurar Tags Automáticas"}
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -864,6 +984,67 @@ export function EmbedInstanceCard({
           />
         )}
       </Suspense>
+
+      {/* Auto Tag Dialog */}
+      <Dialog open={tagDialogOpen} onOpenChange={setTagDialogOpen}>
+        <DialogContent className="bg-card border-border sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-card-foreground">Tags Automáticas</DialogTitle>
+            <DialogDescription>
+              Quando um lead enviar mensagem para esta instância, as tags serão adicionadas automaticamente ao contato no GHL. Pressione Enter para adicionar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Adicionar Tag</Label>
+              <Input
+                placeholder="Digite a tag e pressione Enter"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const val = tagInput.trim();
+                    if (val && !autoTags.includes(val)) {
+                      setAutoTags((prev) => [...prev, val]);
+                    }
+                    setTagInput("");
+                  }
+                }}
+              />
+              {autoTags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-2">
+                  {autoTags.map((tag, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30 px-2.5 py-1 text-xs font-medium"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => setAutoTags((prev) => prev.filter((_, i) => i !== idx))}
+                        className="ml-0.5 rounded-full hover:bg-purple-500/30 p-0.5 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {autoTags.length === 0 ? "Nenhuma tag configurada." : `${autoTags.length} tag(s) configurada(s).`}
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setTagDialogOpen(false)}>Cancelar</Button>
+            <Button disabled={savingTag} onClick={handleSaveAutoTag}>
+              {savingTag && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
