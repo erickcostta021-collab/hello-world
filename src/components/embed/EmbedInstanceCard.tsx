@@ -600,9 +600,45 @@ export function EmbedInstanceCard({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-card-foreground text-sm leading-tight break-words">
-                      {instance.instance_name}
-                    </h3>
+                    {isVisible("edit_name") && isEditingName ? (
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleSaveName} disabled={savingName}>
+                            {savingName ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setIsEditingName(false); setEditedName(instanceName); }}>
+                            <X className="h-3.5 w-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                        <Input
+                          ref={nameInputRef}
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          className="h-7 text-sm font-semibold w-36 px-1 py-0"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveName();
+                            if (e.key === "Escape") { setIsEditingName(false); setEditedName(instanceName); }
+                          }}
+                          autoFocus
+                          disabled={savingName}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 group/name min-w-0">
+                        <h3 className="font-semibold text-card-foreground text-sm leading-tight break-words min-w-0">
+                          {instanceName}
+                        </h3>
+                        {isVisible("edit_name") && (
+                          <button
+                            onClick={() => { setIsEditingName(true); setEditedName(instanceName); }}
+                            className="opacity-0 group-hover/name:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted shrink-0"
+                            title="Editar nome"
+                          >
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {!isConnected && (
                       <Badge variant="outline" className={`${status.className} shrink-0`}>
                         <StatusIcon className="h-3 w-3 mr-1" />
