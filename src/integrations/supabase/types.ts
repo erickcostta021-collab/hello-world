@@ -713,6 +713,7 @@ export type Database = {
       get_instances_for_embed: {
         Args: { p_embed_token: string; p_subaccount_id: string }
         Returns: {
+          auto_tag: string
           embed_visible_options: Json
           ghl_user_id: string
           id: string
