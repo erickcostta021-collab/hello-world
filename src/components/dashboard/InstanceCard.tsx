@@ -526,13 +526,13 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                         />
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 group/name">
-                        <h3 className="font-semibold text-card-foreground truncate text-lg">
+                      <div className="flex items-center gap-1 group/name min-w-0">
+                        <h3 className="font-semibold text-card-foreground truncate text-lg min-w-0">
                           {instance.instance_name}
                         </h3>
                         <button
                           onClick={() => { setIsEditingName(true); setEditedName(instance.instance_name); }}
-                          className="opacity-0 group-hover/name:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted"
+                          className="opacity-0 group-hover/name:opacity-100 transition-opacity p-0.5 rounded hover:bg-muted shrink-0"
                           title="Editar nome"
                         >
                           <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
