@@ -529,6 +529,51 @@ export function EmbedInstanceCard({
     },
   };
 
+  const handleSaveName = async () => {
+    const trimmed = editedName.trim();
+    if (!trimmed || trimmed === instanceName) {
+      setIsEditingName(false);
+      setEditedName(instanceName);
+      return;
+    }
+    setSavingName(true);
+    try {
+      const { data, error } = await supabase.rpc("update_instance_for_embed", {
+        p_instance_id: instance.id,
+        p_embed_token: embedToken,
+        p_instance_name: trimmed,
+      });
+      if (error) throw error;
+      setInstanceName(trimmed);
+      toast.success("Nome atualizado!");
+      setIsEditingName(false);
+      onStatusChange?.();
+    } catch (err: any) {
+      toast.error("Erro ao atualizar nome: " + err.message);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleSaveAutoTag = async () => {
+    setSavingTag(true);
+    try {
+      const tagValue = autoTags.length > 0 ? autoTags.join(",") : "";
+      const { error } = await supabase.rpc("update_instance_for_embed", {
+        p_instance_id: instance.id,
+        p_embed_token: embedToken,
+        p_auto_tag: tagValue || "",
+      });
+      if (error) throw error;
+      toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
+      setTagDialogOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao salvar tags: " + err.message);
+    } finally {
+      setSavingTag(false);
+    }
+  };
+
   const status = statusConfig[currentStatus];
   const StatusIcon = status.icon;
   const isConnected = currentStatus === "connected";
