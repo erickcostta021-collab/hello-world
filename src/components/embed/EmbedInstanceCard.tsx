@@ -130,6 +130,10 @@ export function EmbedInstanceCard({
   });
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
+  const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
+    const opts = instance.embed_visible_options;
+    return (opts as any)?.show_tags_on_card !== false;
+  });
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
