@@ -95,8 +95,9 @@ export function GroupManagerDialog({ open, onOpenChange, instance, embedToken, o
       queryClient.invalidateQueries({ queryKey: ["instances"] });
       queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
     } catch (err: any) {
+      console.error("Erro ao salvar ignore_groups:", err);
       setIgnoreGroups(!checked);
-      toast.error("Erro ao salvar configuração");
+      toast.error(err?.message || "Erro ao salvar configuração");
     } finally {
       setSavingIgnore(false);
     }
