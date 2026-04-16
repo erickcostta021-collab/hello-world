@@ -563,10 +563,13 @@ export function EmbedInstanceCard({
     setSavingTag(true);
     try {
       const tagValue = autoTags.length > 0 ? autoTags.join(",") : "";
+      const currentOpts = instance.embed_visible_options || {};
+      const newOpts = { ...(currentOpts as any), show_tags_on_card: showTagsOnCard };
       const { error } = await supabase.rpc("update_instance_for_embed", {
         p_instance_id: instance.id,
         p_embed_token: embedToken,
         p_auto_tag: tagValue || "",
+        p_embed_visible_options: newOpts,
       });
       if (error) throw error;
       toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
@@ -1047,6 +1050,16 @@ export function EmbedInstanceCard({
               <p className="text-xs text-muted-foreground">
                 {autoTags.length === 0 ? "Nenhuma tag configurada." : `${autoTags.length} tag(s) configurada(s).`}
               </p>
+              <div className="flex items-center gap-2 pt-2">
+                <Switch
+                  id="embed-show-tags-card"
+                  checked={showTagsOnCard}
+                  onCheckedChange={setShowTagsOnCard}
+                />
+                <Label htmlFor="embed-show-tags-card" className="cursor-pointer text-sm">
+                  Exibir tags no card
+                </Label>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
