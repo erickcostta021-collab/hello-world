@@ -547,7 +547,8 @@ export function EmbedInstanceCard({
         p_instance_id: instance.id,
         p_embed_token: embedToken,
         p_instance_name: trimmed,
-      });
+        p_auto_tag: instance.auto_tag ?? "",
+      } as any);
       if (error) throw error;
       setInstanceName(trimmed);
       toast.success("Nome atualizado!");
