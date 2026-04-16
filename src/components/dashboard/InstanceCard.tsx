@@ -140,6 +140,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   });
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
+  const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
+    const opts = (instance as any).embed_visible_options;
+    return opts?.show_tags_on_card !== false;
+  });
   const [subaccount, setSubaccount] = useState<{
     id: string;
     location_id: string;
