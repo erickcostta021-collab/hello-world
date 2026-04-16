@@ -681,6 +681,13 @@ export function EmbedInstanceCard({
                       API Oficial
                     </Badge>
                   )}
+                  {/* Auto Tag badges */}
+                  {showTagsOnCard && instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string, idx: number) => (
+                    <Badge key={idx} variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
+                      <Tag className="h-2.5 w-2.5 mr-1" />
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
               </div>
               
@@ -739,6 +746,8 @@ export function EmbedInstanceCard({
                         const raw = instance.auto_tag || "";
                         setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
                         setTagInput("");
+                        const opts = instance.embed_visible_options;
+                        setShowTagsOnCard((opts as any)?.show_tags_on_card !== false);
                         setTagDialogOpen(true);
                       }}>
                         <Tag className="h-4 w-4 mr-2" />
