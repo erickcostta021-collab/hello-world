@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -130,6 +131,10 @@ export function EmbedInstanceCard({
   });
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
+  const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
+    const opts = instance.embed_visible_options;
+    return (opts as any)?.show_tags_on_card !== false;
+  });
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
@@ -559,10 +564,13 @@ export function EmbedInstanceCard({
     setSavingTag(true);
     try {
       const tagValue = autoTags.length > 0 ? autoTags.join(",") : "";
+      const currentOpts = instance.embed_visible_options || {};
+      const newOpts = { ...(currentOpts as any), show_tags_on_card: showTagsOnCard };
       const { error } = await supabase.rpc("update_instance_for_embed", {
         p_instance_id: instance.id,
         p_embed_token: embedToken,
         p_auto_tag: tagValue || "",
+        p_embed_visible_options: newOpts,
       });
       if (error) throw error;
       toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
@@ -677,6 +685,13 @@ export function EmbedInstanceCard({
                       API Oficial
                     </Badge>
                   )}
+                  {/* Auto Tag badges */}
+                  {showTagsOnCard && instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string, idx: number) => (
+                    <Badge key={idx} variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
+                      <Tag className="h-2.5 w-2.5 mr-1" />
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
               </div>
               
@@ -735,6 +750,8 @@ export function EmbedInstanceCard({
                         const raw = instance.auto_tag || "";
                         setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
                         setTagInput("");
+                        const opts = instance.embed_visible_options;
+                        setShowTagsOnCard((opts as any)?.show_tags_on_card !== false);
                         setTagDialogOpen(true);
                       }}>
                         <Tag className="h-4 w-4 mr-2" />
@@ -1034,6 +1051,16 @@ export function EmbedInstanceCard({
               <p className="text-xs text-muted-foreground">
                 {autoTags.length === 0 ? "Nenhuma tag configurada." : `${autoTags.length} tag(s) configurada(s).`}
               </p>
+              <div className="flex items-center gap-2 pt-2">
+                <Switch
+                  id="embed-show-tags-card"
+                  checked={showTagsOnCard}
+                  onCheckedChange={setShowTagsOnCard}
+                />
+                <Label htmlFor="embed-show-tags-card" className="cursor-pointer text-sm">
+                  Exibir tags no card
+                </Label>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">

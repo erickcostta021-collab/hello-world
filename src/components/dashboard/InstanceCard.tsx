@@ -140,6 +140,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   });
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
+  const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
+    const opts = (instance as any).embed_visible_options;
+    return opts?.show_tags_on_card !== false;
+  });
   const [subaccount, setSubaccount] = useState<{
     id: string;
     location_id: string;
@@ -586,7 +590,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     </Badge>
                   )}
                   {/* Auto Tag badges */}
-                  {instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string, idx: number) => (
+                  {showTagsOnCard && instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string, idx: number) => (
                     <Badge key={idx} variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
                       <Tag className="h-2.5 w-2.5 mr-1" />
                       {tag}
@@ -641,6 +645,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     const raw = instance.auto_tag || "";
                     setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
                     setTagInput("");
+                    const opts = (instance as any).embed_visible_options;
+                    setShowTagsOnCard(opts?.show_tags_on_card !== false);
                     setTagDialogOpen(true);
                   }}>
                     <Tag className="h-4 w-4 mr-2" />
@@ -992,6 +998,16 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               <p className="text-xs text-muted-foreground">
                 {autoTags.length === 0 ? "Nenhuma tag configurada." : `${autoTags.length} tag(s) configurada(s).`}
               </p>
+              <div className="flex items-center gap-2 pt-2">
+                <Switch
+                  id="show-tags-card"
+                  checked={showTagsOnCard}
+                  onCheckedChange={setShowTagsOnCard}
+                />
+                <Label htmlFor="show-tags-card" className="cursor-pointer text-sm">
+                  Exibir tags no card
+                </Label>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -1002,9 +1018,11 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 setSavingTag(true);
                 try {
                   const tagValue = autoTags.length > 0 ? autoTags.join(",") : null;
+                  const currentOpts = (instance as any).embed_visible_options || {};
+                  const newOpts = { ...currentOpts, show_tags_on_card: showTagsOnCard };
                   const { error } = await supabase
                     .from("instances")
-                    .update({ auto_tag: tagValue } as any)
+                    .update({ auto_tag: tagValue, embed_visible_options: newOpts } as any)
                     .eq("id", instance.id);
                   if (error) throw error;
                   toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
