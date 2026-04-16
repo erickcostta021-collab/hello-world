@@ -78,7 +78,8 @@ export function GroupManagerDialog({ open, onOpenChange, instance, embedToken, o
           p_instance_id: instance.id,
           p_embed_token: embedToken,
           p_ignore_groups: checked,
-        });
+          p_auto_tag: instance.auto_tag ?? "",
+        } as any);
         if (error) throw error;
         if (!data) throw new Error("Não foi possível atualizar a instância");
       } else {
@@ -94,8 +95,9 @@ export function GroupManagerDialog({ open, onOpenChange, instance, embedToken, o
       queryClient.invalidateQueries({ queryKey: ["instances"] });
       queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
     } catch (err: any) {
+      console.error("Erro ao salvar ignore_groups:", err);
       setIgnoreGroups(!checked);
-      toast.error("Erro ao salvar configuração");
+      toast.error(err?.message || "Erro ao salvar configuração");
     } finally {
       setSavingIgnore(false);
     }
