@@ -381,6 +381,83 @@ export function useInstances(subaccountId?: string) {
     },
   });
 
+  // ── Restart Instance ────────────────────────────────────────────────
+  // Recria a instância na UAZAPI mantendo o mesmo registro no Supabase
+  // (preserva ID, webhook_url, ignore_groups, ghl_user_id, is_official_api,
+  // embed_visible_options, auto_tag, subaccount_id e relações via FK).
+  const restartInstance = useMutation({
+    mutationFn: async (instance: Instance) => {
+      if (!user) throw new Error("Não autenticado");
+
+      // Resolve credenciais para criar nova instância na UAZAPI
+      let baseUrl = settings?.uazapi_base_url;
+      let adminToken = settings?.uazapi_admin_token;
+
+      if (isManagedMode) {
+        const { data: adminCreds, error: credsError } = await supabase.rpc("get_admin_uazapi_credentials");
+        if (credsError || !adminCreds || adminCreds.length === 0) {
+          throw new Error("Credenciais do administrador não configuradas. Contate o suporte.");
+        }
+        baseUrl = adminCreds[0].uazapi_base_url;
+        adminToken = adminCreds[0].uazapi_admin_token;
+      }
+
+      if (!adminToken || !baseUrl) {
+        throw new Error("Configurações UAZAPI não encontradas");
+      }
+
+      // 1) Cria nova instância na UAZAPI com o mesmo nome
+      const newToken = await createInstanceOnApi(baseUrl, adminToken, instance.instance_name);
+
+      // 2) Tenta excluir a antiga na UAZAPI (não falha se já não existir)
+      try {
+        await deleteInstanceFromApi(instance, adminToken, globalBaseUrl);
+      } catch (err: any) {
+        console.warn("Falha ao excluir instância antiga na UAZAPI (continuando):", err?.message);
+      }
+
+      // 3) Atualiza o registro no Supabase com o novo token, zerando estado de sessão
+      const { error } = await supabase
+        .from("instances")
+        .update({
+          uazapi_instance_token: newToken,
+          instance_status: "disconnected" as InstanceStatus,
+          phone: null,
+          profile_pic_url: null,
+        })
+        .eq("id", instance.id);
+      if (error) throw error;
+
+      return { id: instance.id, newToken };
+    },
+    onSuccess: (data) => {
+      invalidateInstanceQueries(queryClient);
+      toast.success("Instância reiniciada com sucesso!");
+
+      // Reconfigura o webhook automaticamente para a nova instância UAZAPI
+      if (data?.id) {
+        supabase.functions.invoke("configure-webhook", {
+          body: {
+            instance_id: data.id,
+            webhook_events: ["messages"],
+            create_new: false,
+          },
+        }).then(({ data: result }) => {
+          if (result?.error) {
+            console.warn("Auto-configure webhook após reinício falhou:", result.error);
+          } else {
+            console.log("✅ Webhook reconfigurado após reinício");
+          }
+        }).catch((err) => {
+          console.warn("Erro ao reconfigurar webhook após reinício:", err);
+        });
+      }
+    },
+    onError: (error) => {
+      toast.error("Erro ao reiniciar instância: " + error.message);
+    },
+  });
+
   const unlinkInstance = useMutation({
     mutationFn: async (instance: Instance) => {
       // Remove subaccount_id to unlink, but keep the instance in the system
