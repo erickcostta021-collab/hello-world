@@ -678,6 +678,14 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     {instance.is_official_api ? "Desativar API Oficial" : "Ativar API Oficial"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setRestartDialogOpen(true)}
+                    className="text-amber-500"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reiniciar Instância
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   {!instance.subaccount_id && (
                     <DropdownMenuItem 
                       onClick={() => setLinkDialogOpen(true)}
