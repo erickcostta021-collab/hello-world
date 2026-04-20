@@ -898,18 +898,20 @@ export function GroupDetailDialog({
                     <h3 className="font-semibold text-card-foreground text-lg truncate">
                       {currentGroupName}
                     </h3>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 shrink-0"
-                      onClick={() => {
-                        setNewGroupName(currentGroupName);
-                        setEditingName(true);
-                      }}
-                      title="Editar nome do grupo"
-                    >
-                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
+                    {isInstanceAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => {
+                          setNewGroupName(currentGroupName);
+                          setEditingName(true);
+                        }}
+                        title="Editar nome do grupo"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                    )}
                     <div className="flex items-center gap-2 ml-auto shrink-0">
                       <Button
                         variant="outline"
