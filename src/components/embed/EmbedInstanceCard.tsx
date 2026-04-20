@@ -1093,6 +1093,59 @@ export function EmbedInstanceCard({
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={restartDialogOpen} onOpenChange={(o) => !restarting && setRestartDialogOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reiniciar instância?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá <strong>excluir e recriar</strong> a instância <strong>{instanceName}</strong>, gerando um novo token.
+              Todas as configurações (webhook, usuário GHL, tags, ignorar grupos, API oficial, opções de embed) serão preservadas,
+              mas a sessão atual do WhatsApp será perdida e será necessário ler o QR Code novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restarting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault();
+                setRestarting(true);
+                try {
+                  const res = await callUazapiProxy("restart" as any);
+                  if (res?.ok) {
+                    toast.success("Instância reiniciada com sucesso!");
+                    setCurrentStatus("disconnected");
+                    setConnectedPhone(null);
+                    setProfilePicUrl(null);
+                    setRestartDialogOpen(false);
+                    onStatusChange?.();
+                  } else {
+                    toast.error(res?.error || "Erro ao reiniciar instância");
+                  }
+                } catch (err: any) {
+                  toast.error(err?.message || "Erro ao reiniciar instância");
+                } finally {
+                  setRestarting(false);
+                }
+              }}
+              disabled={restarting}
+              className="bg-amber-500 hover:bg-amber-600"
+            >
+              {restarting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reiniciando...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reiniciar
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
