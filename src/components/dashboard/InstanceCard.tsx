@@ -724,25 +724,98 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
-                      title="Configurações da Instância"
-                    >
-                      <Settings className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-60 hover:opacity-100">
+                      <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-popover z-50">
-                    <DropdownMenuItem
-                      onClick={() => setRestartDialogOpen(true)}
-                      className="text-amber-500"
+                <DropdownMenuContent align="end" className="bg-popover border-border">
+                  <DropdownMenuItem onClick={() => setWebhookDialogOpen(true)}>
+                    <Settings2 className="h-4 w-4 mr-2" />
+                    Configurar Webhook
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setMessagesDialogOpen(true)}
+                    disabled={instance.instance_status !== "connected"}
+                    className={instance.instance_status !== "connected" ? "opacity-50 cursor-not-allowed" : ""}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Mensagem em massa (beta)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setGroupManagerDialogOpen(true)}
+                    disabled={instance.instance_status !== "connected"}
+                    className={instance.instance_status !== "connected" ? "opacity-50 cursor-not-allowed" : ""}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Gerenciador de Grupos
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setAssignUserDialogOpen(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Atribuir Usuário GHL
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const raw = instance.auto_tag || "";
+                    setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
+                    setTagInput("");
+                    const opts = (instance as any).embed_visible_options;
+                    setShowTagsOnCard(opts?.show_tags_on_card !== false);
+                    setTagDialogOpen(true);
+                  }}>
+                    <Tag className="h-4 w-4 mr-2" />
+                    {instance.auto_tag ? "Editar Tags Automáticas" : "Configurar Tags Automáticas"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => updateInstanceOfficialApi.mutate({ 
+                      instanceId: instance.id, 
+                      isOfficialApi: !instance.is_official_api 
+                    })}
+                  >
+                    <Smartphone className="h-4 w-4 mr-2" />
+                    {instance.is_official_api ? "Desativar API Oficial" : "Ativar API Oficial"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setRestartDialogOpen(true)}
+                    className="text-amber-500"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reiniciar Instância
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {!instance.subaccount_id && (
+                    <DropdownMenuItem 
+                      onClick={() => setLinkDialogOpen(true)}
+                      className="text-primary"
                     >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reiniciar Instância
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Vincular Subconta/Pasta
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  )}
+                  {instance.subaccount_id && (
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setDeleteFromUazapi(false);
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="text-amber-400"
+                  >
+                    <Unlink className="h-4 w-4 mr-2" />
+                    Desvincular
+                  </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      setDeleteFromUazapi(true);
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir Permanentemente
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+                </div>
               </div>
             </div>
           </div>
