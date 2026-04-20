@@ -772,6 +772,13 @@ export function EmbedInstanceCard({
                         {instance.auto_tag ? "Editar Tags Automáticas" : "Configurar Tags Automáticas"}
                       </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem
+                      onClick={() => setRestartDialogOpen(true)}
+                      className="text-amber-500"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reiniciar Instância
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {isVisible("status") && (
