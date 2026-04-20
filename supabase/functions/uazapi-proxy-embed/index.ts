@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info" | "get-track-id" | "uazapi-passthrough";
+type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info" | "get-track-id" | "uazapi-passthrough" | "restart";
 
 function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
     const instanceId = String(body?.instanceId || "").trim();
     const action = String(body?.action || "").trim() as Action;
 
-    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users", "get-info", "get-track-id", "uazapi-passthrough"].includes(action)) {
+    if (!embedToken || !["status", "connect", "qrcode", "disconnect", "ghl-users", "get-info", "get-track-id", "uazapi-passthrough", "restart"].includes(action)) {
       return new Response(JSON.stringify({ error: "Parâmetros inválidos" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -438,7 +438,124 @@ Deno.serve(async (req) => {
       });
     }
 
-    // qrcode
+    // ============ Restart Action ============
+    // Recreates the instance on UAZAPI keeping the same Supabase row (preserves
+    // webhook_url, ghl_user_id, is_official_api, embed_visible_options, auto_tag,
+    // subaccount_id, ignore_groups). Only the uazapi token changes.
+    if (action === "restart") {
+      // Fetch full instance row to get the name
+      const { data: fullInst } = await admin
+        .from("instances")
+        .select("instance_name")
+        .eq("id", instanceId)
+        .maybeSingle();
+
+      const instanceName = String(fullInst?.instance_name || "").trim();
+      if (!instanceName) {
+        return new Response(JSON.stringify({ error: "Nome da instância não encontrado" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Get admin UAZAPI credentials (managed mode)
+      const { data: adminCreds, error: credsError } = await admin.rpc("get_admin_uazapi_credentials");
+      if (credsError || !adminCreds || adminCreds.length === 0) {
+        return new Response(JSON.stringify({ error: "Credenciais do administrador não configuradas" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const adminBaseUrl = normalizeBaseUrl(String(adminCreds[0].uazapi_base_url || ""));
+      const adminToken = String(adminCreds[0].uazapi_admin_token || "");
+      if (!adminBaseUrl || !adminToken) {
+        return new Response(JSON.stringify({ error: "Credenciais do administrador inválidas" }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // 1) Create new instance with the same name
+      let newToken = "";
+      try {
+        const initRes = await fetchWithTimeout(`${adminBaseUrl}/instance/init`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", admintoken: adminToken },
+          body: JSON.stringify({ name: instanceName }),
+        });
+        const initText = await initRes.text();
+        const initData = initText ? JSON.parse(initText) : {};
+        if (!initRes.ok) {
+          return new Response(JSON.stringify({ error: `Falha ao criar nova instância: ${initData?.error || initRes.status}` }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        newToken = String(initData?.instance?.token || initData?.token || "");
+        if (!newToken) {
+          return new Response(JSON.stringify({ error: "Token não retornado ao criar instância" }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } catch (e) {
+        return new Response(JSON.stringify({ error: `Erro ao criar instância: ${e instanceof Error ? e.message : String(e)}` }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // 2) Delete old instance on UAZAPI (best-effort, don't fail)
+      const oldEndpoints = [
+        { path: "/instance/delete", method: "DELETE" },
+        { path: "/instance/delete", method: "POST" },
+        { path: "/instance", method: "DELETE" },
+      ];
+      for (const ep of oldEndpoints) {
+        try {
+          const res = await fetchWithTimeout(`${normalizeBaseUrl(uazapiBaseUrl)}${ep.path}`, {
+            method: ep.method,
+            headers: commonHeaders,
+          });
+          if (res.ok || res.status === 200 || res.status === 204) break;
+          if (res.status === 404 || res.status === 405) continue;
+        } catch {
+          continue;
+        }
+      }
+
+      // 3) Update DB row with new token + reset session state
+      const { error: updateError } = await admin
+        .from("instances")
+        .update({
+          uazapi_instance_token: newToken,
+          instance_status: "disconnected",
+          phone: null,
+          profile_pic_url: null,
+        })
+        .eq("id", instanceId);
+
+      if (updateError) {
+        return new Response(JSON.stringify({ error: `Erro ao atualizar instância: ${updateError.message}` }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // 4) Reconfigure webhook (best-effort)
+      try {
+        await admin.functions.invoke("configure-webhook", {
+          body: { instance_id: instanceId, webhook_events: ["messages"], create_new: false },
+        });
+      } catch (e) {
+        console.warn("[restart] reconfigure webhook failed:", e);
+      }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const result = await tryFetchJson(
       uazapiBaseUrl,
       [
