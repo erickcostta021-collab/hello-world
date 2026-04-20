@@ -623,6 +623,7 @@ export function useInstances(subaccountId?: string) {
     isLoading,
     createInstance,
     deleteInstance,
+    restartInstance,
     unlinkInstance,
     linkInstanceToSubaccount,
     importInstance,
