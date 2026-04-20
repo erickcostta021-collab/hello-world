@@ -883,7 +883,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
           <AlertDialogHeader>
             <AlertDialogTitle>Reiniciar instância?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação irá <strong>excluir e recriar</strong> a instância <strong>{instance.instance_name}</strong> tanto na Bridge quanto na UAZAPI, gerando um novo token. Todas as configurações (webhook, usuário GHL, tags, ignorar grupos, API oficial, opções de embed) serão preservadas, mas a sessão atual do WhatsApp será perdida e será necessário ler o QR Code novamente.
+              Esta ação irá <strong>excluir e recriar</strong> a instância <strong>{instance.instance_name}</strong>, gerando um novo token. Todas as configurações (webhook, usuário GHL, tags, ignorar grupos, API oficial, opções de embed) serão preservadas, mas a sessão atual do WhatsApp será perdida e será necessário ler o QR Code novamente.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
