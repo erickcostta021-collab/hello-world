@@ -877,6 +877,41 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Restart Instance Confirmation Dialog */}
+      <AlertDialog open={restartDialogOpen} onOpenChange={(o) => !restarting && setRestartDialogOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reiniciar instância?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá <strong>excluir e recriar</strong> a instância <strong>{instance.instance_name}</strong> tanto na Bridge quanto na UAZAPI, gerando um novo token. Todas as configurações (webhook, usuário GHL, tags, ignorar grupos, API oficial, opções de embed) serão preservadas, mas a sessão atual do WhatsApp será perdida e será necessário ler o QR Code novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restarting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleRestart();
+              }}
+              disabled={restarting}
+              className="bg-amber-500 hover:bg-amber-600"
+            >
+              {restarting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reiniciando...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Sim, reiniciar
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* QR Code Dialog */}
       <Dialog open={qrDialogOpen} onOpenChange={(open) => {
         setQrDialogOpen(open);
