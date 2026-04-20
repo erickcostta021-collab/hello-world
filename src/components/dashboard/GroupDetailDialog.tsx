@@ -861,8 +861,9 @@ export function GroupDetailDialog({
                       variant="outline"
                       size="sm"
                       onClick={copyInviteLink}
-                      disabled={copyingLink}
-                      className="shrink-0 border-primary/50 text-primary hover:bg-primary/10"
+                      disabled={copyingLink || !isInstanceAdmin}
+                      title={!isInstanceAdmin ? "Apenas admins do grupo podem obter o link de convite" : undefined}
+                      className="shrink-0 border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {copyingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Link className="h-4 w-4 mr-1" />}
                       Link Convite
@@ -872,8 +873,9 @@ export function GroupDetailDialog({
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={resettingLink}
-                          className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
+                          disabled={resettingLink || !isInstanceAdmin}
+                          title={!isInstanceAdmin ? "Apenas admins do grupo podem resetar o link" : undefined}
+                          className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {resettingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                           Resetar Link
@@ -913,8 +915,9 @@ export function GroupDetailDialog({
                         variant="outline"
                         size="sm"
                         onClick={copyInviteLink}
-                        disabled={copyingLink}
-                        className="shrink-0 border-primary/50 text-primary hover:bg-primary/10"
+                        disabled={copyingLink || !isInstanceAdmin}
+                        title={!isInstanceAdmin ? "Apenas admins do grupo podem obter o link de convite" : undefined}
+                        className="shrink-0 border-primary/50 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {copyingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Link className="h-4 w-4 mr-1" />}
                         Link Convite
@@ -924,8 +927,9 @@ export function GroupDetailDialog({
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={resettingLink}
-                            className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10"
+                            disabled={resettingLink || !isInstanceAdmin}
+                            title={!isInstanceAdmin ? "Apenas admins do grupo podem resetar o link" : undefined}
+                            className="shrink-0 border-destructive/50 text-destructive hover:bg-destructive/10 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {resettingLink ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
                             Resetar Link
