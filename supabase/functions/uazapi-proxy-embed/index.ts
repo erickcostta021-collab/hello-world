@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info" | "get-track-id" | "uazapi-passthrough";
+type Action = "status" | "connect" | "qrcode" | "disconnect" | "ghl-users" | "get-info" | "get-track-id" | "uazapi-passthrough" | "restart";
 
 function normalizeBaseUrl(url: string) {
   return url.replace(/\/+$/, "");
