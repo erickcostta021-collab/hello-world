@@ -56,7 +56,8 @@ import {
   Pencil,
   Check,
   X,
-  Tag
+  Tag,
+  Settings
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -100,6 +101,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     updateInstanceOfficialApi,
     reconfigureWebhook,
     unlinkInstance,
+    restartInstance,
     isManagedMode
   } = useInstances();
   const { fetchLocationUsers } = useGHLUsers();
@@ -112,6 +114,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteFromUazapi, setDeleteFromUazapi] = useState(false);
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const [ignoreGroups, setIgnoreGroups] = useState(instance.ignore_groups || false);
   const [syncing, setSyncing] = useState(false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(instance.phone || null);
@@ -372,6 +376,18 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
       toast.error(error.message);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleRestart = async () => {
+    setRestarting(true);
+    try {
+      await restartInstance.mutateAsync(instance);
+      setRestartDialogOpen(false);
+    } catch {
+      // toast já exibido pelo onError do mutation
+    } finally {
+      setRestarting(false);
     }
   };
 
@@ -706,6 +722,27 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 >
                   <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
                 </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
+                      title="Configurações da Instância"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-popover z-50">
+                    <DropdownMenuItem
+                      onClick={() => setRestartDialogOpen(true)}
+                      className="text-amber-500"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Reiniciar Instância
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
@@ -835,6 +872,41 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
             >
               {(deleteInstance.isPending || unlinkInstance.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {deleteFromUazapi ? "Excluir" : "Desvincular"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Restart Instance Confirmation Dialog */}
+      <AlertDialog open={restartDialogOpen} onOpenChange={(o) => !restarting && setRestartDialogOpen(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reiniciar instância?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação irá <strong>excluir e recriar</strong> a instância <strong>{instance.instance_name}</strong> tanto na Bridge quanto na UAZAPI, gerando um novo token. Todas as configurações (webhook, usuário GHL, tags, ignorar grupos, API oficial, opções de embed) serão preservadas, mas a sessão atual do WhatsApp será perdida e será necessário ler o QR Code novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restarting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleRestart();
+              }}
+              disabled={restarting}
+              className="bg-amber-500 hover:bg-amber-600"
+            >
+              {restarting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reiniciando...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Sim, reiniciar
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
