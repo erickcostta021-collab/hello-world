@@ -341,6 +341,46 @@ async function getPrimaryContactId(
   }
 }
 
+// Build BR phone variations to find existing duplicates created with different formats
+function buildPhoneVariations(phone: string): string[] {
+  const clean = phone.replace(/\D/g, "");
+  const set = new Set<string>();
+  set.add(clean);
+  if (clean.length >= 10) set.add(clean.slice(-10));
+  if (clean.length >= 11) set.add(clean.slice(-11));
+
+  // BR-specific: try with/without country code 55 and with/without leading 9 in mobile
+  if (clean.startsWith("55") && clean.length >= 12) {
+    const local = clean.slice(2); // strip 55
+    set.add(local);
+    // mobile: DDD(2) + 9 + 8 digits = 11
+    if (local.length === 11 && local[2] === "9") {
+      const without9 = local.slice(0, 2) + local.slice(3); // DDD + 8 digits
+      set.add(without9);
+      set.add("55" + without9);
+    }
+    // landline / missing 9: DDD(2) + 8 digits = 10 -> add 9
+    if (local.length === 10) {
+      const with9 = local.slice(0, 2) + "9" + local.slice(2);
+      set.add(with9);
+      set.add("55" + with9);
+    }
+  } else if (clean.length === 11 && clean[2] === "9") {
+    // local mobile without country code
+    const without9 = clean.slice(0, 2) + clean.slice(3);
+    set.add(without9);
+    set.add("55" + clean);
+    set.add("55" + without9);
+  } else if (clean.length === 10) {
+    const with9 = clean.slice(0, 2) + "9" + clean.slice(2);
+    set.add(with9);
+    set.add("55" + clean);
+    set.add("55" + with9);
+  }
+
+  return Array.from(set);
+}
+
 // Helper to search/create contact in GHL
 async function findOrCreateContact(
   phone: string,
@@ -349,44 +389,53 @@ async function findOrCreateContact(
   token: string,
   email?: string
 ): Promise<any> {
-  // Search for existing contact
-  const searchResponse = await fetchGHL(
-    `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&query=${phone}`,
-    {
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Version": "2021-07-28",
-        "Accept": "application/json",
-      },
-    }
-  );
+  // Try multiple phone variations to avoid creating duplicates when the contact
+  // already exists in GHL under a different format (with/without 9, with/without 55).
+  const variations = buildPhoneVariations(phone);
 
-  if (searchResponse.ok) {
-    const searchData = await searchResponse.json();
-    if (searchData.contacts && searchData.contacts.length > 0) {
-      const existingContact = searchData.contacts[0];
-      
-      // If email is provided (group chat) and contact doesn't have it, update the contact
-      if (email && !existingContact.email) {
-        try {
-          await fetchGHL(`https://services.leadconnectorhq.com/contacts/${existingContact.id}`, {
-            method: "PUT",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Version": "2021-07-28",
-              "Content-Type": "application/json",
-              "Accept": "application/json",
-            },
-            body: JSON.stringify({ email }),
-          });
-          console.log("Updated contact email with group ID:", email);
-        } catch (e) {
-          console.error("Failed to update contact email:", e);
-        }
+  for (const variant of variations) {
+    const searchResponse = await fetchGHL(
+      `https://services.leadconnectorhq.com/contacts/?locationId=${locationId}&query=${variant}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Version": "2021-07-28",
+          "Accept": "application/json",
+        },
       }
-      
-      return existingContact;
+    );
+
+    if (!searchResponse.ok) continue;
+    const searchData = await searchResponse.json();
+    if (!searchData.contacts || searchData.contacts.length === 0) continue;
+
+    const existingContact = searchData.contacts[0];
+    if (variations.length > 1 && variant !== variations[0]) {
+      console.log("[findOrCreateContact] Matched existing contact via phone variation:", {
+        original: phone, matchedQuery: variant, contactId: existingContact.id,
+      });
     }
+
+    // If email is provided (group chat) and contact doesn't have it, update the contact
+    if (email && !existingContact.email) {
+      try {
+        await fetchGHL(`https://services.leadconnectorhq.com/contacts/${existingContact.id}`, {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Version": "2021-07-28",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify({ email }),
+        });
+        console.log("Updated contact email with group ID:", email);
+      } catch (e) {
+        console.error("Failed to update contact email:", e);
+      }
+    }
+
+    return existingContact;
   }
 
   // Create new contact - include email if provided
