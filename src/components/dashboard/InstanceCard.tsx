@@ -379,6 +379,18 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     }
   };
 
+  const handleRestart = async () => {
+    setRestarting(true);
+    try {
+      await restartInstance.mutateAsync(instance);
+      setRestartDialogOpen(false);
+    } catch {
+      // toast já exibido pelo onError do mutation
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   const handleSaveWebhook = ({ webhookUrl, ignoreGroups: ig, webhookEvents, createNew, enabled, webhookId, excludeMessages }: { webhookUrl: string; ignoreGroups: boolean; webhookEvents: string[]; createNew: boolean; enabled: boolean; webhookId?: string; excludeMessages?: string }) => {
     updateInstanceWebhook.mutate({
       instance,
