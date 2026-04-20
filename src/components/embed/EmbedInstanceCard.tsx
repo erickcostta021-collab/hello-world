@@ -146,6 +146,8 @@ export function EmbedInstanceCard({
     const opts = instance.embed_visible_options;
     return (opts as any)?.show_tags_on_card !== false;
   });
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const copyToClipboard = async (text: string): Promise<void> => {
     try {
       await navigator.clipboard.writeText(text);
