@@ -722,27 +722,6 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                 >
                   <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
                 </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 border-border/50 opacity-60 hover:opacity-100"
-                      title="Configurações da Instância"
-                    >
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-popover z-50">
-                    <DropdownMenuItem
-                      onClick={() => setRestartDialogOpen(true)}
-                      className="text-amber-500"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Reiniciar Instância
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
             </div>
           </div>
