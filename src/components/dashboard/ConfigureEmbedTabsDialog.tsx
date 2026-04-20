@@ -29,6 +29,7 @@ export interface EmbedVisibleOptions {
   group_manager: boolean;
   edit_name: boolean;
   auto_tag: boolean;
+  restart: boolean;
 }
 
 const DEFAULT_OPTIONS: EmbedVisibleOptions = {
@@ -45,6 +46,7 @@ const DEFAULT_OPTIONS: EmbedVisibleOptions = {
   group_manager: true,
   edit_name: true,
   auto_tag: true,
+  restart: true,
 };
 
 const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
@@ -61,6 +63,7 @@ const OPTION_LABELS: Record<keyof EmbedVisibleOptions, string> = {
   group_manager: "Gerenciador de Grupos",
   edit_name: "Editar Nome da Instância",
   auto_tag: "Tags Automáticas",
+  restart: "Reiniciar Instância",
 };
 
 interface Props {
