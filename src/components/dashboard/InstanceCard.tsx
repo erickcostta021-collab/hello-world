@@ -56,7 +56,8 @@ import {
   Pencil,
   Check,
   X,
-  Tag
+  Tag,
+  Settings
 } from "lucide-react";
 import { Instance, useInstances } from "@/hooks/useInstances";
 import { checkServerHealth } from "@/hooks/instances/instanceApi";
@@ -100,6 +101,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     updateInstanceOfficialApi,
     reconfigureWebhook,
     unlinkInstance,
+    restartInstance,
     isManagedMode
   } = useInstances();
   const { fetchLocationUsers } = useGHLUsers();
@@ -112,6 +114,8 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
   const [webhookDialogOpen, setWebhookDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteFromUazapi, setDeleteFromUazapi] = useState(false);
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const [ignoreGroups, setIgnoreGroups] = useState(instance.ignore_groups || false);
   const [syncing, setSyncing] = useState(false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(instance.phone || null);
