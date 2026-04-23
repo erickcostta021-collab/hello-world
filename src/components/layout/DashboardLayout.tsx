@@ -1,6 +1,7 @@
 import { Sidebar } from "./Sidebar";
 import { DashboardHeader } from "./DashboardHeader";
 import { ImpersonationBanner } from "./ImpersonationBanner";
+import { SupportButton } from "./SupportButton";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -32,6 +33,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+      <SupportButton />
     </div>
   );
 }
