@@ -114,6 +114,12 @@ const LandingPage = () => {
             >
               Documentação
             </a>
+            <button
+              onClick={() => setSupportOpen(true)}
+              className="text-muted-foreground hover:text-foreground transition-colors duration-300 font-medium"
+            >
+              Suporte
+            </button>
           </nav>
           
           <div className="flex items-center gap-2 sm:gap-3">
