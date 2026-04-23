@@ -699,6 +699,60 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Floating Support Button */}
+      <button
+        onClick={() => setSupportOpen(true)}
+        aria-label="Abrir suporte"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-brand-green hover:bg-brand-green/90 text-white shadow-lg shadow-brand-green/30 transition-all duration-300 hover:scale-105"
+      >
+        <LifeBuoy className="h-5 w-5" />
+        <span className="hidden sm:inline font-medium">Suporte</span>
+      </button>
+
+      {/* Support Dialog */}
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fale com o Suporte</DialogTitle>
+            <DialogDescription>
+              Escolha o canal de sua preferência para conversar com nossa equipe.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 flex flex-col gap-3">
+            <a
+              href="https://wa.me/5521994587619"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-secondary transition-all duration-300 group"
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-brand-green/10 text-brand-green shrink-0">
+                <MessageCircle className="h-6 w-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-foreground">WhatsApp</div>
+                <div className="text-sm text-muted-foreground">+55 21 99458-7619</div>
+              </div>
+              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </a>
+            <a
+              href="https://app.gather.town/app/LzOJK6DmLDBwR8lo/Suporte%20Bridge%20API"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card hover:bg-secondary transition-all duration-300 group"
+            >
+              <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary shrink-0">
+                <Gamepad2 className="h-6 w-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-foreground">Gather</div>
+                <div className="text-sm text-muted-foreground">Sala de suporte virtual</div>
+              </div>
+              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            </a>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
