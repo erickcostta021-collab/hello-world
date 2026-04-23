@@ -2,6 +2,13 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Slider } from "@/components/ui/slider";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { 
   MessageCircle, 
   Mic, 
@@ -18,7 +25,9 @@ import {
   Phone,
   Lock,
   ExternalLink,
-  AlertCircle
+  AlertCircle,
+  LifeBuoy,
+  Gamepad2
 } from "lucide-react";
 import circleLogo from "@/assets/bridge-circle-logo.png";
 import whatsappLogo from "@/assets/whatsapp-logo.svg";
