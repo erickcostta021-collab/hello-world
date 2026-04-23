@@ -2415,15 +2415,38 @@ serve(async (req: Request) => {
     // Block WhatsApp Official API messages - these are already handled natively by GHL
     // BridgeAPI only handles SMS channel messages
     const channelRaw = String(body.channel ?? "").toLowerCase();
+    const messageTypeString = String(body.messageTypeString ?? "");
     if (
       messageType === "WhatsApp" ||
-      String(body.messageTypeString ?? "") === "TYPE_WHATSAPP" ||
+      messageTypeString === "TYPE_WHATSAPP" ||
       channelRaw === "whatsapp" ||
       messageType === "Live_Chat" ||
-      String(body.messageTypeString ?? "") === "TYPE_LIVE_CHAT" ||
-      channelRaw === "live_chat"
+      messageTypeString === "TYPE_LIVE_CHAT" ||
+      channelRaw === "live_chat" ||
+      // Instagram, Facebook Messenger, GMB, Custom and other non-SMS channels
+      // must NEVER be relayed through BridgeAPI (WhatsApp).
+      messageType === "IG" ||
+      messageType === "Instagram" ||
+      messageTypeString === "TYPE_INSTAGRAM" ||
+      channelRaw === "instagram" ||
+      channelRaw === "ig" ||
+      messageType === "FB" ||
+      messageType === "Facebook" ||
+      messageTypeString === "TYPE_FACEBOOK" ||
+      channelRaw === "facebook" ||
+      channelRaw === "fb" ||
+      messageType === "GMB" ||
+      messageTypeString === "TYPE_GMB" ||
+      channelRaw === "gmb" ||
+      messageType === "Custom" ||
+      messageTypeString === "TYPE_CUSTOM_PROVIDER_SMS" ||
+      messageTypeString === "TYPE_CUSTOM_PROVIDER_EMAIL" ||
+      messageType === "Call" ||
+      messageType === "Voicemail" ||
+      messageTypeString === "TYPE_CALL" ||
+      messageTypeString === "TYPE_VOICEMAIL"
     ) {
-      console.log("🛑 [BLOCKED] Ignoring Official API / WhatsApp message (not SMS channel):", { 
+      console.log("🛑 [BLOCKED] Ignoring non-SMS channel message:", { 
         messageId,
         messageType,
         messageTypeString: body.messageTypeString,
