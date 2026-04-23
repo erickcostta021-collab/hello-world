@@ -33,6 +33,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </main>
       </div>
+      <SupportButton />
     </div>
   );
 }
