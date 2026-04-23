@@ -39,6 +39,7 @@ const EXCHANGE_RATE = 5.00;
 const LandingPage = () => {
   const [instanceCount, setInstanceCount] = useState(1);
   const [currency, setCurrency] = useState<'BRL' | 'USD'>('BRL');
+  const [supportOpen, setSupportOpen] = useState(false);
   const FLEXIBLE_PRICES = [0, 29, 49, 75, 99, 125, 149, 175, 199, 225, 249];
   const totalPrice = FLEXIBLE_PRICES[instanceCount];
 
