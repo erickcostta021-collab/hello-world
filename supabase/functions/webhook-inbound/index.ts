@@ -2811,6 +2811,16 @@ serve(async (req) => {
           }
         }
         
+        // Prepend ad context (Click-to-WhatsApp Ads) so the GHL user sees the lead source
+        if (adContextPrefix) {
+          formattedMessage = `${adContextPrefix}${formattedMessage || ""}`;
+          if (formattedCaption) {
+            formattedCaption = `${adContextPrefix}${formattedCaption}`;
+          } else if (isMediaMessage) {
+            formattedCaption = adContextPrefix;
+          }
+        }
+        
         // Apply member prefix to text messages
         if (memberPrefix && formattedMessage) {
           formattedMessage = `${memberPrefix}${formattedMessage}`;
