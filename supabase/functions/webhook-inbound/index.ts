@@ -1781,6 +1781,21 @@ serve(async (req) => {
     // Method 2: Full context info is in content.contextInfo
     const contextInfo = typeof contentRaw === "object" ? contentRaw?.contextInfo : null;
     
+    // Detect Click-to-WhatsApp Ads (Meta Ads / Instagram Ads)
+    let adContextPrefix = "";
+    if (contextInfo && (contextInfo.conversionSource || contextInfo.entryPointConversionSource || contextInfo.ctwaPayload || contextInfo.entryPointConversionApp)) {
+      const adSource = contextInfo.conversionSource || contextInfo.entryPointConversionExternalSource || "";
+      const adApp = contextInfo.entryPointConversionApp || "";
+      const adType = contextInfo.entryPointConversionSource || "";
+      const sourceLabel = adSource === "FB_Ads" ? "Facebook Ads"
+        : adApp === "instagram" ? "Instagram Ads"
+        : adApp === "facebook" ? "Facebook Ads"
+        : adSource || adApp || "Anúncio";
+      const typeLabel = adType === "ctwa_ad" ? "Click-to-WhatsApp" : adType || "";
+      adContextPrefix = `📢 *Lead vindo de anúncio*\n• Origem: ${sourceLabel}${typeLabel ? `\n• Tipo: ${typeLabel}` : ""}${adApp ? `\n• Plataforma: ${adApp}` : ""}\n\n`;
+      console.log("🎯 Click-to-WhatsApp Ad detected:", { adSource, adApp, adType });
+    }
+    
     if (contextInfo) {
       quotedMessageId = contextInfo.stanzaID || contextInfo.stanzaId || quotedIdFromField || "";
       const qm = contextInfo.quotedMessage;
