@@ -587,19 +587,6 @@ export function EmbedInstanceCard({
   const handleSaveAutoTag = async () => {
     setSavingTag(true);
     try {
-      const tagValue = autoTags.length > 0 ? autoTags.join(",") : "";
-      const currentOpts = instance.embed_visible_options || {};
-      const newOpts = { ...(currentOpts as any), show_tags_on_card: showTagsOnCard };
-      const { error } = await supabase.rpc("update_instance_for_embed", {
-        p_instance_id: instance.id,
-        p_embed_token: embedToken,
-        p_auto_tag: tagValue || "",
-        p_embed_visible_options: newOpts,
-      });
-      if (error) throw error;
-  const handleSaveAutoTag = async () => {
-    setSavingTag(true);
-    try {
       const parts = [...autoTags];
       const cleanAd = adTagValue.trim();
       if (adTagEnabled && cleanAd) parts.push(`__ad_tag:${cleanAd}`);
