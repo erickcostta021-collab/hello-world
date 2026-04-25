@@ -597,7 +597,23 @@ export function EmbedInstanceCard({
         p_embed_visible_options: newOpts,
       });
       if (error) throw error;
-      toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
+  const handleSaveAutoTag = async () => {
+    setSavingTag(true);
+    try {
+      const parts = [...autoTags];
+      const cleanAd = adTagValue.trim();
+      if (adTagEnabled && cleanAd) parts.push(`__ad_tag:${cleanAd}`);
+      const tagValue = parts.length > 0 ? parts.join(",") : "";
+      const currentOpts = instance.embed_visible_options || {};
+      const newOpts = { ...(currentOpts as any), show_tags_on_card: showTagsOnCard };
+      const { error } = await supabase.rpc("update_instance_for_embed", {
+        p_instance_id: instance.id,
+        p_embed_token: embedToken,
+        p_auto_tag: tagValue || "",
+        p_embed_visible_options: newOpts,
+      });
+      if (error) throw error;
+      toast.success(parts.length > 0 ? "Tags automáticas salvas!" : "Tags automáticas removidas!");
       setTagDialogOpen(false);
     } catch (err: any) {
       toast.error("Erro ao salvar tags: " + err.message);
