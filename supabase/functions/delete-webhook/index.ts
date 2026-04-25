@@ -90,7 +90,7 @@ serve(async (req) => {
         
         const fetchOptions: RequestInit = {
           method: attempt.method,
-          headers: { "Content-Type": "application/json", ...(attempt.headers as Record<string, string>) },
+          headers: { "Content-Type": "application/json", ...(attempt.headers as unknown as Record<string, string>) },
         };
         if (attempt.payload) {
           fetchOptions.body = JSON.stringify(attempt.payload);

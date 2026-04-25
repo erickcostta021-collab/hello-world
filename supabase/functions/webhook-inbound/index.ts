@@ -1375,7 +1375,7 @@ serve(async (req) => {
               .maybeSingle();
             
             if (instanceData?.ghl_subaccounts) {
-              const subaccount = instanceData.ghl_subaccounts;
+              const subaccount = instanceData.ghl_subaccounts as any;
               
               // Get user settings for OAuth credentials
               const { data: settings } = await supabase
@@ -1483,7 +1483,7 @@ serve(async (req) => {
                 .maybeSingle();
 
               if (instanceData?.ghl_subaccounts) {
-                const subaccount = instanceData.ghl_subaccounts;
+                const subaccount = instanceData.ghl_subaccounts as any;
                 const { data: settings } = await supabase
                   .from("user_settings")
                   .select("ghl_client_id, ghl_client_secret")
@@ -1968,7 +1968,7 @@ serve(async (req) => {
       );
     }
 
-    const subaccount = instance.ghl_subaccounts;
+    const subaccount = instance.ghl_subaccounts as any;
 
     // Check if OAuth is configured
     if (!subaccount.ghl_access_token || !subaccount.ghl_refresh_token) {
@@ -2008,7 +2008,7 @@ serve(async (req) => {
     // INVERTED LOGIC: Messages WITH matching track_id were sent from GHL → UAZAPI.
     // Their echo should be DISCARDED since GHL already has them.
     // Messages WITHOUT track_id (bulk, groups, phone, external bots) pass through to GHL.
-    const userTrackId = settings.track_id || "";
+    const userTrackId = (settings as any)?.track_id || "";
     
     if (trackId && userTrackId && trackId === userTrackId) {
       console.log("🛑 Discarding GHL-originated echo (track_id matches):", {
@@ -2076,8 +2076,7 @@ serve(async (req) => {
           location_id: subaccount.location_id,
           original_phone: normalizedPhoneForMapping,
         }, { onConflict: "contact_id,location_id" })
-        .then(() => {})
-        .catch((e: unknown) => console.error("[Inbound] Phone mapping error:", e));
+        .then(() => {}, (e: unknown) => console.error("[Inbound] Phone mapping error:", e));
     }
 
     // ================================================================
