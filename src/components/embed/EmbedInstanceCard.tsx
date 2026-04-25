@@ -774,8 +774,10 @@ export function EmbedInstanceCard({
                     )}
                     {isVisible("auto_tag") && (
                       <DropdownMenuItem onClick={() => {
-                        const raw = instance.auto_tag || "";
-                        setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
+                        const parsed = parseAutoTagField(instance.auto_tag || "");
+                        setAutoTags(parsed.regular);
+                        setAdTagEnabled(!!parsed.adTag);
+                        setAdTagValue(parsed.adTag || "meta_ads");
                         setTagInput("");
                         const opts = instance.embed_visible_options;
                         setShowTagsOnCard((opts as any)?.show_tags_on_card !== false);
