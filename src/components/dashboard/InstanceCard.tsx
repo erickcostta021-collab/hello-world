@@ -1079,6 +1079,28 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   Exibir tags no card
                 </Label>
               </div>
+              <div className="border-t border-border pt-3 mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="ad-tag-enabled"
+                    checked={adTagEnabled}
+                    onCheckedChange={setAdTagEnabled}
+                  />
+                  <Label htmlFor="ad-tag-enabled" className="cursor-pointer text-sm">
+                    Tag para mensagens de anúncio (Meta Ads)
+                  </Label>
+                </div>
+                {adTagEnabled && (
+                  <Input
+                    placeholder="meta_ads"
+                    value={adTagValue}
+                    onChange={(e) => setAdTagValue(e.target.value)}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Quando o lead vier de um anúncio Click-to-WhatsApp (Meta/Instagram), esta tag será aplicada no contato em vez das tags padrão acima.
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -1088,7 +1110,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               onClick={async () => {
                 setSavingTag(true);
                 try {
-                  const tagValue = autoTags.length > 0 ? autoTags.join(",") : null;
+                  const parts = [...autoTags];
+                  const cleanAd = adTagValue.trim();
+                  if (adTagEnabled && cleanAd) parts.push(`__ad_tag:${cleanAd}`);
+                  const tagValue = parts.length > 0 ? parts.join(",") : null;
                   const currentOpts = (instance as any).embed_visible_options || {};
                   const newOpts = { ...currentOpts, show_tags_on_card: showTagsOnCard };
                   const { error } = await supabase
@@ -1096,7 +1121,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     .update({ auto_tag: tagValue, embed_visible_options: newOpts } as any)
                     .eq("id", instance.id);
                   if (error) throw error;
-                  toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
+                  toast.success(parts.length > 0 ? "Tags automáticas salvas!" : "Tags automáticas removidas!");
                   queryClient.invalidateQueries({ queryKey: ["instances"] });
                   queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
                   setTagDialogOpen(false);
