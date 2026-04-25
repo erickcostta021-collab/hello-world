@@ -138,10 +138,20 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     (instance as any).embed_visible_options || null
   );
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [autoTags, setAutoTags] = useState<string[]>(() => {
-    const raw = instance.auto_tag || "";
-    return raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
-  });
+  const parseAutoTagField = (raw: string) => {
+    const parts = raw ? raw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    let adTag = "";
+    const regular: string[] = [];
+    for (const p of parts) {
+      if (p.startsWith("__ad_tag:")) adTag = p.slice("__ad_tag:".length);
+      else regular.push(p);
+    }
+    return { regular, adTag };
+  };
+  const _initialAuto = parseAutoTagField(instance.auto_tag || "");
+  const [autoTags, setAutoTags] = useState<string[]>(_initialAuto.regular);
+  const [adTagEnabled, setAdTagEnabled] = useState<boolean>(!!_initialAuto.adTag);
+  const [adTagValue, setAdTagValue] = useState<string>(_initialAuto.adTag || "meta_ads");
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
   const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
