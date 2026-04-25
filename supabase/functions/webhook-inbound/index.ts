@@ -2256,7 +2256,7 @@ serve(async (req) => {
     // Prepare media URL if needed
     let publicMediaUrl = mediaUrl;
     if (isMediaMessage && mediaUrl) {
-      const baseUrl = instance.uazapi_base_url?.replace(/\/$/, "") || settings.uazapi_base_url?.replace(/\/$/, "") || body.BaseUrl?.replace(/\/$/, "") || "";
+      const baseUrl = instance.uazapi_base_url?.replace(/\/$/, "") || (settings as any)?.uazapi_base_url?.replace(/\/$/, "") || body.BaseUrl?.replace(/\/$/, "") || "";
       const messageId = messageData.messageid || messageData.id || "";
       
       // Try to get public URL via UAZAPI download endpoint (POST /message/download)
@@ -2282,7 +2282,7 @@ serve(async (req) => {
       interactiveCommands.some(cmd => trimmedText.toLowerCase().startsWith(cmd));
 
     if (isInteractiveCommand) {
-      const baseUrl = (instance.uazapi_base_url || settings.uazapi_base_url || "").replace(/\/$/, "");
+      const baseUrl = (instance.uazapi_base_url || (settings as any)?.uazapi_base_url || "").replace(/\/$/, "");
       
       if (!baseUrl) {
         console.log("Interactive command from mobile but no UAZAPI base URL configured");
