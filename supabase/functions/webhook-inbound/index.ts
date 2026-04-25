@@ -2221,15 +2221,26 @@ serve(async (req) => {
           }
         }
 
-        // Auto-tag: if instance has auto_tag configured, add all tags to the contact
+        // Auto-tag: if instance has auto_tag configured, add tags to the contact.
+        // Special token "__ad_tag:<value>" is reserved for Meta/Instagram ad messages
+        // and is only applied when the message has Click-to-WhatsApp ad context.
         if ((instance as any).auto_tag && contact.id) {
           try {
             const tagsStr = (instance as any).auto_tag as string;
-            const tags = tagsStr.split(",").map((t: string) => t.trim()).filter(Boolean);
-            for (const tag of tags) {
+            const allParts = tagsStr.split(",").map((t: string) => t.trim()).filter(Boolean);
+            const regularTags: string[] = [];
+            let adTag = "";
+            for (const p of allParts) {
+              if (p.startsWith("__ad_tag:")) adTag = p.slice("__ad_tag:".length).trim();
+              else regularTags.push(p);
+            }
+            const isFromAd = !!adContextPrefix;
+            const tagsToApply = [...regularTags];
+            if (isFromAd && adTag) tagsToApply.push(adTag);
+            for (const tag of tagsToApply) {
               await addTagToContact(contact.id, tag, token);
             }
-            console.log("✅ Auto-tags applied:", tags);
+            console.log("✅ Auto-tags applied:", { regularTags, adTag, isFromAd, applied: tagsToApply });
           } catch (e) {
             console.error("Auto-tag error:", e);
           }
