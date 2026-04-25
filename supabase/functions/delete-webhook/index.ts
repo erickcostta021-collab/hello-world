@@ -90,7 +90,7 @@ serve(async (req) => {
         
         const fetchOptions: RequestInit = {
           method: attempt.method,
-          headers: { "Content-Type": "application/json", ...attempt.headers },
+          headers: { "Content-Type": "application/json", ...(attempt.headers as Record<string, string>) },
         };
         if (attempt.payload) {
           fetchOptions.body = JSON.stringify(attempt.payload);
@@ -180,7 +180,7 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -126,7 +126,7 @@ serve(async (req) => {
     return new Response(JSON.stringify({ webhooks: [] }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
+  } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message, webhooks: [] }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
