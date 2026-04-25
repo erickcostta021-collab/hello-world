@@ -1099,6 +1099,28 @@ export function EmbedInstanceCard({
                   Exibir tags no card
                 </Label>
               </div>
+              <div className="border-t border-border pt-3 mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="embed-ad-tag-enabled"
+                    checked={adTagEnabled}
+                    onCheckedChange={setAdTagEnabled}
+                  />
+                  <Label htmlFor="embed-ad-tag-enabled" className="cursor-pointer text-sm">
+                    Tag para mensagens de anúncio (Meta Ads)
+                  </Label>
+                </div>
+                {adTagEnabled && (
+                  <Input
+                    placeholder="meta_ads"
+                    value={adTagValue}
+                    onChange={(e) => setAdTagValue(e.target.value)}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Quando o lead vier de um anúncio Click-to-WhatsApp (Meta/Instagram), esta tag será aplicada no contato em vez das tags padrão acima.
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
