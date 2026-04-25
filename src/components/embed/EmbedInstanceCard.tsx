@@ -136,10 +136,20 @@ export function EmbedInstanceCard({
   const [instanceName, setInstanceName] = useState(instance.instance_name);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [autoTags, setAutoTags] = useState<string[]>(() => {
-    const raw = instance.auto_tag || "";
-    return raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
-  });
+  const parseAutoTagField = (raw: string) => {
+    const parts = raw ? raw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    let adTag = "";
+    const regular: string[] = [];
+    for (const p of parts) {
+      if (p.startsWith("__ad_tag:")) adTag = p.slice("__ad_tag:".length);
+      else regular.push(p);
+    }
+    return { regular, adTag };
+  };
+  const _initialAuto = parseAutoTagField(instance.auto_tag || "");
+  const [autoTags, setAutoTags] = useState<string[]>(_initialAuto.regular);
+  const [adTagEnabled, setAdTagEnabled] = useState<boolean>(!!_initialAuto.adTag);
+  const [adTagValue, setAdTagValue] = useState<string>(_initialAuto.adTag || "meta_ads");
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
   const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
@@ -577,7 +587,10 @@ export function EmbedInstanceCard({
   const handleSaveAutoTag = async () => {
     setSavingTag(true);
     try {
-      const tagValue = autoTags.length > 0 ? autoTags.join(",") : "";
+      const parts = [...autoTags];
+      const cleanAd = adTagValue.trim();
+      if (adTagEnabled && cleanAd) parts.push(`__ad_tag:${cleanAd}`);
+      const tagValue = parts.length > 0 ? parts.join(",") : "";
       const currentOpts = instance.embed_visible_options || {};
       const newOpts = { ...(currentOpts as any), show_tags_on_card: showTagsOnCard };
       const { error } = await supabase.rpc("update_instance_for_embed", {
@@ -587,7 +600,7 @@ export function EmbedInstanceCard({
         p_embed_visible_options: newOpts,
       });
       if (error) throw error;
-      toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
+      toast.success(parts.length > 0 ? "Tags automáticas salvas!" : "Tags automáticas removidas!");
       setTagDialogOpen(false);
     } catch (err: any) {
       toast.error("Erro ao salvar tags: " + err.message);
@@ -700,7 +713,7 @@ export function EmbedInstanceCard({
                     </Badge>
                   )}
                   {/* Auto Tag badges */}
-                  {showTagsOnCard && instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string, idx: number) => (
+                  {showTagsOnCard && instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).filter((t: string) => !t.startsWith("__ad_tag:")).map((tag: string, idx: number) => (
                     <Badge key={idx} variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
                       <Tag className="h-2.5 w-2.5 mr-1" />
                       {tag}
@@ -761,8 +774,10 @@ export function EmbedInstanceCard({
                     )}
                     {isVisible("auto_tag") && (
                       <DropdownMenuItem onClick={() => {
-                        const raw = instance.auto_tag || "";
-                        setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
+                        const parsed = parseAutoTagField(instance.auto_tag || "");
+                        setAutoTags(parsed.regular);
+                        setAdTagEnabled(!!parsed.adTag);
+                        setAdTagValue(parsed.adTag || "meta_ads");
                         setTagInput("");
                         const opts = instance.embed_visible_options;
                         setShowTagsOnCard((opts as any)?.show_tags_on_card !== false);
@@ -1083,6 +1098,28 @@ export function EmbedInstanceCard({
                 <Label htmlFor="embed-show-tags-card" className="cursor-pointer text-sm">
                   Exibir tags no card
                 </Label>
+              </div>
+              <div className="border-t border-border pt-3 mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="embed-ad-tag-enabled"
+                    checked={adTagEnabled}
+                    onCheckedChange={setAdTagEnabled}
+                  />
+                  <Label htmlFor="embed-ad-tag-enabled" className="cursor-pointer text-sm">
+                    Tag para mensagens de anúncio (Meta Ads)
+                  </Label>
+                </div>
+                {adTagEnabled && (
+                  <Input
+                    placeholder="meta_ads"
+                    value={adTagValue}
+                    onChange={(e) => setAdTagValue(e.target.value)}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Quando o lead vier de um anúncio Click-to-WhatsApp (Meta/Instagram), esta tag será aplicada no contato em vez das tags padrão acima.
+                </p>
               </div>
             </div>
           </div>

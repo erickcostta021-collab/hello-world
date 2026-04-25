@@ -138,10 +138,20 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
     (instance as any).embed_visible_options || null
   );
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
-  const [autoTags, setAutoTags] = useState<string[]>(() => {
-    const raw = instance.auto_tag || "";
-    return raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
-  });
+  const parseAutoTagField = (raw: string) => {
+    const parts = raw ? raw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+    let adTag = "";
+    const regular: string[] = [];
+    for (const p of parts) {
+      if (p.startsWith("__ad_tag:")) adTag = p.slice("__ad_tag:".length);
+      else regular.push(p);
+    }
+    return { regular, adTag };
+  };
+  const _initialAuto = parseAutoTagField(instance.auto_tag || "");
+  const [autoTags, setAutoTags] = useState<string[]>(_initialAuto.regular);
+  const [adTagEnabled, setAdTagEnabled] = useState<boolean>(!!_initialAuto.adTag);
+  const [adTagValue, setAdTagValue] = useState<string>(_initialAuto.adTag || "meta_ads");
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
   const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
@@ -606,7 +616,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     </Badge>
                   )}
                   {/* Auto Tag badges */}
-                  {showTagsOnCard && instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).map((tag: string, idx: number) => (
+                  {showTagsOnCard && instance.auto_tag && instance.auto_tag.split(",").map((t: string) => t.trim()).filter(Boolean).filter((t: string) => !t.startsWith("__ad_tag:")).map((tag: string, idx: number) => (
                     <Badge key={idx} variant="outline" className="mt-1 bg-purple-500/10 text-purple-400 border-purple-500/30 text-[10px]">
                       <Tag className="h-2.5 w-2.5 mr-1" />
                       {tag}
@@ -658,8 +668,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     Atribuir Usuário GHL
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => {
-                    const raw = instance.auto_tag || "";
-                    setAutoTags(raw ? raw.split(",").map((t: string) => t.trim()).filter(Boolean) : []);
+                    const parsed = parseAutoTagField(instance.auto_tag || "");
+                    setAutoTags(parsed.regular);
+                    setAdTagEnabled(!!parsed.adTag);
+                    setAdTagValue(parsed.adTag || "meta_ads");
                     setTagInput("");
                     const opts = (instance as any).embed_visible_options;
                     setShowTagsOnCard(opts?.show_tags_on_card !== false);
@@ -1067,6 +1079,28 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   Exibir tags no card
                 </Label>
               </div>
+              <div className="border-t border-border pt-3 mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="ad-tag-enabled"
+                    checked={adTagEnabled}
+                    onCheckedChange={setAdTagEnabled}
+                  />
+                  <Label htmlFor="ad-tag-enabled" className="cursor-pointer text-sm">
+                    Tag para mensagens de anúncio (Meta Ads)
+                  </Label>
+                </div>
+                {adTagEnabled && (
+                  <Input
+                    placeholder="meta_ads"
+                    value={adTagValue}
+                    onChange={(e) => setAdTagValue(e.target.value)}
+                  />
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Quando o lead vier de um anúncio Click-to-WhatsApp (Meta/Instagram), esta tag será aplicada no contato em vez das tags padrão acima.
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -1076,7 +1110,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
               onClick={async () => {
                 setSavingTag(true);
                 try {
-                  const tagValue = autoTags.length > 0 ? autoTags.join(",") : null;
+                  const parts = [...autoTags];
+                  const cleanAd = adTagValue.trim();
+                  if (adTagEnabled && cleanAd) parts.push(`__ad_tag:${cleanAd}`);
+                  const tagValue = parts.length > 0 ? parts.join(",") : null;
                   const currentOpts = (instance as any).embed_visible_options || {};
                   const newOpts = { ...currentOpts, show_tags_on_card: showTagsOnCard };
                   const { error } = await supabase
@@ -1084,7 +1121,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     .update({ auto_tag: tagValue, embed_visible_options: newOpts } as any)
                     .eq("id", instance.id);
                   if (error) throw error;
-                  toast.success(autoTags.length > 0 ? `${autoTags.length} tag(s) configurada(s)!` : "Tags automáticas removidas!");
+                  toast.success(parts.length > 0 ? "Tags automáticas salvas!" : "Tags automáticas removidas!");
                   queryClient.invalidateQueries({ queryKey: ["instances"] });
                   queryClient.invalidateQueries({ queryKey: ["all-instances-dashboard"] });
                   setTagDialogOpen(false);
