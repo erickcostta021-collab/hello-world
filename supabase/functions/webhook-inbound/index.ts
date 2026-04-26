@@ -1782,18 +1782,23 @@ serve(async (req) => {
     const contextInfo = typeof contentRaw === "object" ? contentRaw?.contextInfo : null;
     
     // Detect Click-to-WhatsApp Ads (Meta Ads / Instagram Ads)
+    // Only flag as ad when there's a clear ad signal: ctwaPayload (the actual ad click payload),
+    // conversionSource of FB_Ads, or entryPointConversionSource explicitly being "ctwa_ad".
+    // entryPointConversionApp alone is NOT enough — it appears on regular IG/FB messages too.
     let adContextPrefix = "";
-    if (contextInfo && (contextInfo.conversionSource || contextInfo.entryPointConversionSource || contextInfo.ctwaPayload || contextInfo.entryPointConversionApp)) {
-      const adSource = contextInfo.conversionSource || contextInfo.entryPointConversionExternalSource || "";
+    const adType = contextInfo?.entryPointConversionSource || "";
+    const adSource = contextInfo?.conversionSource || contextInfo?.entryPointConversionExternalSource || "";
+    const hasCtwaPayload = !!contextInfo?.ctwaPayload;
+    const isCtwaAd = adType === "ctwa_ad" || adSource === "FB_Ads" || hasCtwaPayload;
+    if (contextInfo && isCtwaAd) {
       const adApp = contextInfo.entryPointConversionApp || "";
-      const adType = contextInfo.entryPointConversionSource || "";
       const sourceLabel = adSource === "FB_Ads" ? "Facebook Ads"
         : adApp === "instagram" ? "Instagram Ads"
         : adApp === "facebook" ? "Facebook Ads"
         : adSource || adApp || "Anúncio";
       const typeLabel = adType === "ctwa_ad" ? "Click-to-WhatsApp" : adType || "";
       adContextPrefix = `📢 *Lead vindo de anúncio*\n• Origem: ${sourceLabel}${typeLabel ? `\n• Tipo: ${typeLabel}` : ""}${adApp ? `\n• Plataforma: ${adApp}` : ""}\n\n`;
-      console.log("🎯 Click-to-WhatsApp Ad detected:", { adSource, adApp, adType });
+      console.log("🎯 Click-to-WhatsApp Ad detected:", { adSource, adApp, adType, hasCtwaPayload });
     }
     
     if (contextInfo) {
