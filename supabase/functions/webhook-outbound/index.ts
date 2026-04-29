@@ -2572,7 +2572,7 @@ serve(async (req: Request) => {
     for (const candidate of allSubaccounts) {
       const { data: candidateInstances } = await supabase
         .from("instances")
-        .select("id, instance_name, uazapi_instance_token, uazapi_base_url, phone")
+        .select("id, instance_name, uazapi_instance_token, uazapi_base_url, phone, auto_tag, ghl_user_id")
         .eq("subaccount_id", candidate.id)
         .eq("instance_status", "connected")
         .order("created_at", { ascending: true });
