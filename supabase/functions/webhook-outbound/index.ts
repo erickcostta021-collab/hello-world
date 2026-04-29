@@ -257,6 +257,48 @@ async function fetchGhlContact(token: string, contactId: string): Promise<{ phon
   }
 }
 
+// Fetch a GHL user's name (firstName + lastName, or name, or email fallback). Returns "" on failure.
+async function fetchGhlUserName(token: string, userId: string): Promise<string> {
+  if (!userId) return "";
+  try {
+    const res = await fetchGHL(`https://services.leadconnectorhq.com/users/${userId}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Version": "2021-07-28",
+        "Accept": "application/json",
+      },
+    });
+    if (!res.ok) {
+      console.warn("[sign] GHL user lookup failed:", { userId, status: res.status });
+      return "";
+    }
+    const parsed = await res.json().catch(() => ({} as any));
+    const u = parsed?.user || parsed || {};
+    const first = String(u.firstName || "").trim();
+    const last = String(u.lastName || "").trim();
+    const name = [first, last].filter(Boolean).join(" ").trim() || String(u.name || "").trim() || String(u.email || "").trim();
+    return name;
+  } catch (e) {
+    console.warn("[sign] fetchGhlUserName error:", e);
+    return "";
+  }
+}
+
+// Parse sign config out of an instance auto_tag field.
+function parseSignConfig(autoTag: string | null | undefined): { enabled: boolean; source: "assigned" | "sender" } {
+  const out = { enabled: false, source: "assigned" as "assigned" | "sender" };
+  if (!autoTag) return out;
+  const parts = autoTag.split(",").map((t) => t.trim()).filter(Boolean);
+  for (const p of parts) {
+    if (p === "__sign:1") out.enabled = true;
+    else if (p.startsWith("__sign_source:")) {
+      const v = p.slice("__sign_source:".length);
+      if (v === "sender" || v === "assigned") out.source = v;
+    }
+  }
+  return out;
+}
+
 // Helper to detect if phone is a group ID
 function isGroupId(phone: string): boolean {
   // Clean the phone first to avoid issues with + prefix
@@ -2572,7 +2614,7 @@ serve(async (req: Request) => {
     for (const candidate of allSubaccounts) {
       const { data: candidateInstances } = await supabase
         .from("instances")
-        .select("id, instance_name, uazapi_instance_token, uazapi_base_url, phone")
+        .select("id, instance_name, uazapi_instance_token, uazapi_base_url, phone, auto_tag, ghl_user_id")
         .eq("subaccount_id", candidate.id)
         .eq("instance_status", "connected")
         .order("created_at", { ascending: true });
@@ -2998,6 +3040,41 @@ serve(async (req: Request) => {
         return; // Command handled, don't send as regular message
       }
       // If not a recognized command, continue to send as regular message
+    }
+
+    // =====================================================================
+    // SIGN MESSAGES: prepend the user's name to outgoing text/captions.
+    // Toggled per-instance via auto_tag flags (__sign:1, __sign_source:assigned|sender).
+    // Format: "*Name:*\n message"
+    // =====================================================================
+    try {
+      const signCfg = parseSignConfig((instance as any).auto_tag);
+      if (signCfg.enabled && messageText && messageText.trim()) {
+        let userIdToLookup = "";
+        if (signCfg.source === "sender") {
+          userIdToLookup = String(body.userId ?? body.user?.id ?? "").trim();
+        }
+        if (!userIdToLookup) {
+          // Fallback / assigned mode: use the GHL user assigned to the instance
+          userIdToLookup = String((instance as any).ghl_user_id || "").trim();
+        }
+        if (userIdToLookup && settings?.ghl_client_id && settings?.ghl_client_secret) {
+          const signToken = await getValidToken(supabase, subaccount, settings);
+          if (signToken) {
+            const userName = await fetchGhlUserName(signToken, userIdToLookup);
+            if (userName) {
+              messageText = `*${userName}:*\n ${messageText}`;
+              console.log("[sign] Signed message:", { userId: userIdToLookup, name: userName, source: signCfg.source });
+            } else {
+              console.log("[sign] No name resolved, skipping signature:", { userIdToLookup });
+            }
+          }
+        } else {
+          console.log("[sign] Cannot sign: missing user id or OAuth credentials", { userIdToLookup, hasOAuth: !!(settings?.ghl_client_id && settings?.ghl_client_secret) });
+        }
+      }
+    } catch (signErr) {
+      console.error("[sign] Error applying signature:", signErr);
     }
 
     // Send attachments first (media)
