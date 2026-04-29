@@ -1133,6 +1133,43 @@ export function EmbedInstanceCard({
                   Quando o lead vier de um anúncio Click-to-WhatsApp (Meta/Instagram), esta tag será aplicada no contato em vez das tags padrão acima.
                 </p>
               </div>
+              <div className="border-t border-border pt-3 mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="embed-sign-messages"
+                    checked={signMessages}
+                    onCheckedChange={setSignMessages}
+                  />
+                  <Label htmlFor="embed-sign-messages" className="cursor-pointer text-sm">
+                    Assinar mensagens com nome do usuário
+                  </Label>
+                </div>
+                {signMessages && (
+                  <div className="flex flex-col gap-1.5 pl-1">
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        name="embed-sign-source"
+                        checked={signSource === "assigned"}
+                        onChange={() => setSignSource("assigned")}
+                      />
+                      Usar usuário GHL atribuído à instância
+                    </label>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        name="embed-sign-source"
+                        checked={signSource === "sender"}
+                        onChange={() => setSignSource("sender")}
+                      />
+                      Usar quem enviou a mensagem no GHL
+                    </label>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  O nome será adicionado em negrito no início da mensagem (texto e legendas). Áudios sem legenda não são assinados.
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
