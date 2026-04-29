@@ -257,6 +257,48 @@ async function fetchGhlContact(token: string, contactId: string): Promise<{ phon
   }
 }
 
+// Fetch a GHL user's name (firstName + lastName, or name, or email fallback). Returns "" on failure.
+async function fetchGhlUserName(token: string, userId: string): Promise<string> {
+  if (!userId) return "";
+  try {
+    const res = await fetchGHL(`https://services.leadconnectorhq.com/users/${userId}`, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Version": "2021-07-28",
+        "Accept": "application/json",
+      },
+    });
+    if (!res.ok) {
+      console.warn("[sign] GHL user lookup failed:", { userId, status: res.status });
+      return "";
+    }
+    const parsed = await res.json().catch(() => ({} as any));
+    const u = parsed?.user || parsed || {};
+    const first = String(u.firstName || "").trim();
+    const last = String(u.lastName || "").trim();
+    const name = [first, last].filter(Boolean).join(" ").trim() || String(u.name || "").trim() || String(u.email || "").trim();
+    return name;
+  } catch (e) {
+    console.warn("[sign] fetchGhlUserName error:", e);
+    return "";
+  }
+}
+
+// Parse sign config out of an instance auto_tag field.
+function parseSignConfig(autoTag: string | null | undefined): { enabled: boolean; source: "assigned" | "sender" } {
+  const out = { enabled: false, source: "assigned" as "assigned" | "sender" };
+  if (!autoTag) return out;
+  const parts = autoTag.split(",").map((t) => t.trim()).filter(Boolean);
+  for (const p of parts) {
+    if (p === "__sign:1") out.enabled = true;
+    else if (p.startsWith("__sign_source:")) {
+      const v = p.slice("__sign_source:".length);
+      if (v === "sender" || v === "assigned") out.source = v;
+    }
+  }
+  return out;
+}
+
 // Helper to detect if phone is a group ID
 function isGroupId(phone: string): boolean {
   // Clean the phone first to avoid issues with + prefix
