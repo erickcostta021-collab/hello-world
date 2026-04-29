@@ -598,6 +598,10 @@ export function EmbedInstanceCard({
       const parts = [...autoTags];
       const cleanAd = adTagValue.trim();
       if (adTagEnabled && cleanAd) parts.push(`__ad_tag:${cleanAd}`);
+      if (signMessages) {
+        parts.push("__sign:1");
+        parts.push(`__sign_source:${signSource}`);
+      }
       const tagValue = parts.length > 0 ? parts.join(",") : "";
       const currentOpts = instance.embed_visible_options || {};
       const newOpts = { ...(currentOpts as any), show_tags_on_card: showTagsOnCard };
