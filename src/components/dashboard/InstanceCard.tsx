@@ -1109,6 +1109,43 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   Quando o lead vier de um anúncio Click-to-WhatsApp (Meta/Instagram), esta tag será aplicada no contato em vez das tags padrão acima.
                 </p>
               </div>
+              <div className="border-t border-border pt-3 mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="sign-messages"
+                    checked={signMessages}
+                    onCheckedChange={setSignMessages}
+                  />
+                  <Label htmlFor="sign-messages" className="cursor-pointer text-sm">
+                    Assinar mensagens com nome do usuário
+                  </Label>
+                </div>
+                {signMessages && (
+                  <div className="flex flex-col gap-1.5 pl-1">
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sign-source"
+                        checked={signSource === "assigned"}
+                        onChange={() => setSignSource("assigned")}
+                      />
+                      Usar usuário GHL atribuído à instância
+                    </label>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input
+                        type="radio"
+                        name="sign-source"
+                        checked={signSource === "sender"}
+                        onChange={() => setSignSource("sender")}
+                      />
+                      Usar quem enviou a mensagem no GHL
+                    </label>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  O nome será adicionado em negrito no início da mensagem (texto e legendas). Áudios sem legenda não são assinados.
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -1121,6 +1158,10 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                   const parts = [...autoTags];
                   const cleanAd = adTagValue.trim();
                   if (adTagEnabled && cleanAd) parts.push(`__ad_tag:${cleanAd}`);
+                  if (signMessages) {
+                    parts.push("__sign:1");
+                    parts.push(`__sign_source:${signSource}`);
+                  }
                   const tagValue = parts.length > 0 ? parts.join(",") : null;
                   const currentOpts = (instance as any).embed_visible_options || {};
                   const newOpts = { ...currentOpts, show_tags_on_card: showTagsOnCard };
