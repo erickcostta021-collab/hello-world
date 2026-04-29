@@ -139,17 +139,25 @@ export function EmbedInstanceCard({
   const parseAutoTagField = (raw: string) => {
     const parts = raw ? raw.split(",").map((t) => t.trim()).filter(Boolean) : [];
     let adTag = "";
+    let signEnabled = false;
+    let signSource: "assigned" | "sender" = "assigned";
     const regular: string[] = [];
     for (const p of parts) {
       if (p.startsWith("__ad_tag:")) adTag = p.slice("__ad_tag:".length);
-      else regular.push(p);
+      else if (p === "__sign:1") signEnabled = true;
+      else if (p.startsWith("__sign_source:")) {
+        const v = p.slice("__sign_source:".length);
+        if (v === "sender" || v === "assigned") signSource = v;
+      } else regular.push(p);
     }
-    return { regular, adTag };
+    return { regular, adTag, signEnabled, signSource };
   };
   const _initialAuto = parseAutoTagField(instance.auto_tag || "");
   const [autoTags, setAutoTags] = useState<string[]>(_initialAuto.regular);
   const [adTagEnabled, setAdTagEnabled] = useState<boolean>(!!_initialAuto.adTag);
   const [adTagValue, setAdTagValue] = useState<string>(_initialAuto.adTag || "meta_ads");
+  const [signMessages, setSignMessages] = useState<boolean>(_initialAuto.signEnabled);
+  const [signSource, setSignSource] = useState<"assigned" | "sender">(_initialAuto.signSource);
   const [tagInput, setTagInput] = useState("");
   const [savingTag, setSavingTag] = useState(false);
   const [showTagsOnCard, setShowTagsOnCard] = useState<boolean>(() => {
