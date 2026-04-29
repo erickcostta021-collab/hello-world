@@ -3042,6 +3042,41 @@ serve(async (req: Request) => {
       // If not a recognized command, continue to send as regular message
     }
 
+    // =====================================================================
+    // SIGN MESSAGES: prepend the user's name to outgoing text/captions.
+    // Toggled per-instance via auto_tag flags (__sign:1, __sign_source:assigned|sender).
+    // Format: "*Name:*\n message"
+    // =====================================================================
+    try {
+      const signCfg = parseSignConfig((instance as any).auto_tag);
+      if (signCfg.enabled && messageText && messageText.trim()) {
+        let userIdToLookup = "";
+        if (signCfg.source === "sender") {
+          userIdToLookup = String(body.userId ?? body.user?.id ?? "").trim();
+        }
+        if (!userIdToLookup) {
+          // Fallback / assigned mode: use the GHL user assigned to the instance
+          userIdToLookup = String((instance as any).ghl_user_id || "").trim();
+        }
+        if (userIdToLookup && settings?.ghl_client_id && settings?.ghl_client_secret) {
+          const signToken = await getValidToken(supabase, subaccount, settings);
+          if (signToken) {
+            const userName = await fetchGhlUserName(signToken, userIdToLookup);
+            if (userName) {
+              messageText = `*${userName}:*\n ${messageText}`;
+              console.log("[sign] Signed message:", { userId: userIdToLookup, name: userName, source: signCfg.source });
+            } else {
+              console.log("[sign] No name resolved, skipping signature:", { userIdToLookup });
+            }
+          }
+        } else {
+          console.log("[sign] Cannot sign: missing user id or OAuth credentials", { userIdToLookup, hasOAuth: !!(settings?.ghl_client_id && settings?.ghl_client_secret) });
+        }
+      }
+    } catch (signErr) {
+      console.error("[sign] Error applying signature:", signErr);
+    }
+
     // Send attachments first (media)
     for (const attachment of attachments) {
       const mediaType = detectMediaType(attachment);
