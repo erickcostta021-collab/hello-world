@@ -2731,6 +2731,10 @@ serve(async (req: Request) => {
     // Motivo: um mesmo lead pode ter múltiplos contactIds no GHL; se buscarmos só por contactId,
     // caímos no fallback (instances[0]) e a mensagem sai pela instância errada (parece "espelhado").
     // =======================================================================
+    // Track auto-switch: when the lead's preferred instance is disconnected and we fall back
+    let preferredInstanceId: string | null = null;
+    let disconnectedPreferredName: string | null = null;
+
     if (!isGroup) {
       try {
         const normalizedPhone = targetPhone.replace(/\D/g, "");
@@ -2753,6 +2757,7 @@ serve(async (req: Request) => {
 
           const pref = prefsByPhone?.[0];
           if (pref?.instance_id) {
+            preferredInstanceId = pref.instance_id;
             const preferredInstance = instances.find((i) => i.id === pref.instance_id);
             if (preferredInstance) {
               instance = preferredInstance;
@@ -2760,6 +2765,18 @@ serve(async (req: Request) => {
                 instanceId: instance.id,
                 leadPhone: pref.lead_phone?.slice(0, 15),
                 updatedAt: pref.updated_at,
+              });
+            } else {
+              // Preferred instance exists but is NOT connected → auto-switch will happen
+              const { data: prefInst } = await supabase
+                .from("instances")
+                .select("instance_name")
+                .eq("id", pref.instance_id)
+                .maybeSingle();
+              disconnectedPreferredName = prefInst?.instance_name || null;
+              console.log("[Outbound] ⚠️ Preferred instance is disconnected, will auto-switch:", {
+                preferredId: pref.instance_id,
+                preferredName: disconnectedPreferredName,
               });
             }
           }
@@ -2784,14 +2801,100 @@ serve(async (req: Request) => {
         }
 
         if (preference?.instance_id) {
+          if (!preferredInstanceId) preferredInstanceId = preference.instance_id;
           const preferredInstance = instances.find((i) => i.id === preference.instance_id);
           if (preferredInstance) {
             instance = preferredInstance;
             console.log("[Outbound] Using preferred instance by contactId:", { instanceId: instance.id, contactId });
+          } else if (!disconnectedPreferredName) {
+            const { data: prefInst } = await supabase
+              .from("instances")
+              .select("instance_name")
+              .eq("id", preference.instance_id)
+              .maybeSingle();
+            disconnectedPreferredName = prefInst?.instance_name || null;
           }
         }
       } catch (e) {
         console.error("[Outbound] Failed to resolve preference by contactId:", e);
+      }
+    }
+
+    // === AUTO-SWITCH NOTIFICATION ===
+    // If the preferred instance was disconnected, notify the user that we switched automatically
+    if (
+      disconnectedPreferredName &&
+      preferredInstanceId &&
+      instance.id !== preferredInstanceId &&
+      (instance as any).instance_name
+    ) {
+      const newInstanceName = (instance as any).instance_name;
+      console.log("[Outbound] 🔄 Auto-switch triggered:", {
+        from: disconnectedPreferredName,
+        to: newInstanceName,
+        reason: "preferred_disconnected",
+      });
+
+      // Update preference to the new (connected) instance
+      try {
+        const normalizedPhone = targetPhone.replace(/\D/g, "");
+        if (contactId) {
+          await supabase
+            .from("contact_instance_preferences")
+            .upsert({
+              contact_id: contactId,
+              location_id: locationId,
+              instance_id: instance.id,
+              lead_phone: normalizedPhone || null,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "contact_id,location_id" });
+        }
+      } catch (e) {
+        console.error("[Outbound] Failed to update preference after auto-switch:", e);
+      }
+
+      // Broadcast so the bridge-switcher dropdown updates in real time
+      try {
+        await supabase.channel("ghl_updates").send({
+          type: "broadcast",
+          event: "instance_switch",
+          payload: {
+            location_id: locationId,
+            lead_phone: targetPhone,
+            new_instance_id: instance.id,
+            new_instance_name: newInstanceName,
+            previous_instance_name: disconnectedPreferredName,
+            reason: "auto_disconnect",
+          },
+        });
+      } catch (e) {
+        console.error("[Outbound] Auto-switch broadcast error:", e);
+      }
+
+      // Send InternalComment so the user sees the switch in the GHL conversation
+      if (contactId && settings?.ghl_client_id && settings?.ghl_client_secret) {
+        try {
+          const switchToken = await getValidToken(supabase, subaccount, settings);
+          if (switchToken) {
+            await fetchGHL("https://services.leadconnectorhq.com/conversations/messages", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${switchToken}`,
+                Version: "2021-04-15",
+                "Content-Type": "application/json",
+                Accept: "application/json",
+              },
+              body: JSON.stringify({
+                type: "InternalComment",
+                contactId,
+                message: `🔄 Instância "${disconnectedPreferredName}" desconectada. Trocada automaticamente para: ${newInstanceName}`,
+              }),
+            });
+            console.log("[Outbound] ✅ Auto-switch InternalComment sent");
+          }
+        } catch (e) {
+          console.error("[Outbound] Auto-switch InternalComment error:", e);
+        }
       }
     }
 
