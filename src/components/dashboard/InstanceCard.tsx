@@ -686,7 +686,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                     setTagDialogOpen(true);
                   }}>
                     <Tag className="h-4 w-4 mr-2" />
-                    {instance.auto_tag ? "Editar Tags Automáticas" : "Configurar Tags Automáticas"}
+                    {instance.auto_tag ? "Assinatura e Tags Automáticas" : "Assinatura e Tags Automáticas"}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => updateInstanceOfficialApi.mutate({ 
@@ -1138,7 +1138,7 @@ export const InstanceCard = memo(function InstanceCard({ instance, allInstances 
                         checked={signSource === "sender"}
                         onChange={() => setSignSource("sender")}
                       />
-                      Usar quem enviou a mensagem no GHL
+                      Usar o nome de quem enviou a mensagem no GHL
                     </label>
                   </div>
                 )}
