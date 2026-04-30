@@ -3033,7 +3033,38 @@ serve(async (req: Request) => {
           }
         }
     } else if (instanceOverrideMatch && !matchedInstance) {
-        console.log("[Outbound] ⚠️ No instance found for override:", overrideIdentifier);
+        console.log("[Outbound] ⚠️ No connected instance found for override:", overrideIdentifier);
+
+        // Check if a matching instance exists but is DISCONNECTED (vs. truly not found / wrong command)
+        let disconnectedInstance: any = null;
+        try {
+          const { data: allSubInstances } = await supabase
+            .from("instances")
+            .select("id, instance_name, phone, instance_status")
+            .eq("subaccount_id", subaccount.id);
+
+          if (allSubInstances?.length) {
+            if (phoneOverrideMatch) {
+              const overrideLast10 = overrideIdentifier.slice(-10);
+              disconnectedInstance = allSubInstances.find((inst: any) => {
+                const instPhone = (inst.phone || "").replace(/\D/g, "");
+                return instPhone.length >= 10 && instPhone.slice(-10) === overrideLast10;
+              });
+            } else {
+              const lowerName = overrideIdentifier.toLowerCase();
+              disconnectedInstance = allSubInstances.find((inst: any) =>
+                (inst.instance_name || "").toLowerCase() === lowerName
+              );
+            }
+          }
+        } catch (lookupErr) {
+          console.error("[Outbound] Error looking up disconnected instances:", lookupErr);
+        }
+
+        const feedbackMessage = disconnectedInstance
+          ? `⚠️ A instância "${disconnectedInstance.instance_name}" está desconectada. Reconecte-a antes de enviar mensagens por ela.`
+          : `❌ Comando inválido ou instância não encontrada: "${overrideIdentifier}".\nUse #TELEFONE: mensagem ou #Nome da Instância: mensagem.`;
+
         if (contactId && settings?.ghl_client_id && settings?.ghl_client_secret) {
           try {
             const feedbackToken = await getValidToken(supabase, subaccount, settings);
@@ -3049,7 +3080,7 @@ serve(async (req: Request) => {
                 body: JSON.stringify({
                   type: "InternalComment",
                   contactId,
-                  message: `❌ Nenhuma instância encontrada com: ${overrideIdentifier}`,
+                  message: feedbackMessage,
                 }),
               });
             }
