@@ -2833,11 +2833,12 @@ serve(async (req: Request) => {
       }
     }
 
-    // === BLOCK SEND IF PREFERRED INSTANCE IS UNAVAILABLE ===
-    // Per user request: when the preferred instance is disconnected/unlinked/deleted,
-    // do NOT auto-switch and do NOT deliver the message to the lead. Instead, post an
-    // InternalComment in the GHL conversation explaining what happened so the user
-    // can fix the instance and resend manually.
+    // === FIRST-MESSAGE BLOCK + AUTO-SWITCH IF PREFERRED INSTANCE IS UNAVAILABLE ===
+    // Behavior: when the lead's preferred instance is disconnected/unlinked/deleted,
+    // we BLOCK only the first message and post an InternalComment notifying the user
+    // that the instance changed. We also update the preference to the new (fallback)
+    // instance, so subsequent messages are sent normally through it.
+    // If the user wants to keep using the new instance, they just resend the message.
     if (
       disconnectedPreferredName &&
       preferredInstanceId &&
@@ -2850,16 +2851,51 @@ serve(async (req: Request) => {
           ? "removida"
           : "desconectada";
 
+      const newInstanceName = instance.instance_name || "outra instância conectada";
       const blockMessage =
         `⚠️ Mensagem NÃO enviada. A instância "${disconnectedPreferredName}" está ${reasonText}. ` +
-        `Reconecte/vincule a instância e envie a mensagem novamente.`;
+        `O envio foi alterado para a instância "${newInstanceName}". ` +
+        `Para enviar a mensagem por esta instância, basta reenviá-la.`;
 
-      console.log("[Outbound] 🚫 Send blocked — preferred instance unavailable:", {
+      console.log("[Outbound] 🚫 First-message block — auto-switching preference:", {
         preferredId: preferredInstanceId,
         preferredName: disconnectedPreferredName,
+        newInstanceId: instance.id,
+        newInstanceName,
         reason: disconnectedPreferredReason,
         contactId,
       });
+
+      // Update the contact preference to the new instance so the NEXT message goes through
+      try {
+        const normalizedPhone = targetPhone.replace(/\D/g, "");
+        if (contactId) {
+          await supabase
+            .from("contact_instance_preferences")
+            .upsert(
+              {
+                contact_id: contactId,
+                location_id: locationId,
+                instance_id: instance.id,
+                lead_phone: normalizedPhone || null,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "contact_id,location_id" } as any,
+            );
+        }
+        // Also update any preference rows that match this phone for this location
+        if (normalizedPhone.length >= 10) {
+          const last10 = normalizedPhone.slice(-10);
+          await supabase
+            .from("contact_instance_preferences")
+            .update({ instance_id: instance.id, updated_at: new Date().toISOString() })
+            .eq("location_id", locationId)
+            .or(`lead_phone.eq.${normalizedPhone},lead_phone.like.%${last10}%`);
+        }
+        console.log("[Outbound] ✅ Preference updated to new instance for next message");
+      } catch (e) {
+        console.error("[Outbound] ⚠️ Failed to update preference:", e);
+      }
 
       if (contactId && settings?.ghl_client_id && settings?.ghl_client_secret) {
         try {
@@ -2899,13 +2935,15 @@ serve(async (req: Request) => {
         });
       }
 
-      // Return 200 so GHL does not retry. Message is intentionally not delivered.
+      // Return 200 so GHL does not retry. First message intentionally not delivered.
       return new Response(
         JSON.stringify({
           ok: true,
           blocked: true,
+          first_message_block: true,
           reason: disconnectedPreferredReason,
-          preferred_instance: disconnectedPreferredName,
+          previous_instance: disconnectedPreferredName,
+          switched_to: newInstanceName,
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
