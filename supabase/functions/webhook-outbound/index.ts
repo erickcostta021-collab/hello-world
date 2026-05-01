@@ -2731,9 +2731,10 @@ serve(async (req: Request) => {
     // Motivo: um mesmo lead pode ter múltiplos contactIds no GHL; se buscarmos só por contactId,
     // caímos no fallback (instances[0]) e a mensagem sai pela instância errada (parece "espelhado").
     // =======================================================================
-    // Track auto-switch: when the lead's preferred instance is disconnected and we fall back
+    // Track auto-switch: when the lead's preferred instance is disconnected/unlinked and we fall back
     let preferredInstanceId: string | null = null;
     let disconnectedPreferredName: string | null = null;
+    let disconnectedPreferredReason: "disconnected" | "unlinked" | "deleted" = "disconnected";
 
     if (!isGroup) {
       try {
@@ -2767,16 +2768,28 @@ serve(async (req: Request) => {
                 updatedAt: pref.updated_at,
               });
             } else {
-              // Preferred instance exists but is NOT connected → auto-switch will happen
+              // Preferred instance exists in preference but is NOT in the connected list
+              // for this subaccount. Possible reasons: disconnected, unlinked from subaccount, or deleted.
               const { data: prefInst } = await supabase
                 .from("instances")
-                .select("instance_name")
+                .select("instance_name, instance_status, subaccount_id")
                 .eq("id", pref.instance_id)
                 .maybeSingle();
-              disconnectedPreferredName = prefInst?.instance_name || null;
-              console.log("[Outbound] ⚠️ Preferred instance is disconnected, will auto-switch:", {
+              disconnectedPreferredName = prefInst?.instance_name || "Instância anterior";
+              if (!prefInst) {
+                disconnectedPreferredReason = "deleted";
+              } else if (prefInst.subaccount_id !== subaccount.id) {
+                disconnectedPreferredReason = "unlinked";
+              } else {
+                disconnectedPreferredReason = "disconnected";
+              }
+              console.log("[Outbound] ⚠️ Preferred instance unavailable, will auto-switch:", {
                 preferredId: pref.instance_id,
                 preferredName: disconnectedPreferredName,
+                reason: disconnectedPreferredReason,
+                actualStatus: prefInst?.instance_status,
+                actualSubaccount: prefInst?.subaccount_id,
+                expectedSubaccount: subaccount.id,
               });
             }
           }
@@ -2821,18 +2834,19 @@ serve(async (req: Request) => {
     }
 
     // === AUTO-SWITCH NOTIFICATION ===
-    // If the preferred instance was disconnected, notify the user that we switched automatically
+    // If the preferred instance was disconnected/unlinked, notify the user that we switched automatically
     if (
       disconnectedPreferredName &&
       preferredInstanceId &&
-      instance.id !== preferredInstanceId &&
-      (instance as any).instance_name
+      instance.id !== preferredInstanceId
     ) {
-      const newInstanceName = (instance as any).instance_name;
+      const newInstanceName = (instance as any).instance_name || "outra instância";
       console.log("[Outbound] 🔄 Auto-switch triggered:", {
         from: disconnectedPreferredName,
         to: newInstanceName,
-        reason: "preferred_disconnected",
+        reason: disconnectedPreferredReason,
+        contactId,
+        hasGhlCreds: !!(settings?.ghl_client_id && settings?.ghl_client_secret),
       });
 
       // Update preference to the new (connected) instance
@@ -2864,19 +2878,28 @@ serve(async (req: Request) => {
             new_instance_id: instance.id,
             new_instance_name: newInstanceName,
             previous_instance_name: disconnectedPreferredName,
-            reason: "auto_disconnect",
+            reason: disconnectedPreferredReason === "unlinked" ? "auto_unlinked" : "auto_disconnect",
           },
         });
       } catch (e) {
         console.error("[Outbound] Auto-switch broadcast error:", e);
       }
 
+      // Build human-friendly message based on reason
+      const reasonText =
+        disconnectedPreferredReason === "unlinked"
+          ? `desvinculada desta subconta`
+          : disconnectedPreferredReason === "deleted"
+          ? `removida`
+          : `desconectada`;
+      const switchMessage = `🔄 Instância "${disconnectedPreferredName}" ${reasonText}. Trocada automaticamente para: ${newInstanceName}`;
+
       // Send InternalComment so the user sees the switch in the GHL conversation
       if (contactId && settings?.ghl_client_id && settings?.ghl_client_secret) {
         try {
           const switchToken = await getValidToken(supabase, subaccount, settings);
           if (switchToken) {
-            await fetchGHL("https://services.leadconnectorhq.com/conversations/messages", {
+            const icRes = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages", {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${switchToken}`,
@@ -2887,14 +2910,27 @@ serve(async (req: Request) => {
               body: JSON.stringify({
                 type: "InternalComment",
                 contactId,
-                message: `🔄 Instância "${disconnectedPreferredName}" desconectada. Trocada automaticamente para: ${newInstanceName}`,
+                message: switchMessage,
               }),
             });
-            console.log("[Outbound] ✅ Auto-switch InternalComment sent");
+            if (icRes && (icRes as any).ok === false) {
+              const errTxt = await (icRes as any).text?.().catch(() => "");
+              console.error("[Outbound] ❌ Auto-switch InternalComment HTTP error:", (icRes as any).status, errTxt?.slice(0, 300));
+            } else {
+              console.log("[Outbound] ✅ Auto-switch InternalComment sent:", switchMessage);
+            }
+          } else {
+            console.warn("[Outbound] ⚠️ Auto-switch: no valid GHL token, IC not sent");
           }
         } catch (e) {
           console.error("[Outbound] Auto-switch InternalComment error:", e);
         }
+      } else {
+        console.warn("[Outbound] ⚠️ Auto-switch: missing contactId or GHL creds, IC not sent", {
+          hasContactId: !!contactId,
+          hasClientId: !!settings?.ghl_client_id,
+          hasClientSecret: !!settings?.ghl_client_secret,
+        });
       }
     }
 
