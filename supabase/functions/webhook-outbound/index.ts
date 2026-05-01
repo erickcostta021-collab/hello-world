@@ -2833,76 +2833,42 @@ serve(async (req: Request) => {
       }
     }
 
-    // === AUTO-SWITCH NOTIFICATION ===
-    // If the preferred instance was disconnected/unlinked, notify the user that we switched automatically
+    // === BLOCK SEND IF PREFERRED INSTANCE IS UNAVAILABLE ===
+    // Per user request: when the preferred instance is disconnected/unlinked/deleted,
+    // do NOT auto-switch and do NOT deliver the message to the lead. Instead, post an
+    // InternalComment in the GHL conversation explaining what happened so the user
+    // can fix the instance and resend manually.
     if (
       disconnectedPreferredName &&
       preferredInstanceId &&
       instance.id !== preferredInstanceId
     ) {
-      const newInstanceName = (instance as any).instance_name || "outra instância";
-      console.log("[Outbound] 🔄 Auto-switch triggered:", {
-        from: disconnectedPreferredName,
-        to: newInstanceName,
-        reason: disconnectedPreferredReason,
-        contactId,
-        hasGhlCreds: !!(settings?.ghl_client_id && settings?.ghl_client_secret),
-      });
-
-      // Update preference to the new (connected) instance
-      try {
-        const normalizedPhone = targetPhone.replace(/\D/g, "");
-        if (contactId) {
-          await supabase
-            .from("contact_instance_preferences")
-            .upsert({
-              contact_id: contactId,
-              location_id: locationId,
-              instance_id: instance.id,
-              lead_phone: normalizedPhone || null,
-              updated_at: new Date().toISOString(),
-            }, { onConflict: "contact_id,location_id" });
-        }
-      } catch (e) {
-        console.error("[Outbound] Failed to update preference after auto-switch:", e);
-      }
-
-      // Broadcast so the bridge-switcher dropdown updates in real time
-      try {
-        await supabase.channel("ghl_updates").send({
-          type: "broadcast",
-          event: "instance_switch",
-          payload: {
-            location_id: locationId,
-            lead_phone: targetPhone,
-            new_instance_id: instance.id,
-            new_instance_name: newInstanceName,
-            previous_instance_name: disconnectedPreferredName,
-            reason: disconnectedPreferredReason === "unlinked" ? "auto_unlinked" : "auto_disconnect",
-          },
-        });
-      } catch (e) {
-        console.error("[Outbound] Auto-switch broadcast error:", e);
-      }
-
-      // Build human-friendly message based on reason
       const reasonText =
         disconnectedPreferredReason === "unlinked"
-          ? `desvinculada desta subconta`
+          ? "desvinculada desta subconta"
           : disconnectedPreferredReason === "deleted"
-          ? `removida`
-          : `desconectada`;
-      const switchMessage = `🔄 Instância "${disconnectedPreferredName}" ${reasonText}. Trocada automaticamente para: ${newInstanceName}`;
+          ? "removida"
+          : "desconectada";
 
-      // Send InternalComment so the user sees the switch in the GHL conversation
+      const blockMessage =
+        `⚠️ Mensagem NÃO enviada. A instância "${disconnectedPreferredName}" está ${reasonText}. ` +
+        `Reconecte/vincule a instância e envie a mensagem novamente.`;
+
+      console.log("[Outbound] 🚫 Send blocked — preferred instance unavailable:", {
+        preferredId: preferredInstanceId,
+        preferredName: disconnectedPreferredName,
+        reason: disconnectedPreferredReason,
+        contactId,
+      });
+
       if (contactId && settings?.ghl_client_id && settings?.ghl_client_secret) {
         try {
-          const switchToken = await getValidToken(supabase, subaccount, settings);
-          if (switchToken) {
+          const blockToken = await getValidToken(supabase, subaccount, settings);
+          if (blockToken) {
             const icRes = await fetchGHL("https://services.leadconnectorhq.com/conversations/messages", {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${switchToken}`,
+                Authorization: `Bearer ${blockToken}`,
                 Version: "2021-04-15",
                 "Content-Type": "application/json",
                 Accept: "application/json",
@@ -2910,28 +2876,39 @@ serve(async (req: Request) => {
               body: JSON.stringify({
                 type: "InternalComment",
                 contactId,
-                message: switchMessage,
+                message: blockMessage,
               }),
             });
             if (icRes && (icRes as any).ok === false) {
               const errTxt = await (icRes as any).text?.().catch(() => "");
-              console.error("[Outbound] ❌ Auto-switch InternalComment HTTP error:", (icRes as any).status, errTxt?.slice(0, 300));
+              console.error("[Outbound] ❌ Block IC HTTP error:", (icRes as any).status, errTxt?.slice(0, 300));
             } else {
-              console.log("[Outbound] ✅ Auto-switch InternalComment sent:", switchMessage);
+              console.log("[Outbound] ✅ Block IC sent:", blockMessage);
             }
           } else {
-            console.warn("[Outbound] ⚠️ Auto-switch: no valid GHL token, IC not sent");
+            console.warn("[Outbound] ⚠️ Block: no valid GHL token, IC not sent");
           }
         } catch (e) {
-          console.error("[Outbound] Auto-switch InternalComment error:", e);
+          console.error("[Outbound] Block IC error:", e);
         }
       } else {
-        console.warn("[Outbound] ⚠️ Auto-switch: missing contactId or GHL creds, IC not sent", {
+        console.warn("[Outbound] ⚠️ Block: missing contactId or GHL creds, IC not sent", {
           hasContactId: !!contactId,
           hasClientId: !!settings?.ghl_client_id,
           hasClientSecret: !!settings?.ghl_client_secret,
         });
       }
+
+      // Return 200 so GHL does not retry. Message is intentionally not delivered.
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          blocked: true,
+          reason: disconnectedPreferredReason,
+          preferred_instance: disconnectedPreferredName,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     // =======================================================================
