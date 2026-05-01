@@ -536,15 +536,6 @@ export function useInstances(subaccountId?: string) {
         .update({ instance_status: "disconnected", phone: null, profile_pic_url: null })
         .eq("id", instance.id);
       if (error) throw error;
-
-      // Notify GHL conversations immediately about the disconnect + auto-switch
-      try {
-        await supabase.functions.invoke("notify-instance-switch", {
-          body: { instanceId: instance.id, reason: "disconnected" },
-        });
-      } catch (e) {
-        console.warn("notify-instance-switch (disconnect) failed:", e);
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["instances"] });
