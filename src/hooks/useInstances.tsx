@@ -460,16 +460,6 @@ export function useInstances(subaccountId?: string) {
 
   const unlinkInstance = useMutation({
     mutationFn: async (instance: Instance) => {
-      // Notify GHL conversations BEFORE unlinking so the function can still
-      // resolve the previous instance_name + subaccount context cleanly.
-      try {
-        await supabase.functions.invoke("notify-instance-switch", {
-          body: { instanceId: instance.id, reason: "unlinked" },
-        });
-      } catch (e) {
-        console.warn("notify-instance-switch (unlink) failed:", e);
-      }
-
       // Remove subaccount_id to unlink, but keep the instance in the system
       const { error } = await supabase
         .from("instances")
