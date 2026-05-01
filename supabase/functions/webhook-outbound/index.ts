@@ -2731,9 +2731,10 @@ serve(async (req: Request) => {
     // Motivo: um mesmo lead pode ter múltiplos contactIds no GHL; se buscarmos só por contactId,
     // caímos no fallback (instances[0]) e a mensagem sai pela instância errada (parece "espelhado").
     // =======================================================================
-    // Track auto-switch: when the lead's preferred instance is disconnected and we fall back
+    // Track auto-switch: when the lead's preferred instance is disconnected/unlinked and we fall back
     let preferredInstanceId: string | null = null;
     let disconnectedPreferredName: string | null = null;
+    let disconnectedPreferredReason: "disconnected" | "unlinked" | "deleted" = "disconnected";
 
     if (!isGroup) {
       try {
