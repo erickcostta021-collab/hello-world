@@ -2768,16 +2768,28 @@ serve(async (req: Request) => {
                 updatedAt: pref.updated_at,
               });
             } else {
-              // Preferred instance exists but is NOT connected → auto-switch will happen
+              // Preferred instance exists in preference but is NOT in the connected list
+              // for this subaccount. Possible reasons: disconnected, unlinked from subaccount, or deleted.
               const { data: prefInst } = await supabase
                 .from("instances")
-                .select("instance_name")
+                .select("instance_name, instance_status, subaccount_id")
                 .eq("id", pref.instance_id)
                 .maybeSingle();
-              disconnectedPreferredName = prefInst?.instance_name || null;
-              console.log("[Outbound] ⚠️ Preferred instance is disconnected, will auto-switch:", {
+              disconnectedPreferredName = prefInst?.instance_name || "Instância anterior";
+              if (!prefInst) {
+                disconnectedPreferredReason = "deleted";
+              } else if (prefInst.subaccount_id !== subaccount.id) {
+                disconnectedPreferredReason = "unlinked";
+              } else {
+                disconnectedPreferredReason = "disconnected";
+              }
+              console.log("[Outbound] ⚠️ Preferred instance unavailable, will auto-switch:", {
                 preferredId: pref.instance_id,
                 preferredName: disconnectedPreferredName,
+                reason: disconnectedPreferredReason,
+                actualStatus: prefInst?.instance_status,
+                actualSubaccount: prefInst?.subaccount_id,
+                expectedSubaccount: subaccount.id,
               });
             }
           }
