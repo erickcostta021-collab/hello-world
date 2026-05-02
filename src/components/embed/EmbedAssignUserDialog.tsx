@@ -87,21 +87,26 @@ export function EmbedAssignUserDialog({
     try {
       const userId = selectedUserId === "none" ? null : selectedUserId;
       const supabase = createEmbedSupabaseClient();
-      
-      const { error } = await supabase
-        .from("instances")
-        .update({ ghl_user_id: userId })
-        .eq("id", instanceId);
+
+      // Use SECURITY DEFINER RPC instead of direct update — anonymous embed
+      // client has no auth session and is silently blocked by RLS otherwise.
+      // Pass empty string to clear ghl_user_id (RPC converts "" via NULLIF).
+      const { data, error } = await supabase.rpc("update_instance_for_embed", {
+        p_instance_id: instanceId,
+        p_embed_token: embedToken,
+        p_ghl_user_id: userId ?? "",
+      } as any);
 
       if (error) throw error;
+      if (!data) throw new Error("Não foi possível salvar a atribuição (token inválido ou instância não encontrada)");
 
       const selectedUser = ghlUsers.find(u => u.id === userId);
       onAssigned(userId, selectedUser?.name || null);
       toast.success("Usuário atribuído com sucesso!");
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error assigning user:", error);
-      toast.error("Erro ao atribuir usuário");
+      toast.error(error?.message || "Erro ao atribuir usuário");
     } finally {
       setSaving(false);
     }
