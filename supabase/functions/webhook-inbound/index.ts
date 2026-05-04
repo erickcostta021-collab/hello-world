@@ -341,6 +341,39 @@ async function getPrimaryContactId(
   }
 }
 
+// Normalize Brazilian mobile phone numbers by ensuring the leading "9" exists.
+// WhatsApp may send legacy numbers without the 9 (e.g. 5531867701830 instead of 55319867701830),
+// which causes GHL to create a duplicate contact when the lead replies.
+// Rule (BR mobile only): country code 55 + DDD (2) + 8 digits (no 9) → insert 9 after DDD.
+// Landlines (DDD 2 + 8 digits where the 3rd national digit is 2-5) are NOT modified.
+function normalizeBrazilianPhone(phone: string): string {
+  const clean = (phone || "").replace(/\D/g, "");
+  if (!clean) return clean;
+
+  // Case 1: with country code 55 -> total 12 digits (55 + 2 DDD + 8) and missing the 9
+  if (clean.startsWith("55") && clean.length === 12) {
+    const ddd = clean.slice(2, 4);
+    const subscriber = clean.slice(4); // 8 digits
+    const firstDigit = subscriber[0];
+    // BR mobile subscriber numbers start with 6, 7, 8 or 9. Landlines start with 2, 3, 4 or 5.
+    if (["6", "7", "8", "9"].includes(firstDigit)) {
+      return "55" + ddd + "9" + subscriber;
+    }
+  }
+
+  // Case 2: without country code -> 10 digits (DDD + 8) and looks like mobile
+  if (clean.length === 10) {
+    const ddd = clean.slice(0, 2);
+    const subscriber = clean.slice(2);
+    const firstDigit = subscriber[0];
+    if (["6", "7", "8", "9"].includes(firstDigit)) {
+      return ddd + "9" + subscriber;
+    }
+  }
+
+  return clean;
+}
+
 // Build BR phone variations to find existing duplicates created with different formats
 function buildPhoneVariations(phone: string): string[] {
   const clean = phone.replace(/\D/g, "");
