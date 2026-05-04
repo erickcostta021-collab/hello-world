@@ -1911,7 +1911,10 @@ serve(async (req) => {
     // while the full original group JID continues to be stored in the contact email field.
     const rawJid = from.split("@")[0];
     const rawDigits = rawJid.replace(/\D/g, "");
-    const phoneNumber = isGroup ? rawDigits.slice(0, 11) : rawJid;
+    // For groups: keep the original behavior (slice 11) — group JIDs aren't real phone numbers.
+    // For 1:1 chats: normalize BR mobile numbers to always include the leading 9 after DDD,
+    // so legacy WhatsApp numbers don't create duplicate contacts in GHL.
+    const phoneNumber = isGroup ? rawDigits.slice(0, 11) : normalizeBrazilianPhone(rawJid);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
