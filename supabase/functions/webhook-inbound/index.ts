@@ -341,6 +341,39 @@ async function getPrimaryContactId(
   }
 }
 
+// Normalize Brazilian mobile phone numbers by ensuring the leading "9" exists.
+// WhatsApp may send legacy numbers without the 9 (e.g. 5531867701830 instead of 55319867701830),
+// which causes GHL to create a duplicate contact when the lead replies.
+// Rule (BR mobile only): country code 55 + DDD (2) + 8 digits (no 9) → insert 9 after DDD.
+// Landlines (DDD 2 + 8 digits where the 3rd national digit is 2-5) are NOT modified.
+function normalizeBrazilianPhone(phone: string): string {
+  const clean = (phone || "").replace(/\D/g, "");
+  if (!clean) return clean;
+
+  // Case 1: with country code 55 -> total 12 digits (55 + 2 DDD + 8) and missing the 9
+  if (clean.startsWith("55") && clean.length === 12) {
+    const ddd = clean.slice(2, 4);
+    const subscriber = clean.slice(4); // 8 digits
+    const firstDigit = subscriber[0];
+    // BR mobile subscriber numbers start with 6, 7, 8 or 9. Landlines start with 2, 3, 4 or 5.
+    if (["6", "7", "8", "9"].includes(firstDigit)) {
+      return "55" + ddd + "9" + subscriber;
+    }
+  }
+
+  // Case 2: without country code -> 10 digits (DDD + 8) and looks like mobile
+  if (clean.length === 10) {
+    const ddd = clean.slice(0, 2);
+    const subscriber = clean.slice(2);
+    const firstDigit = subscriber[0];
+    if (["6", "7", "8", "9"].includes(firstDigit)) {
+      return ddd + "9" + subscriber;
+    }
+  }
+
+  return clean;
+}
+
 // Build BR phone variations to find existing duplicates created with different formats
 function buildPhoneVariations(phone: string): string[] {
   const clean = phone.replace(/\D/g, "");
@@ -1878,7 +1911,10 @@ serve(async (req) => {
     // while the full original group JID continues to be stored in the contact email field.
     const rawJid = from.split("@")[0];
     const rawDigits = rawJid.replace(/\D/g, "");
-    const phoneNumber = isGroup ? rawDigits.slice(0, 11) : rawJid;
+    // For groups: keep the original behavior (slice 11) — group JIDs aren't real phone numbers.
+    // For 1:1 chats: normalize BR mobile numbers to always include the leading 9 after DDD,
+    // so legacy WhatsApp numbers don't create duplicate contacts in GHL.
+    const phoneNumber = isGroup ? rawDigits.slice(0, 11) : normalizeBrazilianPhone(rawJid);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -2073,7 +2109,9 @@ serve(async (req) => {
 
     // Save phone mapping (fire-and-forget, don't block message flow)
     if (contact.id && from) {
-      const normalizedPhoneForMapping = from.split("@")[0].replace(/\D/g, "");
+      const normalizedPhoneForMapping = isGroup
+        ? from.split("@")[0].replace(/\D/g, "")
+        : normalizeBrazilianPhone(from.split("@")[0]);
       supabase
         .from("ghl_contact_phone_mapping")
         .upsert({
