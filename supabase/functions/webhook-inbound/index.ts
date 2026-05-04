@@ -2109,7 +2109,9 @@ serve(async (req) => {
 
     // Save phone mapping (fire-and-forget, don't block message flow)
     if (contact.id && from) {
-      const normalizedPhoneForMapping = from.split("@")[0].replace(/\D/g, "");
+      const normalizedPhoneForMapping = isGroup
+        ? from.split("@")[0].replace(/\D/g, "")
+        : normalizeBrazilianPhone(from.split("@")[0]);
       supabase
         .from("ghl_contact_phone_mapping")
         .upsert({
