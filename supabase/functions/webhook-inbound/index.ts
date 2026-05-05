@@ -533,6 +533,13 @@ async function findOrCreateContact(
     return existingContact;
   }
 
+  const duplicateContact = !email
+    ? await findDuplicateContactByPhone(variations, locationId, token)
+    : null;
+  if (duplicateContact?.id) {
+    return duplicateContact;
+  }
+
   // Create new contact - include email if provided
   const contactPayload: Record<string, unknown> = {
     firstName: name || "WhatsApp Contact",
