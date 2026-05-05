@@ -1090,7 +1090,7 @@ serve(async (req) => {
       // Extract phone number from chat ID
       const fdRawJid = fdChatId.split("@")[0];
       const fdRawDigits = fdRawJid.replace(/\D/g, "");
-      const fdPhoneNumber = fdIsGroup ? fdRawDigits.slice(0, 11) : fdRawJid;
+      const fdPhoneNumber = fdIsGroup ? fdRawDigits.slice(0, 11) : normalizeBrazilianPhone(fdRawJid);
 
       // Get chat data for naming
       const fdChatData = body.chat || {};
