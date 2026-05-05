@@ -551,6 +551,20 @@ async function isDuplicate(supabase: any, messageId: string): Promise<boolean> {
   }
 }
 
+async function markOutboundEchoSignature(supabase: any, instanceToken: string, phone: string, text: string): Promise<void> {
+  const digits = phone.replace(/\D/g, "");
+  const phoneTail = digits.slice(-10);
+  const normalizedText = String(text || "").replace(/\s+/g, " ").trim();
+  if (!instanceToken || !phoneTail || !normalizedText) return;
+  const textHash = (await sha256Hex(normalizedText)).slice(0, 16);
+  const minuteBucket = Math.floor(Date.now() / 60000);
+  for (const bucket of [minuteBucket - 1, minuteBucket, minuteBucket + 1]) {
+    await supabase.from("ghl_processed_messages").insert({
+      message_id: `uazapi_echo_sig:${instanceToken}:${phoneTail}:${textHash}:${bucket}`,
+    }).then(() => {}, () => {});
+  }
+}
+
 // =====================================================================
 // GROUP MANAGEMENT COMMANDS PROCESSOR
 // Commands: #criargrupo, #removerdogrupo, #addnogrupo, #promoveradmin, 
@@ -3268,6 +3282,7 @@ serve(async (req: Request) => {
       console.log("Sending media:", { attachment, mediaType, phone: targetPhone, isGroup });
       
       const outboundTrackId = settings?.track_id || "";
+      await markOutboundEchoSignature(supabase, instanceToken, targetPhone, messageText || attachment);
       const result = await sendMediaMessage(base, instanceToken, targetPhone, attachment, mediaType, messageText || undefined, outboundTrackId);
       results.push({ type: `media:${mediaType}`, sent: result.sent, status: result.status });
       
@@ -3315,6 +3330,7 @@ serve(async (req: Request) => {
     if (messageText && attachments.length === 0) {
       console.log("Sending text:", { text: messageText.substring(0, 50), phone: targetPhone, isGroup });
       const outboundTrackId = settings?.track_id || "";
+      await markOutboundEchoSignature(supabase, instanceToken, targetPhone, messageText);
       const result = await sendTextMessage(base, instanceToken, targetPhone, messageText, outboundTrackId);
       results.push({ type: "text", sent: result.sent, status: result.status });
       

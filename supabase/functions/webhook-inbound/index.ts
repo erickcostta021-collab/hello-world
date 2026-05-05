@@ -424,6 +424,60 @@ function buildPhoneVariations(phone: string): string[] {
   return Array.from(set);
 }
 
+async function hasOutboundEchoSignature(supabase: any, instanceToken: string, phone: string, text: string, timestampMs: number): Promise<boolean> {
+  const digits = phone.replace(/\D/g, "");
+  const phoneTail = digits.slice(-10);
+  const normalizedText = String(text || "").replace(/\s+/g, " ").trim();
+  if (!instanceToken || !phoneTail || !normalizedText) return false;
+  const textHash = (await sha256Hex(normalizedText)).slice(0, 16);
+  const minuteBucket = Math.floor((timestampMs || Date.now()) / 60000);
+  for (const bucket of [minuteBucket - 1, minuteBucket, minuteBucket + 1]) {
+    const isNew = await markIfNew(supabase, `uazapi_echo_sig:${instanceToken}:${phoneTail}:${textHash}:${bucket}`);
+    if (!isNew) return true;
+  }
+  return false;
+}
+
+async function findDuplicateContactByPhone(
+  phoneVariants: string[],
+  locationId: string,
+  token: string,
+): Promise<any | null> {
+  for (const variant of phoneVariants) {
+    const digits = variant.replace(/\D/g, "");
+    if (!digits) continue;
+
+    const candidates = Array.from(new Set([`+${digits}`, digits]));
+    for (const number of candidates) {
+      const duplicateResponse = await fetchGHL(
+        `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${encodeURIComponent(locationId)}&number=${encodeURIComponent(number)}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Version": "2023-02-21",
+            "Accept": "application/json",
+          },
+        },
+        1,
+      );
+
+      if (!duplicateResponse.ok) continue;
+      const duplicateData = await duplicateResponse.json().catch(() => null);
+      const contact = duplicateData?.contact || duplicateData?.duplicateContact || duplicateData?.contacts?.[0] || null;
+      const contactId = contact?.id || duplicateData?.contactId || duplicateData?.id || null;
+      if (contactId) {
+        console.log("[findDuplicateContactByPhone] Reusing duplicate contact:", {
+          query: number,
+          contactId,
+        });
+        return contact || { id: contactId };
+      }
+    }
+  }
+
+  return null;
+}
+
 // Helper to search/create contact in GHL
 async function findOrCreateContact(
   phone: string,
@@ -491,6 +545,13 @@ async function findOrCreateContact(
     }
 
     return existingContact;
+  }
+
+  const duplicateContact = !email
+    ? await findDuplicateContactByPhone(variations, locationId, token)
+    : null;
+  if (duplicateContact?.id) {
+    return duplicateContact;
   }
 
   // Create new contact - include email if provided
@@ -2114,6 +2175,24 @@ serve(async (req) => {
     // No track_id = message should be rendered in GHL (bulk sends, group msgs, phone msgs, etc.)
     const isAgentIaMessage = false; // No longer used in inverted logic
     console.log("Track ID validation (inverted):", { incomingTrackId: trackId, userTrackId, willRenderInGHL: !trackId });
+
+    if (isFromMe && !trackId && textMessage) {
+      const tsMs =
+        toEpochMs((messageData as any)?.timestamp) ||
+        toEpochMs((messageData as any)?.messageTimestamp) ||
+        toEpochMs((messageData as any)?.ts) ||
+        Date.now();
+      if (await hasOutboundEchoSignature(supabase, instanceToken, phoneNumber, textMessage, tsMs)) {
+        console.log("🛑 Discarding GHL-originated echo by signature:", {
+          phone: phoneNumber,
+          messageid: messageData.messageid || messageData.id,
+        });
+        return new Response(
+          JSON.stringify({ received: true, ignored: true, reason: "discard_ghl_echo_signature" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     // Get valid token
     const token = await getValidToken(supabase, subaccount, settings);
