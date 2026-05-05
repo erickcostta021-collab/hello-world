@@ -424,6 +424,46 @@ function buildPhoneVariations(phone: string): string[] {
   return Array.from(set);
 }
 
+async function findDuplicateContactByPhone(
+  phoneVariants: string[],
+  locationId: string,
+  token: string,
+): Promise<any | null> {
+  for (const variant of phoneVariants) {
+    const digits = variant.replace(/\D/g, "");
+    if (!digits) continue;
+
+    const candidates = Array.from(new Set([`+${digits}`, digits]));
+    for (const number of candidates) {
+      const duplicateResponse = await fetchGHL(
+        `https://services.leadconnectorhq.com/contacts/search/duplicate?locationId=${encodeURIComponent(locationId)}&number=${encodeURIComponent(number)}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Version": "2023-02-21",
+            "Accept": "application/json",
+          },
+        },
+        1,
+      );
+
+      if (!duplicateResponse.ok) continue;
+      const duplicateData = await duplicateResponse.json().catch(() => null);
+      const contact = duplicateData?.contact || duplicateData?.duplicateContact || duplicateData?.contacts?.[0] || null;
+      const contactId = contact?.id || duplicateData?.contactId || duplicateData?.id || null;
+      if (contactId) {
+        console.log("[findDuplicateContactByPhone] Reusing duplicate contact:", {
+          query: number,
+          contactId,
+        });
+        return contact || { id: contactId };
+      }
+    }
+  }
+
+  return null;
+}
+
 // Helper to search/create contact in GHL
 async function findOrCreateContact(
   phone: string,
