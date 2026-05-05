@@ -350,24 +350,32 @@ function normalizeBrazilianPhone(phone: string): string {
   const clean = (phone || "").replace(/\D/g, "");
   if (!clean) return clean;
 
-  // Case 1: with country code 55 -> total 12 digits (55 + 2 DDD + 8) and missing the 9
-  if (clean.startsWith("55") && clean.length === 12) {
+  // Case 1: with country code 55. WhatsApp/UAZAPI may send:
+  // - 55 + DDD + 8 digits (classic missing 9)
+  // - 55 + DDD + 9 digits starting with 6/7/8 (still missing the leading 9 in GHL formatting)
+  if (clean.startsWith("55") && clean.length >= 12) {
     const ddd = clean.slice(2, 4);
-    const subscriber = clean.slice(4); // 8 digits
+    const subscriber = clean.slice(4);
     const firstDigit = subscriber[0];
-    // BR mobile subscriber numbers start with 6, 7, 8 or 9. Landlines start with 2, 3, 4 or 5.
+    if (subscriber.length === 9 && firstDigit === "9") {
+      return clean.slice(0, 13);
+    }
+    // BR mobile legacy numbers start with 6, 7, 8 or 9. Landlines start with 2, 3, 4 or 5.
     if (["6", "7", "8", "9"].includes(firstDigit)) {
-      return "55" + ddd + "9" + subscriber;
+      return "55" + ddd + "9" + subscriber.slice(0, 8);
     }
   }
 
-  // Case 2: without country code -> 10 digits (DDD + 8) and looks like mobile
-  if (clean.length === 10) {
+  // Case 2: without country code. Keep output as DDD + 9 + 8 digits.
+  if (clean.length >= 10) {
     const ddd = clean.slice(0, 2);
     const subscriber = clean.slice(2);
     const firstDigit = subscriber[0];
+    if (subscriber.length === 9 && firstDigit === "9") {
+      return clean.slice(0, 11);
+    }
     if (["6", "7", "8", "9"].includes(firstDigit)) {
-      return ddd + "9" + subscriber;
+      return ddd + "9" + subscriber.slice(0, 8);
     }
   }
 
@@ -378,6 +386,8 @@ function normalizeBrazilianPhone(phone: string): string {
 function buildPhoneVariations(phone: string): string[] {
   const clean = phone.replace(/\D/g, "");
   const set = new Set<string>();
+  const normalized = normalizeBrazilianPhone(clean);
+  if (normalized) set.add(normalized);
   set.add(clean);
   if (clean.length >= 10) set.add(clean.slice(-10));
   if (clean.length >= 11) set.add(clean.slice(-11));
@@ -392,9 +402,9 @@ function buildPhoneVariations(phone: string): string[] {
       set.add(without9);
       set.add("55" + without9);
     }
-    // landline / missing 9: DDD(2) + 8 digits = 10 -> add 9
-    if (local.length === 10) {
-      const with9 = local.slice(0, 2) + "9" + local.slice(2);
+    // mobile missing leading 9: DDD(2) + subscriber starting 6/7/8/9 -> force DDD + 9 + 8 digits
+    if (local.length >= 10 && ["6", "7", "8", "9"].includes(local[2] || "")) {
+      const with9 = local.slice(0, 2) + "9" + local.slice(2, 10);
       set.add(with9);
       set.add("55" + with9);
     }
@@ -404,8 +414,8 @@ function buildPhoneVariations(phone: string): string[] {
     set.add(without9);
     set.add("55" + clean);
     set.add("55" + without9);
-  } else if (clean.length === 10) {
-    const with9 = clean.slice(0, 2) + "9" + clean.slice(2);
+  } else if (clean.length >= 10 && ["6", "7", "8", "9"].includes(clean[2] || "")) {
+    const with9 = clean.slice(0, 2) + "9" + clean.slice(2, 10);
     set.add(with9);
     set.add("55" + clean);
     set.add("55" + with9);
@@ -449,8 +459,16 @@ async function findOrCreateContact(
       });
     }
 
+    const updateExistingPayload: Record<string, unknown> = {};
+    const existingPhoneDigits = String(existingContact.phone || "").replace(/\D/g, "");
+    if (!email && phone && existingPhoneDigits !== phone) {
+      updateExistingPayload.phone = `+${phone}`;
+    }
     // If email is provided (group chat) and contact doesn't have it, update the contact
     if (email && !existingContact.email) {
+      updateExistingPayload.email = email;
+    }
+    if (Object.keys(updateExistingPayload).length > 0) {
       try {
         await fetchGHL(`https://services.leadconnectorhq.com/contacts/${existingContact.id}`, {
           method: "PUT",
@@ -460,11 +478,15 @@ async function findOrCreateContact(
             "Content-Type": "application/json",
             "Accept": "application/json",
           },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify(updateExistingPayload),
         });
-        console.log("Updated contact email with group ID:", email);
+        console.log("Updated existing contact normalization fields:", {
+          contactId: existingContact.id,
+          updatedPhone: Boolean(updateExistingPayload.phone),
+          updatedEmail: Boolean(updateExistingPayload.email),
+        });
       } catch (e) {
-        console.error("Failed to update contact email:", e);
+        console.error("Failed to update existing contact normalization fields:", e);
       }
     }
 
@@ -1080,7 +1102,7 @@ serve(async (req) => {
       // Extract phone number from chat ID
       const fdRawJid = fdChatId.split("@")[0];
       const fdRawDigits = fdRawJid.replace(/\D/g, "");
-      const fdPhoneNumber = fdIsGroup ? fdRawDigits.slice(0, 11) : fdRawJid;
+      const fdPhoneNumber = fdIsGroup ? fdRawDigits.slice(0, 11) : normalizeBrazilianPhone(fdRawJid);
 
       // Get chat data for naming
       const fdChatData = body.chat || {};
