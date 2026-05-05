@@ -424,6 +424,20 @@ function buildPhoneVariations(phone: string): string[] {
   return Array.from(set);
 }
 
+async function hasOutboundEchoSignature(supabase: any, instanceToken: string, phone: string, text: string, timestampMs: number): Promise<boolean> {
+  const digits = phone.replace(/\D/g, "");
+  const phoneTail = digits.slice(-10);
+  const normalizedText = String(text || "").replace(/\s+/g, " ").trim();
+  if (!instanceToken || !phoneTail || !normalizedText) return false;
+  const textHash = (await sha256Hex(normalizedText)).slice(0, 16);
+  const minuteBucket = Math.floor((timestampMs || Date.now()) / 60000);
+  for (const bucket of [minuteBucket - 1, minuteBucket, minuteBucket + 1]) {
+    const isNew = await markIfNew(supabase, `uazapi_echo_sig:${instanceToken}:${phoneTail}:${textHash}:${bucket}`);
+    if (!isNew) return true;
+  }
+  return false;
+}
+
 async function findDuplicateContactByPhone(
   phoneVariants: string[],
   locationId: string,
