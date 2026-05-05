@@ -2296,6 +2296,7 @@ serve(async (req) => {
             let adTag = "";
             for (const p of allParts) {
               if (p.startsWith("__ad_tag:")) adTag = p.slice("__ad_tag:".length).trim();
+              else if (p === "__sign:1" || p.startsWith("__sign_source:") || p.startsWith("__sign")) continue;
               else regularTags.push(p);
             }
             const isFromAd = !!adContextPrefix;
