@@ -2176,6 +2176,24 @@ serve(async (req) => {
     const isAgentIaMessage = false; // No longer used in inverted logic
     console.log("Track ID validation (inverted):", { incomingTrackId: trackId, userTrackId, willRenderInGHL: !trackId });
 
+    if (isFromMe && !trackId && textMessage) {
+      const tsMs =
+        toEpochMs((messageData as any)?.timestamp) ||
+        toEpochMs((messageData as any)?.messageTimestamp) ||
+        toEpochMs((messageData as any)?.ts) ||
+        Date.now();
+      if (await hasOutboundEchoSignature(supabase, instanceToken, phoneNumber, textMessage, tsMs)) {
+        console.log("🛑 Discarding GHL-originated echo by signature:", {
+          phone: phoneNumber,
+          messageid: messageData.messageid || messageData.id,
+        });
+        return new Response(
+          JSON.stringify({ received: true, ignored: true, reason: "discard_ghl_echo_signature" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // Get valid token
     const token = await getValidToken(supabase, subaccount, settings);
 
