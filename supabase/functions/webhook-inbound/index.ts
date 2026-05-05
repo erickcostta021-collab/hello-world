@@ -459,8 +459,16 @@ async function findOrCreateContact(
       });
     }
 
+    const updateExistingPayload: Record<string, unknown> = {};
+    const existingPhoneDigits = String(existingContact.phone || "").replace(/\D/g, "");
+    if (!email && phone && existingPhoneDigits !== phone) {
+      updateExistingPayload.phone = `+${phone}`;
+    }
     // If email is provided (group chat) and contact doesn't have it, update the contact
     if (email && !existingContact.email) {
+      updateExistingPayload.email = email;
+    }
+    if (Object.keys(updateExistingPayload).length > 0) {
       try {
         await fetchGHL(`https://services.leadconnectorhq.com/contacts/${existingContact.id}`, {
           method: "PUT",
@@ -470,11 +478,15 @@ async function findOrCreateContact(
             "Content-Type": "application/json",
             "Accept": "application/json",
           },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify(updateExistingPayload),
         });
-        console.log("Updated contact email with group ID:", email);
+        console.log("Updated existing contact normalization fields:", {
+          contactId: existingContact.id,
+          updatedPhone: Boolean(updateExistingPayload.phone),
+          updatedEmail: Boolean(updateExistingPayload.email),
+        });
       } catch (e) {
-        console.error("Failed to update contact email:", e);
+        console.error("Failed to update existing contact normalization fields:", e);
       }
     }
 
