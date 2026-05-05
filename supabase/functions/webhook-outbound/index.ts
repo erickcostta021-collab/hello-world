@@ -3282,6 +3282,7 @@ serve(async (req: Request) => {
       console.log("Sending media:", { attachment, mediaType, phone: targetPhone, isGroup });
       
       const outboundTrackId = settings?.track_id || "";
+      await markOutboundEchoSignature(supabase, instanceToken, targetPhone, messageText || attachment);
       const result = await sendMediaMessage(base, instanceToken, targetPhone, attachment, mediaType, messageText || undefined, outboundTrackId);
       results.push({ type: `media:${mediaType}`, sent: result.sent, status: result.status });
       
@@ -3329,6 +3330,7 @@ serve(async (req: Request) => {
     if (messageText && attachments.length === 0) {
       console.log("Sending text:", { text: messageText.substring(0, 50), phone: targetPhone, isGroup });
       const outboundTrackId = settings?.track_id || "";
+      await markOutboundEchoSignature(supabase, instanceToken, targetPhone, messageText);
       const result = await sendTextMessage(base, instanceToken, targetPhone, messageText, outboundTrackId);
       results.push({ type: "text", sent: result.sent, status: result.status });
       
