@@ -1781,7 +1781,44 @@ serve(async (req) => {
     
     // Get sender info - PRIORITY: chatid/wa_chatid contains the real phone number
     // The "sender" field often contains internal LID (linked ID) which is NOT a valid phone
-    const from = chatData.wa_chatid || messageData.chatid || eventData.Chat || messageData.sender || "";
+    // CRITICAL: NEVER use @lid JIDs as contact identity — they are internal WhatsApp LIDs,
+    // not real phone numbers, and using them creates duplicate contacts in GHL (especially
+    // for messages sent from the phone app where chatid/wa_chatid may be missing).
+    const isValidJid = (j: string) => {
+      if (!j) return false;
+      const s = String(j).toLowerCase();
+      if (s.includes("@lid")) return false;
+      // Accept standard whatsapp/group JIDs, or bare digits
+      return s.endsWith("@s.whatsapp.net") || s.endsWith("@g.us") || /^\d{8,15}(@|$)/.test(s);
+    };
+    const senderPnRaw = messageData.sender_pn || (body as any)?.event?.sender_pn || "";
+    const senderPnJid = senderPnRaw
+      ? (String(senderPnRaw).includes("@") ? String(senderPnRaw) : `${String(senderPnRaw).replace(/\D/g, "")}@s.whatsapp.net`)
+      : "";
+    const fromCandidates = [
+      chatData.wa_chatid,
+      messageData.chatid,
+      eventData.Chat,
+      senderPnJid,           // sender_pn = real phone, used to resolve @lid cases
+      messageData.sender,
+    ];
+    let from = "";
+    for (const c of fromCandidates) {
+      if (isValidJid(c)) { from = c; break; }
+    }
+    if (!from) {
+      console.log("⛔ Discarding webhook: no valid JID (sender is @lid or missing chatid):", {
+        wa_chatid: chatData.wa_chatid,
+        chatid: messageData.chatid,
+        Chat: eventData.Chat,
+        sender: messageData.sender,
+        sender_pn: senderPnRaw,
+      });
+      return new Response(
+        JSON.stringify({ received: true, ignored: true, reason: "invalid_jid_lid_only" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
     const instanceToken = body.token || body.instanceToken || messageData.instanceToken || "";
 
     // ================================================================
