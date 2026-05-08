@@ -478,8 +478,55 @@ async function findDuplicateContactByPhone(
   return null;
 }
 
+async function findMappedContactByPhone(
+  supabase: any,
+  phoneVariants: string[],
+  locationId: string,
+): Promise<any | null> {
+  const candidates = Array.from(new Set(
+    phoneVariants
+      .map((variant) => String(variant || "").replace(/\D/g, ""))
+      .filter(Boolean)
+      .flatMap((digits) => {
+        const local = digits.startsWith("55") ? digits.slice(2) : digits;
+        return [digits, local, digits.slice(-10), digits.slice(-11), local.slice(-10), local.slice(-11)].filter(Boolean);
+      }),
+  ));
+
+  if (candidates.length === 0) return null;
+
+  try {
+    const { data: mappings, error } = await supabase
+      .from("ghl_contact_phone_mapping")
+      .select("contact_id, original_phone, created_at")
+      .eq("location_id", locationId)
+      .in("original_phone", candidates)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error("[findMappedContactByPhone] Mapping lookup error:", error);
+      return null;
+    }
+
+    const mapped = mappings?.[0];
+    if (mapped?.contact_id) {
+      console.log("[findMappedContactByPhone] Reusing mapped contact:", {
+        contactId: mapped.contact_id,
+        matchedPhone: mapped.original_phone,
+      });
+      return { id: mapped.contact_id };
+    }
+  } catch (e) {
+    console.error("[findMappedContactByPhone] Mapping lookup exception:", e);
+  }
+
+  return null;
+}
+
 // Helper to search/create contact in GHL
 async function findOrCreateContact(
+  supabase: any,
   phone: string,
   name: string,
   locationId: string,
@@ -489,6 +536,13 @@ async function findOrCreateContact(
   // Try multiple phone variations to avoid creating duplicates when the contact
   // already exists in GHL under a different format (with/without 9, with/without 55).
   const variations = buildPhoneVariations(phone);
+
+  const mappedContact = !email
+    ? await findMappedContactByPhone(supabase, variations, locationId)
+    : null;
+  if (mappedContact?.id) {
+    return mappedContact;
+  }
 
   for (const variant of variations) {
     const searchResponse = await fetchGHL(
@@ -552,6 +606,43 @@ async function findOrCreateContact(
     : null;
   if (duplicateContact?.id) {
     return duplicateContact;
+  }
+
+  const normalizedLockPhone = normalizeBrazilianPhone(phone) || phone.replace(/\D/g, "");
+  const createLockKey = `ghl_contact_create:${locationId}:${normalizedLockPhone}`;
+  const createLockAcquired = await markIfNew(supabase, createLockKey);
+
+  if (!createLockAcquired) {
+    console.log("[findOrCreateContact] Create lock already held, retrying lookup:", {
+      locationId,
+      phone: normalizedLockPhone,
+    });
+
+    for (const waitMs of [150, 400, 900]) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+
+      const retriedMappedContact = !email
+        ? await findMappedContactByPhone(supabase, variations, locationId)
+        : null;
+      if (retriedMappedContact?.id) {
+        console.log("[findOrCreateContact] Contact found after mapping retry:", {
+          contactId: retriedMappedContact.id,
+          waitMs,
+        });
+        return retriedMappedContact;
+      }
+
+      const retriedDuplicateContact = !email
+        ? await findDuplicateContactByPhone(variations, locationId, token)
+        : null;
+      if (retriedDuplicateContact?.id) {
+        console.log("[findOrCreateContact] Contact found after duplicate retry:", {
+          contactId: retriedDuplicateContact.id,
+          waitMs,
+        });
+        return retriedDuplicateContact;
+      }
+    }
   }
 
   // Create new contact - include email if provided
@@ -1179,6 +1270,7 @@ serve(async (req) => {
 
       // Find or create contact in GHL
       const fdContact = await findOrCreateContact(
+        fdSupabase,
         fdPhoneNumber,
         fdContactName,
         fdSubaccount.location_id,
@@ -2238,6 +2330,7 @@ serve(async (req) => {
     // For groups, pass the group JID (e.g., 120363426159277315@g.us) as email field
     const groupEmailId = isGroupChat ? from : undefined;
     const contact = await findOrCreateContact(
+      supabase,
       phoneNumber,
       pushName,
       subaccount.location_id,
