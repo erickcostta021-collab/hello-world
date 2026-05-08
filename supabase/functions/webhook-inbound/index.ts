@@ -747,7 +747,19 @@ async function findOrCreateContact(
   }
 
   const createData = await createResponse.json();
-  return createData.contact;
+  const createdContact = createData.contact;
+  if (createdContact?.id && !email) {
+    const canonicalContactId = await saveContactPhoneMapping(
+      supabase,
+      createdContact.id,
+      locationId,
+      normalizedLockPhone,
+    );
+    if (canonicalContactId !== createdContact.id) {
+      return { id: canonicalContactId };
+    }
+  }
+  return createdContact;
 }
 
 // Helper to update contact profile photo in GHL
