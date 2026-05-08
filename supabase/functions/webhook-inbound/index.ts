@@ -2406,19 +2406,19 @@ serve(async (req) => {
       groupEmailId
     );
 
-    // Save phone mapping (fire-and-forget, don't block message flow)
-    if (contact.id && from) {
-      const normalizedPhoneForMapping = isGroup
-        ? from.split("@")[0].replace(/\D/g, "")
-        : normalizeBrazilianPhone(from.split("@")[0]);
-      supabase
-        .from("ghl_contact_phone_mapping")
-        .upsert({
-          contact_id: contact.id,
-          location_id: subaccount.location_id,
-          original_phone: normalizedPhoneForMapping,
-        }, { onConflict: "contact_id,location_id" })
-        .then(() => {}, (e: unknown) => console.error("[Inbound] Phone mapping error:", e));
+    // Save phone mapping before syncing the message. This makes immediate AI/API
+    // replies reuse the same contact even before GHL search indexing catches up.
+    if (contact.id && from && !isGroup) {
+      const normalizedPhoneForMapping = normalizeBrazilianPhone(from.split("@")[0]);
+      const canonicalContactId = await saveContactPhoneMapping(
+        supabase,
+        contact.id,
+        subaccount.location_id,
+        normalizedPhoneForMapping,
+      );
+      if (canonicalContactId !== contact.id) {
+        contact.id = canonicalContactId;
+      }
     }
 
     // ================================================================
