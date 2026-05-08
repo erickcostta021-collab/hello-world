@@ -501,7 +501,10 @@ async function findMappedContactByPhone(
       .select("contact_id, original_phone, created_at")
       .eq("location_id", locationId)
       .in("original_phone", candidates)
-      .order("created_at", { ascending: false })
+      // Keep the earliest mapping as canonical. If GHL already has duplicates,
+      // newer duplicate contacts may also have mappings for the same phone;
+      // choosing the oldest prevents the Bridge from "following" the duplicate.
+      .order("created_at", { ascending: true })
       .limit(1);
 
     if (error) {
@@ -522,6 +525,59 @@ async function findMappedContactByPhone(
   }
 
   return null;
+}
+
+async function saveContactPhoneMapping(
+  supabase: any,
+  contactId: string,
+  locationId: string,
+  originalPhone: string,
+): Promise<string> {
+  const cleanPhone = String(originalPhone || "").replace(/\D/g, "");
+  if (!contactId || !locationId || !cleanPhone) return contactId;
+
+  try {
+    const { data: existing, error: lookupError } = await supabase
+      .from("ghl_contact_phone_mapping")
+      .select("contact_id, created_at")
+      .eq("location_id", locationId)
+      .eq("original_phone", cleanPhone)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error("[saveContactPhoneMapping] Lookup error:", lookupError);
+      return contactId;
+    }
+
+    if (existing?.contact_id) {
+      if (existing.contact_id !== contactId) {
+        console.log("[saveContactPhoneMapping] Preserving canonical mapped contact:", {
+          canonicalContactId: existing.contact_id,
+          ignoredContactId: contactId,
+          phone: cleanPhone,
+        });
+      }
+      return existing.contact_id;
+    }
+
+    const { error: insertError } = await supabase
+      .from("ghl_contact_phone_mapping")
+      .insert({
+        contact_id: contactId,
+        location_id: locationId,
+        original_phone: cleanPhone,
+      });
+
+    if (insertError) {
+      console.error("[saveContactPhoneMapping] Insert error:", insertError);
+    }
+  } catch (e) {
+    console.error("[saveContactPhoneMapping] Exception:", e);
+  }
+
+  return contactId;
 }
 
 // Helper to search/create contact in GHL
