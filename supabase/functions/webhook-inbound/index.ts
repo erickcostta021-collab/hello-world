@@ -674,7 +674,7 @@ async function findOrCreateContact(
       phone: normalizedLockPhone,
     });
 
-    for (const waitMs of [150, 400, 900]) {
+    for (const waitMs of [150, 400, 900, 1600, 3000, 5000]) {
       await new Promise((resolve) => setTimeout(resolve, waitMs));
 
       const retriedMappedContact = !email
@@ -699,6 +699,8 @@ async function findOrCreateContact(
         return retriedDuplicateContact;
       }
     }
+
+    throw new Error("Contact creation already in progress; retry webhook after mapping is available");
   }
 
   // Create new contact - include email if provided
