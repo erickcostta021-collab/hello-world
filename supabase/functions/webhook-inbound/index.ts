@@ -12,6 +12,8 @@ const corsHeaders = {
 // Cache key = subaccount.id, value = { token, expiresAt }
 // ================================================================
 const _tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const _contactValidationCache = new Map<string, number>();
+const CONTACT_VALIDATION_TTL_MS = 10 * 60 * 1000;
 
 function getCachedToken(subaccountId: string): string | null {
   const entry = _tokenCache.get(subaccountId);
@@ -28,6 +30,22 @@ function setCachedToken(subaccountId: string, token: string, expiresAt: Date) {
     const now = Date.now();
     for (const [key, val] of _tokenCache) {
       if (now >= val.expiresAt) _tokenCache.delete(key);
+    }
+  }
+}
+
+function isContactRecentlyValidated(locationId: string, contactId: string): boolean {
+  const key = `${locationId}:${contactId}`;
+  const validatedAt = _contactValidationCache.get(key) || 0;
+  return Date.now() - validatedAt < CONTACT_VALIDATION_TTL_MS;
+}
+
+function markContactValidated(locationId: string, contactId: string) {
+  _contactValidationCache.set(`${locationId}:${contactId}`, Date.now());
+  if (_contactValidationCache.size > 500) {
+    const cutoff = Date.now() - CONTACT_VALIDATION_TTL_MS;
+    for (const [key, validatedAt] of _contactValidationCache) {
+      if (validatedAt < cutoff) _contactValidationCache.delete(key);
     }
   }
 }
@@ -482,6 +500,7 @@ async function findMappedContactByPhone(
   supabase: any,
   phoneVariants: string[],
   locationId: string,
+  token?: string,
 ): Promise<any | null> {
   const candidates = Array.from(new Set(
     phoneVariants
@@ -505,15 +524,68 @@ async function findMappedContactByPhone(
       // newer duplicate contacts may also have mappings for the same phone;
       // choosing the oldest prevents the Bridge from "following" the duplicate.
       .order("created_at", { ascending: true })
-      .limit(1);
+      .limit(10);
 
     if (error) {
       console.error("[findMappedContactByPhone] Mapping lookup error:", error);
       return null;
     }
 
-    const mapped = mappings?.[0];
-    if (mapped?.contact_id) {
+    for (const mapped of mappings || []) {
+      if (!mapped?.contact_id) continue;
+
+      if (token) {
+        if (isContactRecentlyValidated(locationId, mapped.contact_id)) {
+          console.log("[findMappedContactByPhone] Reusing recently validated mapped contact:", {
+            contactId: mapped.contact_id,
+            matchedPhone: mapped.original_phone,
+          });
+          return { id: mapped.contact_id };
+        }
+
+        const contactResponse = await fetchGHL(
+          `https://services.leadconnectorhq.com/contacts/${mapped.contact_id}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Version": "2021-07-28",
+              "Accept": "application/json",
+            },
+          },
+          1,
+        );
+
+        if (!contactResponse.ok) {
+          const body = await contactResponse.text().catch(() => "");
+          const isDeletedMapping = [400, 404].includes(contactResponse.status)
+            && /not found|deleted/i.test(body);
+
+          if (isDeletedMapping) {
+            console.warn("[findMappedContactByPhone] Removing stale mapped contact:", {
+              contactId: mapped.contact_id,
+              matchedPhone: mapped.original_phone,
+              status: contactResponse.status,
+            });
+            await supabase
+              .from("ghl_contact_phone_mapping")
+              .delete()
+              .eq("location_id", locationId)
+              .eq("contact_id", mapped.contact_id);
+            continue;
+          }
+
+          console.warn("[findMappedContactByPhone] Could not validate mapped contact, preserving mapping:", {
+            contactId: mapped.contact_id,
+            status: contactResponse.status,
+            body: body.substring(0, 200),
+          });
+          markContactValidated(locationId, mapped.contact_id);
+          return { id: mapped.contact_id };
+        }
+
+        markContactValidated(locationId, mapped.contact_id);
+      }
+
       console.log("[findMappedContactByPhone] Reusing mapped contact:", {
         contactId: mapped.contact_id,
         matchedPhone: mapped.original_phone,
@@ -594,7 +666,7 @@ async function findOrCreateContact(
   const variations = buildPhoneVariations(phone);
 
   const mappedContact = !email
-    ? await findMappedContactByPhone(supabase, variations, locationId)
+    ? await findMappedContactByPhone(supabase, variations, locationId, token)
     : null;
   if (mappedContact?.id) {
     return mappedContact;
@@ -678,7 +750,7 @@ async function findOrCreateContact(
       await new Promise((resolve) => setTimeout(resolve, waitMs));
 
       const retriedMappedContact = !email
-        ? await findMappedContactByPhone(supabase, variations, locationId)
+        ? await findMappedContactByPhone(supabase, variations, locationId, token)
         : null;
       if (retriedMappedContact?.id) {
         console.log("[findOrCreateContact] Contact found after mapping retry:", {
