@@ -2224,6 +2224,7 @@ serve(async (req) => {
         if (!isNew) {
           return { isDuplicate: true, reason: "duplicate_uazapi_message" };
         }
+        pendingDedupKeys.push(dedupKey);
       }
       // Secondary dedupe (signature) only when no message ID
       if (!uazapiMessageId) {
@@ -2251,6 +2252,7 @@ serve(async (req) => {
           if (!isNewSig) {
             return { isDuplicate: true, reason: "duplicate_uazapi_signature" };
           }
+          pendingDedupKeys.push(sigKey);
         } catch (e) {
           console.error("Secondary dedupe (signature) failed (allowing processing):", e);
         }
