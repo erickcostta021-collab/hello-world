@@ -1191,6 +1191,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Track dedup keys inserted during processing — if processing fails,
+  // we must DELETE them so UAZAPI's retry can re-process the message.
+  // Otherwise the retry sees "duplicate" and the message is silently lost.
+  const pendingDedupKeys: string[] = [];
+
   try {
     const body = await req.json();
     console.log("UAZAPI Webhook received:", JSON.stringify(body, null, 2));
