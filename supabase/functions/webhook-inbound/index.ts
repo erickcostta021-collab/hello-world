@@ -12,6 +12,8 @@ const corsHeaders = {
 // Cache key = subaccount.id, value = { token, expiresAt }
 // ================================================================
 const _tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const _contactValidationCache = new Map<string, number>();
+const CONTACT_VALIDATION_TTL_MS = 10 * 60 * 1000;
 
 function getCachedToken(subaccountId: string): string | null {
   const entry = _tokenCache.get(subaccountId);
@@ -28,6 +30,22 @@ function setCachedToken(subaccountId: string, token: string, expiresAt: Date) {
     const now = Date.now();
     for (const [key, val] of _tokenCache) {
       if (now >= val.expiresAt) _tokenCache.delete(key);
+    }
+  }
+}
+
+function isContactRecentlyValidated(locationId: string, contactId: string): boolean {
+  const key = `${locationId}:${contactId}`;
+  const validatedAt = _contactValidationCache.get(key) || 0;
+  return Date.now() - validatedAt < CONTACT_VALIDATION_TTL_MS;
+}
+
+function markContactValidated(locationId: string, contactId: string) {
+  _contactValidationCache.set(`${locationId}:${contactId}`, Date.now());
+  if (_contactValidationCache.size > 500) {
+    const cutoff = Date.now() - CONTACT_VALIDATION_TTL_MS;
+    for (const [key, validatedAt] of _contactValidationCache) {
+      if (validatedAt < cutoff) _contactValidationCache.delete(key);
     }
   }
 }
