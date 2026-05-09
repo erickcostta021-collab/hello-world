@@ -3267,6 +3267,25 @@ serve(async (req) => {
   } catch (error: unknown) {
     console.error("Webhook error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
+
+    // CRITICAL: clear dedup keys so UAZAPI's retry isn't silently dropped as "duplicate".
+    // Without this, an intermittent failure (e.g. GHL 5xx, contact-create lock contention)
+    // permanently loses the message because the next webhook hit is dedup'd away.
+    if (pendingDedupKeys.length > 0) {
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+        const cleanupClient = createClient(supabaseUrl, supabaseKey);
+        await cleanupClient
+          .from("ghl_processed_messages")
+          .delete()
+          .in("message_id", pendingDedupKeys);
+        console.log("Cleared dedup keys after failure:", pendingDedupKeys);
+      } catch (cleanupErr) {
+        console.error("Failed to clear dedup keys after error:", cleanupErr);
+      }
+    }
+
     return new Response(
       JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
