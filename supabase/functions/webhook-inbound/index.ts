@@ -482,6 +482,7 @@ async function findMappedContactByPhone(
   supabase: any,
   phoneVariants: string[],
   locationId: string,
+  token?: string,
 ): Promise<any | null> {
   const candidates = Array.from(new Set(
     phoneVariants
@@ -505,15 +506,57 @@ async function findMappedContactByPhone(
       // newer duplicate contacts may also have mappings for the same phone;
       // choosing the oldest prevents the Bridge from "following" the duplicate.
       .order("created_at", { ascending: true })
-      .limit(1);
+      .limit(10);
 
     if (error) {
       console.error("[findMappedContactByPhone] Mapping lookup error:", error);
       return null;
     }
 
-    const mapped = mappings?.[0];
-    if (mapped?.contact_id) {
+    for (const mapped of mappings || []) {
+      if (!mapped?.contact_id) continue;
+
+      if (token) {
+        const contactResponse = await fetchGHL(
+          `https://services.leadconnectorhq.com/contacts/${mapped.contact_id}`,
+          {
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Version": "2021-07-28",
+              "Accept": "application/json",
+            },
+          },
+          1,
+        );
+
+        if (!contactResponse.ok) {
+          const body = await contactResponse.text().catch(() => "");
+          const isDeletedMapping = [400, 404].includes(contactResponse.status)
+            && /not found|deleted/i.test(body);
+
+          if (isDeletedMapping) {
+            console.warn("[findMappedContactByPhone] Removing stale mapped contact:", {
+              contactId: mapped.contact_id,
+              matchedPhone: mapped.original_phone,
+              status: contactResponse.status,
+            });
+            await supabase
+              .from("ghl_contact_phone_mapping")
+              .delete()
+              .eq("location_id", locationId)
+              .eq("contact_id", mapped.contact_id);
+            continue;
+          }
+
+          console.warn("[findMappedContactByPhone] Could not validate mapped contact, preserving mapping:", {
+            contactId: mapped.contact_id,
+            status: contactResponse.status,
+            body: body.substring(0, 200),
+          });
+          return { id: mapped.contact_id };
+        }
+      }
+
       console.log("[findMappedContactByPhone] Reusing mapped contact:", {
         contactId: mapped.contact_id,
         matchedPhone: mapped.original_phone,
