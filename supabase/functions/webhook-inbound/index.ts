@@ -535,6 +535,14 @@ async function findMappedContactByPhone(
       if (!mapped?.contact_id) continue;
 
       if (token) {
+        if (isContactRecentlyValidated(locationId, mapped.contact_id)) {
+          console.log("[findMappedContactByPhone] Reusing recently validated mapped contact:", {
+            contactId: mapped.contact_id,
+            matchedPhone: mapped.original_phone,
+          });
+          return { id: mapped.contact_id };
+        }
+
         const contactResponse = await fetchGHL(
           `https://services.leadconnectorhq.com/contacts/${mapped.contact_id}`,
           {
@@ -571,8 +579,11 @@ async function findMappedContactByPhone(
             status: contactResponse.status,
             body: body.substring(0, 200),
           });
+          markContactValidated(locationId, mapped.contact_id);
           return { id: mapped.contact_id };
         }
+
+        markContactValidated(locationId, mapped.contact_id);
       }
 
       console.log("[findMappedContactByPhone] Reusing mapped contact:", {
