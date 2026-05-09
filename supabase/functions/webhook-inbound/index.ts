@@ -637,7 +637,7 @@ async function findOrCreateContact(
   const variations = buildPhoneVariations(phone);
 
   const mappedContact = !email
-    ? await findMappedContactByPhone(supabase, variations, locationId)
+    ? await findMappedContactByPhone(supabase, variations, locationId, token)
     : null;
   if (mappedContact?.id) {
     return mappedContact;
@@ -721,7 +721,7 @@ async function findOrCreateContact(
       await new Promise((resolve) => setTimeout(resolve, waitMs));
 
       const retriedMappedContact = !email
-        ? await findMappedContactByPhone(supabase, variations, locationId)
+        ? await findMappedContactByPhone(supabase, variations, locationId, token)
         : null;
       if (retriedMappedContact?.id) {
         console.log("[findOrCreateContact] Contact found after mapping retry:", {
