@@ -427,6 +427,16 @@ export function EmbedInstanceCard({
     }
   };
 
+  const isInvalidTokenResponse = (res: any): boolean => {
+    if (!res) return false;
+    if (res.status === 401) return true;
+    const d = res.data;
+    if (d && (d.code === 401 || /invalid token|missing token/i.test(String(d.message || "")))) {
+      return true;
+    }
+    return false;
+  };
+
   const handleConnect = async () => {
     setConnecting(true);
     try {
@@ -438,6 +448,13 @@ export function EmbedInstanceCard({
       }
 
       const connectRes = await callUazapiProxy("connect");
+      if (isInvalidTokenResponse(connectRes)) {
+        toast.error(
+          "Esta instância não existe mais no servidor (token inválido). Clique em \"Recriar\" no menu da instância para regenerá-la.",
+          { duration: 8000 }
+        );
+        return;
+      }
       const connectData = connectRes?.data || {};
       const immediateQr =
         connectData.instance?.qrcode ||
