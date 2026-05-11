@@ -3188,6 +3188,7 @@ serve(async (req) => {
 
       const source = isAgentIaMessage ? "agent_ia" : (wasSentByApi ? "api" : "manual");
       console.log(`✅ Outbound message synced to GHL (${source}): ${phoneNumber} -> ${contact.id}`);
+      } // close else of official API skip (outbound)
     } else {
       // This is a message FROM the lead - send as inbound
       
