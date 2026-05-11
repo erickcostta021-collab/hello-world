@@ -2966,6 +2966,13 @@ serve(async (req) => {
     try {
     
     if (shouldSyncAsOutbound) {
+      // === OFFICIAL API MODE: Skip outbound mirroring ===
+      // When is_official_api is active, the official WhatsApp provider in GHL already
+      // renders outbound messages (both those sent from GHL and from the phone).
+      // Mirroring them again would cause duplicates in the GHL conversation view.
+      if (instance.is_official_api) {
+        console.log(`⏭️ Skipping outbound mirroring (official API mode): ${phoneNumber} -> ${contact.id}`);
+      } else {
       // This is a message WE sent via WhatsApp OR from AI agent - render as outbound in GHL
       // NOTE: GHL's /conversations/messages supports userId only for InternalComment.
       // For SMS, attribution should be handled by contact assignment (already done above).
@@ -3181,6 +3188,7 @@ serve(async (req) => {
 
       const source = isAgentIaMessage ? "agent_ia" : (wasSentByApi ? "api" : "manual");
       console.log(`✅ Outbound message synced to GHL (${source}): ${phoneNumber} -> ${contact.id}`);
+      } // close else of official API skip (outbound)
     } else {
       // This is a message FROM the lead - send as inbound
       
