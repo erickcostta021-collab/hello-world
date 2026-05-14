@@ -68,27 +68,37 @@ export function useSubaccounts() {
         throw new Error("Token inválido - não foi possível extrair o Company ID");
       }
 
-      // Call GHL API to get locations using GET method
-      const response = await fetch(
-        `https://services.leadconnectorhq.com/locations/search?companyId=${companyId}&limit=100`,
-        {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${settings.ghl_agency_token}`,
-            "Version": "2021-07-28",
-            "Accept": "application/json",
-          },
+      // Call GHL API to get locations with pagination (GHL caps limit at 100)
+      const pageSize = 100;
+      let skip = 0;
+      const locations: any[] = [];
+      // Safety cap of 50 pages (5000 subcontas)
+      for (let page = 0; page < 50; page++) {
+        const response = await fetch(
+          `https://services.leadconnectorhq.com/locations/search?companyId=${companyId}&limit=${pageSize}&skip=${skip}`,
+          {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${settings.ghl_agency_token}`,
+              "Version": "2021-07-28",
+              "Accept": "application/json",
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.message || errorData.error || `Erro ${response.status}`;
+          throw new Error(errorMsg);
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMsg = errorData.message || errorData.error || `Erro ${response.status}`;
-        throw new Error(errorMsg);
+        const data = await response.json();
+        const pageLocations = data.locations || [];
+        locations.push(...pageLocations);
+
+        if (pageLocations.length < pageSize) break;
+        skip += pageSize;
       }
-
-      const data = await response.json();
-      const locations = data.locations || [];
 
       if (locations.length === 0) {
         throw new Error("Nenhuma subconta encontrada. Verifique se o token tem permissão de agência.");
