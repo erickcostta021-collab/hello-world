@@ -384,8 +384,10 @@ function normalizeBrazilianPhone(phone: string): string {
     }
   }
 
-  // Case 2: without country code. Keep output as DDD + 9 + 8 digits.
-  if (clean.length >= 10) {
+  // Case 2: without country code (10 or 11 digits only).
+  // IMPORTANT: numbers with 12+ digits that don't start with "55" are foreign
+  // (e.g. UK +44, US +1 with extra digits). Do NOT apply BR mobile rules.
+  if (clean.length === 10 || clean.length === 11) {
     const ddd = clean.slice(0, 2);
     const subscriber = clean.slice(2);
     const firstDigit = subscriber[0];
@@ -432,7 +434,7 @@ function buildPhoneVariations(phone: string): string[] {
     set.add(without9);
     set.add("55" + clean);
     set.add("55" + without9);
-  } else if (clean.length >= 10 && ["6", "7", "8", "9"].includes(clean[2] || "")) {
+  } else if ((clean.length === 10 || clean.length === 11) && ["6", "7", "8", "9"].includes(clean[2] || "")) {
     const with9 = clean.slice(0, 2) + "9" + clean.slice(2, 10);
     set.add(with9);
     set.add("55" + clean);
