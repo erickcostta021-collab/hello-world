@@ -434,7 +434,7 @@ function buildPhoneVariations(phone: string): string[] {
     set.add(without9);
     set.add("55" + clean);
     set.add("55" + without9);
-  } else if (clean.length >= 10 && ["6", "7", "8", "9"].includes(clean[2] || "")) {
+  } else if ((clean.length === 10 || clean.length === 11) && ["6", "7", "8", "9"].includes(clean[2] || "")) {
     const with9 = clean.slice(0, 2) + "9" + clean.slice(2, 10);
     set.add(with9);
     set.add("55" + clean);
