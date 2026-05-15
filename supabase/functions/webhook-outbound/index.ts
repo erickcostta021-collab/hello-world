@@ -2689,31 +2689,80 @@ serve(async (req: Request) => {
         .eq("contact_id", contactId)
         .eq("location_id", locationId)
         .maybeSingle();
-      
-      if (mapping?.original_phone) {
-        targetPhone = mapping.original_phone;
-        usedMappingTable = true;
-        console.log("Found original phone in mapping table:", { contactId, originalPhone: targetPhone });
-      } else {
-        // Fallback to GHL contact lookup
-        try {
-          if (settings?.ghl_client_id && settings?.ghl_client_secret) {
-            const token = await getValidToken(supabase, subaccount, settings);
-            if (token) {
-              const contactData = await fetchGhlContact(token, contactId);
-              
-              // If email contains @g.us, it's a group JID - use it directly!
-              if (contactData.email && contactData.email.includes("@g.us")) {
-                targetPhone = contactData.email;
-                console.log("Using group JID from contact email field:", { contactId, groupJid: targetPhone });
-              } else if (contactData.phone) {
-                targetPhone = contactData.phone;
-              }
+
+      // Always fetch GHL contact phone too — used to validate the mapping and as fallback
+      let ghlPhone = "";
+      let ghlGroupJid = "";
+      try {
+        if (settings?.ghl_client_id && settings?.ghl_client_secret) {
+          const token = await getValidToken(supabase, subaccount, settings);
+          if (token) {
+            const contactData = await fetchGhlContact(token, contactId);
+            if (contactData.email && contactData.email.includes("@g.us")) {
+              ghlGroupJid = contactData.email;
+            } else if (contactData.phone) {
+              ghlPhone = contactData.phone;
             }
           }
-        } catch (e) {
-          console.error("Failed to resolve contact phone:", e);
         }
+      } catch (e) {
+        console.error("Failed to resolve contact phone:", e);
+      }
+
+      const mappingPhone = mapping?.original_phone || "";
+      const mappingDigits = mappingPhone.replace(/\D/g, "");
+      const ghlDigits = ghlPhone.replace(/\D/g, "");
+
+      // Group JID always wins
+      if (ghlGroupJid) {
+        targetPhone = ghlGroupJid;
+        console.log("Using group JID from GHL contact email:", { contactId, groupJid: targetPhone });
+      } else if (mappingPhone && (mappingPhone.includes("@g.us") || mappingPhone.includes("-"))) {
+        // Mapping is a group JID
+        targetPhone = mappingPhone;
+        usedMappingTable = true;
+      } else if (mappingPhone && ghlDigits) {
+        // Validate mapping vs GHL phone. Mapping was historically corrupted by an
+        // old BR-mobile normalization that ate digits from foreign numbers (UK, ES, US...).
+        // Heuristic: if last 8 digits of either match, mapping is consistent with GHL → use it.
+        // Otherwise (different country / different number entirely) → trust GHL contact phone.
+        const tail = (s: string, n: number) => s.slice(-n);
+        const consistent =
+          mappingDigits === ghlDigits ||
+          (mappingDigits.length >= 8 && ghlDigits.length >= 8 &&
+            (tail(mappingDigits, 8) === tail(ghlDigits, 8) ||
+              ghlDigits.endsWith(mappingDigits) ||
+              mappingDigits.endsWith(ghlDigits)));
+
+        if (consistent) {
+          targetPhone = mappingPhone;
+          usedMappingTable = true;
+          console.log("Found original phone in mapping table:", { contactId, originalPhone: targetPhone });
+        } else {
+          targetPhone = ghlPhone;
+          console.warn("[Outbound] Mapping inconsistent with GHL contact phone — using GHL phone and refreshing mapping", {
+            contactId,
+            mappingDigits,
+            ghlDigits,
+          });
+          // Refresh stale mapping so future sends are fast
+          try {
+            await supabase
+              .from("ghl_contact_phone_mapping")
+              .update({ original_phone: ghlDigits, updated_at: new Date().toISOString() })
+              .eq("contact_id", contactId)
+              .eq("location_id", locationId);
+          } catch (e) {
+            console.error("Failed to refresh stale mapping:", e);
+          }
+        }
+      } else if (mappingPhone) {
+        // No GHL phone available, fall back to mapping
+        targetPhone = mappingPhone;
+        usedMappingTable = true;
+        console.log("Found original phone in mapping table (no GHL phone):", { contactId, originalPhone: targetPhone });
+      } else if (ghlPhone) {
+        targetPhone = ghlPhone;
       }
     }
 
